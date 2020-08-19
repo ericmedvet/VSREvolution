@@ -2,8 +2,10 @@ package it.units.erallab;
 
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.Lists;
+import com.google.common.graph.ValueGraph;
 import it.units.erallab.hmsrobots.core.controllers.CentralizedSensing;
 import it.units.erallab.hmsrobots.core.controllers.MultiLayerPerceptron;
+import it.units.erallab.hmsrobots.core.controllers.PhaseSin;
 import it.units.erallab.hmsrobots.core.objects.Robot;
 import it.units.erallab.hmsrobots.core.objects.SensingVoxel;
 import it.units.erallab.hmsrobots.core.sensors.AreaRatio;
@@ -14,9 +16,7 @@ import it.units.erallab.hmsrobots.tasks.Locomotion;
 import it.units.erallab.hmsrobots.util.Grid;
 import it.units.malelab.jgea.Worker;
 import it.units.malelab.jgea.core.Individual;
-import it.units.malelab.jgea.core.evolver.CMAESEvolver;
-import it.units.malelab.jgea.core.evolver.Evolver;
-import it.units.malelab.jgea.core.evolver.StandardEvolver;
+import it.units.malelab.jgea.core.evolver.*;
 import it.units.malelab.jgea.core.evolver.stopcondition.Births;
 import it.units.malelab.jgea.core.listener.Listener;
 import it.units.malelab.jgea.core.listener.MultiFileListenerFactory;
@@ -26,6 +26,14 @@ import it.units.malelab.jgea.core.selector.Tournament;
 import it.units.malelab.jgea.core.selector.Worst;
 import it.units.malelab.jgea.core.util.Misc;
 import it.units.malelab.jgea.core.util.Pair;
+import it.units.malelab.jgea.distance.Jaccard;
+import it.units.malelab.jgea.representation.graph.*;
+import it.units.malelab.jgea.representation.graph.numeric.Node;
+import it.units.malelab.jgea.representation.graph.numeric.Output;
+import it.units.malelab.jgea.representation.graph.numeric.functiongraph.BaseFunction;
+import it.units.malelab.jgea.representation.graph.numeric.functiongraph.FunctionGraph;
+import it.units.malelab.jgea.representation.graph.numeric.functiongraph.FunctionNode;
+import it.units.malelab.jgea.representation.graph.numeric.functiongraph.ShallowSparseFactory;
 import it.units.malelab.jgea.representation.sequence.FixedLengthListFactory;
 import it.units.malelab.jgea.representation.sequence.numeric.GaussianMutation;
 import it.units.malelab.jgea.representation.sequence.numeric.GeometricCrossover;
@@ -39,6 +47,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static it.units.malelab.jgea.core.util.Args.*;
@@ -68,107 +78,32 @@ public class ControllerComparison extends Worker {
 
   @Override
   public void run() {
-    String fileName = a("file", null);
-    int nPop = i(a("nPop", "5"));
     double episodeTime = d(a("episodeT", "10.0"));
-    int nTournament = 5;
     int nBirths = i(a("nBirths", "50"));
     int[] seeds = ri(a("seed", "0:1"));
-    double frequency = 1d;
+    List<String> terrains = l(a("terrain", "flat"));
+    List<String> evolverNames = l(a("evolver", "mlp-0.65-gadiv-10"));
+    List<String> bodyNames = l(a("body", "biped-cpg-4x3"));
+    List<String> mapperNames = l(a("mapper", "centralized"));
     Locomotion.Metric metric = Locomotion.Metric.TRAVEL_X_VELOCITY;
     //prepare file listeners
     MultiFileListenerFactory<Object, Robot<SensingVoxel>, Double> statsListenerFactory = new MultiFileListenerFactory<>(
         a("dir", "."),
-        fileName
+        a("statsFile", null)
     );
     MultiFileListenerFactory<Object, Robot<SensingVoxel>, Double> serializedListenerFactory = new MultiFileListenerFactory<>(
         a("dir", "."),
-        fileName != null ? fileName.replaceFirst("\\.", ".ser.") : null
+        a("serializedFile", null)
     );
-    Map<String, Grid<SensingVoxel>> bodies = Map.ofEntries(
-        Map.entry(
-            "biped-cpg-4x3",
-            Grid.create(4, 3, (x, y) -> (y == 0 && x >= 1 && x <= 2) ? null : new SensingVoxel(ofNonNull(
-                new AreaRatio(),
-                (y == 0) ? new Touch() : null,
-                (y == 2) ? new Velocity(true, 3d, Velocity.Axis.X, Velocity.Axis.Y) : null,
-                (x == 0 && y == 2) ? new TimeFunction(t -> Math.sin(2 * Math.PI * frequency * t), -1, 1) : null
-            ).stream().filter(Objects::nonNull).collect(Collectors.toList())))
-        ),
-        Map.entry(
-            "biped-4x3",
-            Grid.create(4, 3, (x, y) -> (y == 0 && x >= 1 && x <= 2) ? null : new SensingVoxel(ofNonNull(
-                new AreaRatio(),
-                (y == 2) ? new Velocity(true, 3d, Velocity.Axis.X, Velocity.Axis.Y) : null,
-                (y == 0) ? new Touch() : null
-            ).stream().filter(Objects::nonNull).collect(Collectors.toList())))
-        )
-    );
-    List<String> terrains = List.of("uneven5");
-    Map<String, Pair<BodyIOMapper, BodyMapperMapper>> mappers = Map.ofEntries(
-        Map.entry(
-            "centralized",
-            Pair.of(
-                body -> Pair.of(CentralizedSensing.nOfInputs(body), CentralizedSensing.nOfOutputs(body)),
-                body -> f -> new Robot<>(new CentralizedSensing<>(body, f), SerializationUtils.clone(body))
-            )
-        )
-    );
-    Map<String, BiFunction<Pair<BodyIOMapper, BodyMapperMapper>, Grid<SensingVoxel>, Evolver<?, Robot<SensingVoxel>, Double>>> evolvers = Map.ofEntries(
-        Map.entry(
-            "mlp-0-ga",
-            (p, body) -> new StandardEvolver<List<Double>, Robot<SensingVoxel>, Double>(
-                ((Function<List<Double>, MultiLayerPerceptron>) ws -> new MultiLayerPerceptron(
-                    MultiLayerPerceptron.ActivationFunction.TANH,
-                    p.first().apply(body).first(),
-                    new int[0],
-                    p.first().apply(body).second(),
-                    ws.stream().mapToDouble(d -> d).toArray()
-                )).andThen(mlp -> p.second().apply(body).apply(mlp)),
-                new FixedLengthListFactory<>(
-                    MultiLayerPerceptron.countWeights(
-                        p.first().apply(body).first(),
-                        new int[0],
-                        p.first().apply(body).second()
-                    ),
-                    new UniformDoubleFactory(-1, 1)
-                ),
-                PartialComparator.from(Double.class).on(Individual::getFitness),
-                nPop,
-                Map.of(
-                    new GaussianMutation(1d), 0.2d,
-                    new GeometricCrossover(), 0.8d
-                ),
-                new Tournament(nTournament),
-                new Worst(),
-                nPop,
-                true
-            )
-        ),
-        Map.entry(
-            "mlp-0-cmaes",
-            (p, body) -> new CMAESEvolver<Robot<SensingVoxel>, Double>(
-                ((Function<List<Double>, MultiLayerPerceptron>) ws -> new MultiLayerPerceptron(
-                    MultiLayerPerceptron.ActivationFunction.TANH,
-                    p.first().apply(body).first(),
-                    new int[0],
-                    p.first().apply(body).second(),
-                    ws.stream().mapToDouble(d -> d).toArray()
-                )).andThen(mlp -> p.second().apply(body).apply(mlp)),
-                new FixedLengthListFactory<>(
-                    MultiLayerPerceptron.countWeights(
-                        p.first().apply(body).first(),
-                        new int[0],
-                        p.first().apply(body).second()
-                    ),
-                    new UniformDoubleFactory(-1, 1)
-                ),
-                PartialComparator.from(Double.class).on(Individual::getFitness),
-                -1,
-                1
-            )
-        )
-    );
+    Map<String, Grid<SensingVoxel>> bodies = bodyNames.stream()
+        .collect(Collectors.toMap(n -> n, ControllerComparison::buildBodyFromName));
+    Map<String, Pair<BodyIOMapper, BodyMapperMapper>> mappers = mapperNames.stream()
+        .collect(Collectors.toMap(n -> n, ControllerComparison::buildMapperFromName));
+    Map<String, BiFunction<Pair<BodyIOMapper, BodyMapperMapper>, Grid<SensingVoxel>, Evolver<?, Robot<SensingVoxel>, Double>>> evolvers = evolverNames.stream()
+        .collect(Collectors.toMap(n -> n, ControllerComparison::buildEvolverBuilderFromName));
+    L.info("Evolvers: " + evolvers.keySet());
+    L.info("Mappers: " + mappers.keySet());
+    L.info("Bodies: " + bodies.keySet());
     for (int seed : seeds) {
       for (String terrain : terrains) {
         for (Map.Entry<String, Grid<SensingVoxel>> bodyEntry : bodies.entrySet()) {
@@ -243,7 +178,197 @@ public class ControllerComparison extends Worker {
         }
       }
     }
+  }
 
+  private static Pair<BodyIOMapper, BodyMapperMapper> buildMapperFromName(String name) {
+    if (name.matches("centralized")) {
+      return Pair.of(
+          body -> Pair.of(CentralizedSensing.nOfInputs(body), CentralizedSensing.nOfOutputs(body)),
+          body -> f -> new Robot<>(
+              new CentralizedSensing<>(body, f),
+              SerializationUtils.clone(body)
+          )
+      );
+    }
+    if (name.matches("phases(-[0-9]+(\\.[0-9]+)?)?")) {
+      return Pair.of(
+          body -> Pair.of(2, 1),
+          body -> f -> new Robot<>(
+              new PhaseSin(
+                  -extractParamValueFromName(name, 0, 1),
+                  1d,
+                  Grid.create(
+                      body.getW(),
+                      body.getH(),
+                      (x, y) -> f.apply(new double[]{(double) x / (double) body.getW(), (double) y / (double) body.getH()})[0]
+                  )),
+              SerializationUtils.clone(body)
+          )
+      );
+    }
+    throw new IllegalArgumentException(String.format("Unknown mapper name: %s", name));
+  }
+
+  private static Grid<SensingVoxel> buildBodyFromName(String name) {
+    if (name.matches("biped(-cpg)?-[0-9]+x[0-9]+")) {
+      int w = (int) extractParamValueFromName(name, 0, 4);
+      int h = (int) extractParamValueFromName(name, 1, 3);
+      return Grid.create(
+          w, h,
+          (x, y) -> (y == 0 && x > 0 && x < w - 1) ? null : new SensingVoxel(ofNonNull(
+              new AreaRatio(),
+              (y == 0) ? new Touch() : null,
+              (y == h - 1) ? new Velocity(true, 3d, Velocity.Axis.X, Velocity.Axis.Y) : null,
+              (x == w - 1 && y == h - 1 && name.contains("-cpg")) ? new TimeFunction(t -> Math.sin(2 * Math.PI * -1 * t), -1, 1) : null
+          ).stream().filter(Objects::nonNull).collect(Collectors.toList())));
+    }
+    throw new IllegalArgumentException(String.format("Unknown body name: %s", name));
+  }
+
+  private static BiFunction<Pair<BodyIOMapper, BodyMapperMapper>, Grid<SensingVoxel>, Evolver<?, Robot<SensingVoxel>, Double>> buildEvolverBuilderFromName(String name) {
+    if (name.matches("mlp-[0-9]+(\\.[0-9]+)?-ga(-[0-9]+)?")) {
+      double ratioOfFirstLayer = extractParamValueFromName(name, 0, 0);
+      return (p, body) -> new StandardEvolver<>(
+          ((Function<List<Double>, MultiLayerPerceptron>) ws -> new MultiLayerPerceptron(
+              MultiLayerPerceptron.ActivationFunction.TANH,
+              p.first().apply(body).first(),
+              ratioOfFirstLayer == 0 ? new int[0] : new int[]{(int) Math.round(p.first().apply(body).first() * ratioOfFirstLayer)},
+              p.first().apply(body).second(),
+              ws.stream().mapToDouble(d -> d).toArray()
+          )).andThen(mlp -> p.second().apply(body).apply(mlp)),
+          new FixedLengthListFactory<>(
+              MultiLayerPerceptron.countWeights(
+                  p.first().apply(body).first(),
+                  ratioOfFirstLayer == 0 ? new int[0] : new int[]{(int) Math.round(p.first().apply(body).first() * ratioOfFirstLayer)},
+                  p.first().apply(body).second()
+              ),
+              new UniformDoubleFactory(-1, 1)
+          ),
+          PartialComparator.from(Double.class).on(Individual::getFitness),
+          (int) extractParamValueFromName(name, 1, 100),
+          Map.of(
+              new GaussianMutation(1d), 0.2d,
+              new GeometricCrossover(), 0.8d
+          ),
+          new Tournament(5),
+          new Worst(),
+          (int) extractParamValueFromName(name, 1, 100),
+          true
+      );
+    }
+    if (name.matches("mlp-[0-9]+(\\.[0-9]+)?-gadiv(-[0-9]+)?")) {
+      double ratioOfFirstLayer = extractParamValueFromName(name, 0, 0);
+      return (p, body) -> new StandardWithEnforcedDiversityEvolver<>(
+          ((Function<List<Double>, MultiLayerPerceptron>) ws -> new MultiLayerPerceptron(
+              MultiLayerPerceptron.ActivationFunction.TANH,
+              p.first().apply(body).first(),
+              ratioOfFirstLayer == 0 ? new int[0] : new int[]{(int) Math.round(p.first().apply(body).first() * ratioOfFirstLayer)},
+              p.first().apply(body).second(),
+              ws.stream().mapToDouble(d -> d).toArray()
+          )).andThen(mlp -> p.second().apply(body).apply(mlp)),
+          new FixedLengthListFactory<>(
+              MultiLayerPerceptron.countWeights(
+                  p.first().apply(body).first(),
+                  ratioOfFirstLayer == 0 ? new int[0] : new int[]{(int) Math.round(p.first().apply(body).first() * ratioOfFirstLayer)},
+                  p.first().apply(body).second()
+              ),
+              new UniformDoubleFactory(-1, 1)
+          ),
+          PartialComparator.from(Double.class).on(Individual::getFitness),
+          (int) extractParamValueFromName(name, 1, 100),
+          Map.of(
+              new GaussianMutation(1d), 0.2d,
+              new GeometricCrossover(), 0.8d
+          ),
+          new Tournament(5),
+          new Worst(),
+          (int) extractParamValueFromName(name, 1, 100),
+          true,
+          100
+      );
+    }
+    if (name.matches("mlp-[0-9]+(\\.[0-9]+)?-cmaes")) {
+      double ratioOfFirstLayer = extractParamValueFromName(name, 0, 0);
+      return (p, body) -> new CMAESEvolver<>(
+          ((Function<List<Double>, MultiLayerPerceptron>) ws -> new MultiLayerPerceptron(
+              MultiLayerPerceptron.ActivationFunction.TANH,
+              p.first().apply(body).first(),
+              ratioOfFirstLayer == 0 ? new int[0] : new int[]{(int) Math.round(p.first().apply(body).first() * ratioOfFirstLayer)},
+              p.first().apply(body).second(),
+              ws.stream().mapToDouble(d -> d).toArray()
+          )).andThen(mlp -> p.second().apply(body).apply(mlp)),
+          new FixedLengthListFactory<>(
+              MultiLayerPerceptron.countWeights(
+                  p.first().apply(body).first(),
+                  ratioOfFirstLayer == 0 ? new int[0] : new int[]{(int) Math.round(p.first().apply(body).first() * ratioOfFirstLayer)},
+                  p.first().apply(body).second()
+              ),
+              new UniformDoubleFactory(-1, 1)
+          ),
+          PartialComparator.from(Double.class).on(Individual::getFitness),
+          -1,
+          1
+      );
+    }
+    if (name.matches("fgraph-hash-speciated(-[0-9]+)?")) {
+      return (p, body) -> new SpeciatedEvolver<>(
+          GraphUtils.mapper((Function<IndexedNode<Node>, Node>) IndexedNode::content, (Function<Collection<Double>, Double>) Misc::first)
+              .andThen(FunctionGraph.builder())
+              .andThen(fg -> p.second().apply(body).apply(fg)),
+          new ShallowSparseFactory(
+              0d, 0d, 1d,
+              p.first().apply(body).first(),
+              p.first().apply(body).second()
+          ).then(GraphUtils.mapper(IndexedNode.incrementerMapper(Node.class), Misc::first)),
+          PartialComparator.from(Double.class).on(Individual::getFitness),
+          (int) extractParamValueFromName(name, 0, 100),
+          Map.of(
+              new IndexedNodeAddition<>(
+                  FunctionNode.sequentialIndexFactory(BaseFunction.TANH),
+                  n -> n.getFunction().hashCode(),
+                  p.first().apply(body).first() + p.first().apply(body).second(),
+                  (w, r) -> w,
+                  (w, r) -> r.nextGaussian()
+              ), 1d,
+              new EdgeModification<>((w, r) -> w + r.nextGaussian(), 1d), 1d,
+              new EdgeAddition<>(Random::nextGaussian, false), 3d,
+              new AlignedCrossover<>(
+                  (w1, w2, r) -> w1 + (w2 - w1) * (r.nextDouble() * 3d - 1d),
+                  node -> node.content() instanceof Output,
+                  false
+              ), 1d
+          ),
+          5,
+          (new Jaccard()).on(i -> i.getGenotype().nodes()),
+          0.25,
+          individuals -> {
+            double[] fitnesses = individuals.stream().mapToDouble(Individual::getFitness).toArray();
+            Individual<ValueGraph<IndexedNode<Node>, Double>, Robot<SensingVoxel>, Double> r = Misc.first(individuals);
+            return new Individual<>(
+                r.getGenotype(),
+                r.getSolution(),
+                Misc.median(fitnesses),
+                r.getBirthIteration()
+            );
+          },
+          0.75
+      );
+    }
+    throw new IllegalArgumentException(String.format("Unknown evolver name: %s", name));
+  }
+
+  private static double extractParamValueFromName(String name, int index, double defaultValue) {
+    Matcher matcher = Pattern.compile("[0-9]+(\\.[0-9]+)?").matcher(name);
+    List<Double> numbers = new ArrayList<>();
+    int s = 0;
+    while (matcher.find(s)) {
+      numbers.add(Double.parseDouble(name.substring(matcher.start(), matcher.end())));
+      s = matcher.end();
+    }
+    if (numbers.size() > index) {
+      return numbers.get(index);
+    }
+    return defaultValue;
   }
 
   private static <E> List<E> ofNonNull(E... es) {

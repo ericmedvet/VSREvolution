@@ -54,7 +54,7 @@ public class VideoMaker {
     String inputFileName = a(args, "inputFile", null);
     String outputFileName = a(args, "outputFile", null);
     String serializedRobotColumn = a(args, "serializedRobotColumnName", "best.serialized.robot");
-    String terrain = a(args, "terrain", "uneven5");
+    String terrain = a(args, "terrain", "flat");
     double episodeTime = d(a(args, "episodeT", "10.0"));
     int w = i(a(args, "w", "1024"));
     int h = i(a(args, "g", "768"));
