@@ -26,7 +26,6 @@ import it.units.malelab.jgea.core.selector.Tournament;
 import it.units.malelab.jgea.core.selector.Worst;
 import it.units.malelab.jgea.core.util.Misc;
 import it.units.malelab.jgea.core.util.Pair;
-import it.units.malelab.jgea.problem.symbolicregression.RealFunction;
 import it.units.malelab.jgea.representation.sequence.FixedLengthListFactory;
 import it.units.malelab.jgea.representation.sequence.numeric.GaussianMutation;
 import it.units.malelab.jgea.representation.sequence.numeric.GeometricCrossover;
@@ -34,6 +33,7 @@ import it.units.malelab.jgea.representation.sequence.numeric.UniformDoubleFactor
 import org.apache.commons.lang3.SerializationUtils;
 import org.dyn4j.dynamics.Settings;
 
+import java.io.Serializable;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -68,10 +68,7 @@ public class ControllerComparison extends Worker {
 
   @Override
   public void run() {
-    MultiFileListenerFactory<Object, RealFunction, List<Double>> listenerFactory = new MultiFileListenerFactory<>(
-        a("dir", "."),
-        a("file", null)
-    );
+    String fileName = a("file", null);
     int nPop = i(a("nPop", "5"));
     double episodeTime = d(a("episodeT", "10.0"));
     int nTournament = 5;
@@ -79,10 +76,19 @@ public class ControllerComparison extends Worker {
     int[] seeds = ri(a("seed", "0:1"));
     double frequency = 1d;
     Locomotion.Metric metric = Locomotion.Metric.TRAVEL_X_VELOCITY;
+    //prepare file listeners
+    MultiFileListenerFactory<Object, Robot<SensingVoxel>, Double> statsListenerFactory = new MultiFileListenerFactory<>(
+        a("dir", "."),
+        fileName
+    );
+    MultiFileListenerFactory<Object, Robot<SensingVoxel>, Double> serializedListenerFactory = new MultiFileListenerFactory<>(
+        a("dir", "."),
+        fileName != null ? fileName.replaceFirst("\\.", ".ser.") : null
+    );
     Map<String, Grid<SensingVoxel>> bodies = Map.ofEntries(
         Map.entry(
             "biped-cpg-4x3",
-            Grid.create(4, 3, (x, y) -> new SensingVoxel(ofNonNull(
+            Grid.create(4, 3, (x, y) -> (y == 0 && x >= 1 && x <= 2) ? null : new SensingVoxel(ofNonNull(
                 new AreaRatio(),
                 (y == 0) ? new Touch() : null,
                 (y == 2) ? new Velocity(true, 3d, Velocity.Axis.X, Velocity.Axis.Y) : null,
@@ -91,7 +97,7 @@ public class ControllerComparison extends Worker {
         ),
         Map.entry(
             "biped-4x3",
-            Grid.create(4, 3, (x, y) -> new SensingVoxel(ofNonNull(
+            Grid.create(4, 3, (x, y) -> (y == 0 && x >= 1 && x <= 2) ? null : new SensingVoxel(ofNonNull(
                 new AreaRatio(),
                 (y == 2) ? new Velocity(true, 3d, Velocity.Axis.X, Velocity.Axis.Y) : null,
                 (y == 0) ? new Touch() : null
@@ -190,6 +196,23 @@ public class ControllerComparison extends Worker {
                   new Diversity(),
                   new BestInfo("%7.5f")
               );
+              Listener<? super Object, ? super Robot<SensingVoxel>, ? super Double> listener;
+              if (statsListenerFactory.getBaseFileName() == null) {
+                listener = listener(collectors.toArray(DataCollector[]::new));
+              } else {
+                listener = statsListenerFactory.build(collectors.toArray(DataCollector[]::new));
+              }
+              if (serializedListenerFactory.getBaseFileName() != null) {
+                listener = serializedListenerFactory.build(
+                    new Static(keys),
+                    new Basic(),
+                    new FunctionOfOneBest<>(i -> List.of(
+                        new Item("fitness.value", i.getFitness(), "%7.5f"),
+                        new Item("serialized.robot", Utils.safelySerialize(i.getSolution()), "%s"),
+                        new Item("serialized.genotype", Utils.safelySerialize((Serializable) i.getGenotype()), "%s")
+                    ))
+                ).then(listener);
+              }
               try {
                 Stopwatch stopwatch = Stopwatch.createStarted();
                 L.info(String.format("Starting %s", keys));
@@ -198,10 +221,9 @@ public class ControllerComparison extends Worker {
                     new Births(nBirths),
                     new Random(seed),
                     executorService,
-                    Listener.onExecutor((listenerFactory.getBaseFileName() == null) ?
-                            listener(collectors.toArray(DataCollector[]::new)) :
-                            listenerFactory.build(collectors.toArray(DataCollector[]::new))
-                        , executorService
+                    Listener.onExecutor(
+                        listener,
+                        executorService
                     )
                 );
                 L.info(String.format("Done %s: %d solutions in %4ds",
