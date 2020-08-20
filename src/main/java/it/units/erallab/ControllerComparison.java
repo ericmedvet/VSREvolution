@@ -79,13 +79,13 @@ public class ControllerComparison extends Worker {
   @Override
   public void run() {
     double episodeTime = d(a("episodeT", "10.0"));
-    int nBirths = i(a("nBirths", "10000"));
+    int nBirths = i(a("nBirths", "1000"));
     int[] seeds = ri(a("seed", "0:1"));
     List<String> terrains = l(a("terrain", "flat"));
-    List<String> evolverNames = l(a("evolver", "fgraph-hash-speciated-100"));
-    List<String> bodyNames = l(a("body", "biped-cpg-4x3"));
-    List<String> mapperNames = l(a("mapper", "phases-0.5"));
-    Locomotion.Metric metric = Locomotion.Metric.TRAVEL_X_VELOCITY;
+    List<String> evolverNames = l(a("evolver", "mlp-0.65-cmaes"));
+    List<String> bodyNames = l(a("body", "biped-4x3"));
+    List<String> mapperNames = l(a("mapper", "centralized"));
+    Locomotion.Metric metric = Locomotion.Metric.TRAVELED_X_DISTANCE;
     //prepare file listeners
     MultiFileListenerFactory<Object, Robot<SensingVoxel>, Double> statsListenerFactory = new MultiFileListenerFactory<>(
         a("dir", "."),
@@ -226,7 +226,7 @@ public class ControllerComparison extends Worker {
   }
 
   private static BiFunction<Pair<BodyIOMapper, BodyMapperMapper>, Grid<SensingVoxel>, Evolver<?, Robot<SensingVoxel>, Double>> buildEvolverBuilderFromName(String name) {
-    PartialComparator<Individual<?,Robot<SensingVoxel>,Double>> comparator = PartialComparator.from(Double.class).reversed().on(Individual::getFitness);
+    PartialComparator<Individual<?,Robot<SensingVoxel>,Double>> comparator = PartialComparator.from(Double.class).reversed().comparing(Individual::getFitness);
     if (name.matches("mlp-[0-9]+(\\.[0-9]+)?-ga(-[0-9]+)?")) {
       double ratioOfFirstLayer = extractParamValueFromName(name, 0, 0);
       return (p, body) -> new StandardEvolver<>(
