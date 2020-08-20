@@ -79,12 +79,12 @@ public class ControllerComparison extends Worker {
   @Override
   public void run() {
     double episodeTime = d(a("episodeT", "10.0"));
-    int nBirths = i(a("nBirths", "50"));
+    int nBirths = i(a("nBirths", "10000"));
     int[] seeds = ri(a("seed", "0:1"));
     List<String> terrains = l(a("terrain", "flat"));
-    List<String> evolverNames = l(a("evolver", "mlp-0.65-gadiv-10"));
+    List<String> evolverNames = l(a("evolver", "fgraph-hash-speciated-100"));
     List<String> bodyNames = l(a("body", "biped-cpg-4x3"));
-    List<String> mapperNames = l(a("mapper", "centralized"));
+    List<String> mapperNames = l(a("mapper", "phases-0.5"));
     Locomotion.Metric metric = Locomotion.Metric.TRAVEL_X_VELOCITY;
     //prepare file listeners
     MultiFileListenerFactory<Object, Robot<SensingVoxel>, Double> statsListenerFactory = new MultiFileListenerFactory<>(
@@ -226,6 +226,7 @@ public class ControllerComparison extends Worker {
   }
 
   private static BiFunction<Pair<BodyIOMapper, BodyMapperMapper>, Grid<SensingVoxel>, Evolver<?, Robot<SensingVoxel>, Double>> buildEvolverBuilderFromName(String name) {
+    PartialComparator<Individual<?,Robot<SensingVoxel>,Double>> comparator = PartialComparator.from(Double.class).reversed().on(Individual::getFitness);
     if (name.matches("mlp-[0-9]+(\\.[0-9]+)?-ga(-[0-9]+)?")) {
       double ratioOfFirstLayer = extractParamValueFromName(name, 0, 0);
       return (p, body) -> new StandardEvolver<>(
@@ -244,7 +245,7 @@ public class ControllerComparison extends Worker {
               ),
               new UniformDoubleFactory(-1, 1)
           ),
-          PartialComparator.from(Double.class).on(Individual::getFitness),
+          comparator,
           (int) extractParamValueFromName(name, 1, 100),
           Map.of(
               new GaussianMutation(1d), 0.2d,
@@ -274,7 +275,7 @@ public class ControllerComparison extends Worker {
               ),
               new UniformDoubleFactory(-1, 1)
           ),
-          PartialComparator.from(Double.class).on(Individual::getFitness),
+          comparator,
           (int) extractParamValueFromName(name, 1, 100),
           Map.of(
               new GaussianMutation(1d), 0.2d,
@@ -305,7 +306,7 @@ public class ControllerComparison extends Worker {
               ),
               new UniformDoubleFactory(-1, 1)
           ),
-          PartialComparator.from(Double.class).on(Individual::getFitness),
+          comparator,
           -1,
           1
       );
@@ -320,13 +321,13 @@ public class ControllerComparison extends Worker {
               p.first().apply(body).first(),
               p.first().apply(body).second()
           ).then(GraphUtils.mapper(IndexedNode.incrementerMapper(Node.class), Misc::first)),
-          PartialComparator.from(Double.class).on(Individual::getFitness),
+          comparator,
           (int) extractParamValueFromName(name, 0, 100),
           Map.of(
               new IndexedNodeAddition<>(
                   FunctionNode.sequentialIndexFactory(BaseFunction.TANH),
                   n -> n.getFunction().hashCode(),
-                  p.first().apply(body).first() + p.first().apply(body).second(),
+                  p.first().apply(body).first() + p.first().apply(body).second() + 1,
                   (w, r) -> w,
                   (w, r) -> r.nextGaussian()
               ), 1d,
