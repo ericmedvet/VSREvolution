@@ -90,8 +90,8 @@ public class ControllerComparison extends Worker {
         a("statsFile", null)
     );
     MultiFileListenerFactory<Object, Robot<SensingVoxel>, Double> serializedListenerFactory = new MultiFileListenerFactory<>(
-        a("dir", "/home/eric/experiments"),
-        a("serializedFile", "prova.ser.txt")
+        a("dir", "."),
+        a("serializedFile", null)
     );
     Map<String, Grid<SensingVoxel>> bodies = bodyNames.stream()
         .collect(Collectors.toMap(n -> n, ControllerComparison::buildBodyFromName));
