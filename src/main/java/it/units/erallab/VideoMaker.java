@@ -140,6 +140,7 @@ public class VideoMaker {
               Ground.build(),
               SensorReading.build()
           )).setConfigurable("generalRenderingModes", Set.of(
+              GraphicsDrawer.GeneralRenderingMode.GRID_MAJOR,
               GraphicsDrawer.GeneralRenderingMode.TIME_INFO,
               GraphicsDrawer.GeneralRenderingMode.VOXEL_COMPOUND_CENTERS_INFO
           ))
