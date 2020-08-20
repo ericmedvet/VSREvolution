@@ -2,7 +2,6 @@ package it.units.erallab;
 
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.Lists;
-import com.google.common.graph.ValueGraph;
 import it.units.erallab.hmsrobots.core.controllers.CentralizedSensing;
 import it.units.erallab.hmsrobots.core.controllers.MultiLayerPerceptron;
 import it.units.erallab.hmsrobots.core.controllers.PhaseSin;
@@ -28,7 +27,6 @@ import it.units.malelab.jgea.core.util.Misc;
 import it.units.malelab.jgea.core.util.Pair;
 import it.units.malelab.jgea.distance.Jaccard;
 import it.units.malelab.jgea.representation.graph.*;
-import it.units.malelab.jgea.representation.graph.numeric.Node;
 import it.units.malelab.jgea.representation.graph.numeric.Output;
 import it.units.malelab.jgea.representation.graph.numeric.functiongraph.BaseFunction;
 import it.units.malelab.jgea.representation.graph.numeric.functiongraph.FunctionGraph;
@@ -82,7 +80,7 @@ public class ControllerComparison extends Worker {
     int nBirths = i(a("nBirths", "1000"));
     int[] seeds = ri(a("seed", "0:1"));
     List<String> terrains = l(a("terrain", "flat"));
-    List<String> evolverNames = l(a("evolver", "mlp-0.65-cmaes"));
+    List<String> evolverNames = l(a("evolver", "fgraph-hash-speciated-10"));
     List<String> bodyNames = l(a("body", "biped-4x3"));
     List<String> mapperNames = l(a("mapper", "centralized"));
     Locomotion.Metric metric = Locomotion.Metric.TRAVELED_X_DISTANCE;
@@ -92,8 +90,8 @@ public class ControllerComparison extends Worker {
         a("statsFile", null)
     );
     MultiFileListenerFactory<Object, Robot<SensingVoxel>, Double> serializedListenerFactory = new MultiFileListenerFactory<>(
-        a("dir", "."),
-        a("serializedFile", null)
+        a("dir", "/home/eric/experiments"),
+        a("serializedFile", "prova.ser.txt")
     );
     Map<String, Grid<SensingVoxel>> bodies = bodyNames.stream()
         .collect(Collectors.toMap(n -> n, ControllerComparison::buildBodyFromName));
@@ -226,7 +224,7 @@ public class ControllerComparison extends Worker {
   }
 
   private static BiFunction<Pair<BodyIOMapper, BodyMapperMapper>, Grid<SensingVoxel>, Evolver<?, Robot<SensingVoxel>, Double>> buildEvolverBuilderFromName(String name) {
-    PartialComparator<Individual<?,Robot<SensingVoxel>,Double>> comparator = PartialComparator.from(Double.class).reversed().comparing(Individual::getFitness);
+    PartialComparator<Individual<?, Robot<SensingVoxel>, Double>> comparator = PartialComparator.from(Double.class).reversed().comparing(Individual::getFitness);
     if (name.matches("mlp-[0-9]+(\\.[0-9]+)?-ga(-[0-9]+)?")) {
       double ratioOfFirstLayer = extractParamValueFromName(name, 0, 0);
       return (p, body) -> new StandardEvolver<>(
@@ -331,8 +329,9 @@ public class ControllerComparison extends Worker {
                   (w, r) -> w,
                   (w, r) -> r.nextGaussian()
               ), 1d,
-              new EdgeModification<>((w, r) -> w + r.nextGaussian(), 1d), 1d,
-              new EdgeAddition<>(Random::nextGaussian, false), 3d,
+              new ArcModification<>((w, r) -> w + r.nextGaussian(), 1d), 1d,
+              new ArcAddition
+                  <>(Random::nextGaussian, false), 3d,
               new AlignedCrossover<>(
                   (w1, w2, r) -> w1 + (w2 - w1) * (r.nextDouble() * 3d - 1d),
                   node -> node.content() instanceof Output,
@@ -344,7 +343,7 @@ public class ControllerComparison extends Worker {
           0.25,
           individuals -> {
             double[] fitnesses = individuals.stream().mapToDouble(Individual::getFitness).toArray();
-            Individual<ValueGraph<IndexedNode<Node>, Double>, Robot<SensingVoxel>, Double> r = Misc.first(individuals);
+            Individual<Graph<IndexedNode<Node>, Double>, Robot<SensingVoxel>, Double> r = Misc.first(individuals);
             return new Individual<>(
                 r.getGenotype(),
                 r.getSolution(),
