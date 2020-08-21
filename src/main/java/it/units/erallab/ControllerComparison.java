@@ -80,7 +80,7 @@ public class ControllerComparison extends Worker {
     int nBirths = i(a("nBirths", "1000"));
     int[] seeds = ri(a("seed", "0:1"));
     List<String> terrains = l(a("terrain", "flat"));
-    List<String> evolverNames = l(a("evolver", "fgraph-hash-speciated-10"));
+    List<String> evolverNames = l(a("evolver", "mlp-0-gadiv-50"));
     List<String> bodyNames = l(a("body", "biped-4x3"));
     List<String> mapperNames = l(a("mapper", "centralized"));
     Locomotion.Metric metric = Locomotion.Metric.TRAVELED_X_DISTANCE;
