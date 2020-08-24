@@ -5,6 +5,8 @@ import com.google.common.collect.Lists;
 import it.units.erallab.hmsrobots.core.controllers.CentralizedSensing;
 import it.units.erallab.hmsrobots.core.controllers.MultiLayerPerceptron;
 import it.units.erallab.hmsrobots.core.controllers.PhaseSin;
+import it.units.erallab.hmsrobots.core.controllers.SequentialBreakingController;
+import it.units.erallab.hmsrobots.core.objects.BreakableVoxel;
 import it.units.erallab.hmsrobots.core.objects.Robot;
 import it.units.erallab.hmsrobots.core.objects.SensingVoxel;
 import it.units.erallab.hmsrobots.core.sensors.AreaRatio;
@@ -66,13 +68,16 @@ public class ControllerComparison extends Worker {
     new ControllerComparison(args);
   }
 
-  private interface BodyIOMapper extends Function<Grid<SensingVoxel>, Pair<Integer, Integer>> {
+  private interface IODimMapper extends Function<Grid<? extends SensingVoxel>, Pair<Integer, Integer>> {
   }
 
-
-  private interface BodyMapperMapper extends Function<Grid<SensingVoxel>, Function<Function<double[], double[]>, Robot<SensingVoxel>>> {
+  private interface RobotMapper extends Function<Grid<BreakableVoxel>, Function<Function<double[], double[]>, Robot<BreakableVoxel>>> {
   }
 
+  private interface EvolverMapper extends BiFunction<Pair<IODimMapper, RobotMapper>, Grid<BreakableVoxel>, Evolver<?, Robot<BreakableVoxel>, Double>> {
+  }
+
+  // TODO make breaking a feature of the voxel; fixing a feature of a controller
 
   @Override
   public void run() {
@@ -80,42 +85,43 @@ public class ControllerComparison extends Worker {
     int nBirths = i(a("nBirths", "1000"));
     int[] seeds = ri(a("seed", "0:1"));
     List<String> terrains = l(a("terrain", "flat"));
-    List<String> evolverNames = l(a("evolver", "mlp-0-gadiv-50"));
+    List<String> evolverMapperNames = l(a("evolver", "mlp-0-gadiv-50"));
     List<String> bodyNames = l(a("body", "biped-4x3"));
-    List<String> mapperNames = l(a("mapper", "centralized"));
+    List<String> robotMapperNames = l(a("mapper", "centralized-breaking"));
     Locomotion.Metric metric = Locomotion.Metric.TRAVELED_X_DISTANCE;
     //prepare file listeners
-    MultiFileListenerFactory<Object, Robot<SensingVoxel>, Double> statsListenerFactory = new MultiFileListenerFactory<>(
+    MultiFileListenerFactory<Object, Robot<BreakableVoxel>, Double> statsListenerFactory = new MultiFileListenerFactory<>(
         a("dir", "."),
         a("statsFile", null)
     );
-    MultiFileListenerFactory<Object, Robot<SensingVoxel>, Double> serializedListenerFactory = new MultiFileListenerFactory<>(
+    MultiFileListenerFactory<Object, Robot<BreakableVoxel>, Double> serializedListenerFactory = new MultiFileListenerFactory<>(
         a("dir", "."),
         a("serializedFile", null)
     );
-    Map<String, Grid<SensingVoxel>> bodies = bodyNames.stream()
-        .collect(Collectors.toMap(n -> n, ControllerComparison::buildBodyFromName));
-    Map<String, Pair<BodyIOMapper, BodyMapperMapper>> mappers = mapperNames.stream()
-        .collect(Collectors.toMap(n -> n, ControllerComparison::buildMapperFromName));
-    Map<String, BiFunction<Pair<BodyIOMapper, BodyMapperMapper>, Grid<SensingVoxel>, Evolver<?, Robot<SensingVoxel>, Double>>> evolvers = evolverNames.stream()
+    Random bodyRandom = new Random(1);
+    Map<String, Grid<BreakableVoxel>> bodies = bodyNames.stream()
+        .collect(Collectors.toMap(n -> n, n -> buildBodyFromName(n, bodyRandom)));
+    Map<String, Pair<IODimMapper, RobotMapper>> robotMappers = robotMapperNames.stream()
+        .collect(Collectors.toMap(n -> n, ControllerComparison::buildRobotMapperFromName));
+    Map<String, EvolverMapper> evolverMappers = evolverMapperNames.stream()
         .collect(Collectors.toMap(n -> n, ControllerComparison::buildEvolverBuilderFromName));
-    L.info("Evolvers: " + evolvers.keySet());
-    L.info("Mappers: " + mappers.keySet());
+    L.info("Evolvers: " + evolverMappers.keySet());
+    L.info("Mappers: " + robotMappers.keySet());
     L.info("Bodies: " + bodies.keySet());
     for (int seed : seeds) {
       for (String terrain : terrains) {
-        for (Map.Entry<String, Grid<SensingVoxel>> bodyEntry : bodies.entrySet()) {
-          for (Map.Entry<String, Pair<BodyIOMapper, BodyMapperMapper>> mapperEntry : mappers.entrySet()) {
-            for (Map.Entry<String, BiFunction<Pair<BodyIOMapper, BodyMapperMapper>, Grid<SensingVoxel>, Evolver<?, Robot<SensingVoxel>, Double>>> evolverEntry : evolvers.entrySet()) {
+        for (Map.Entry<String, Grid<BreakableVoxel>> bodyEntry : bodies.entrySet()) {
+          for (Map.Entry<String, Pair<IODimMapper, RobotMapper>> robotMapperEntry : robotMappers.entrySet()) {
+            for (Map.Entry<String, EvolverMapper> evolverMapperEntry : evolverMappers.entrySet()) {
               Map<String, String> keys = new TreeMap<>(Map.of(
                   "seed", Integer.toString(seed),
                   "terrain", terrain,
                   "body", bodyEntry.getKey(),
-                  "mapper", mapperEntry.getKey(),
-                  "evolver", evolverEntry.getKey()
+                  "mapper", robotMapperEntry.getKey(),
+                  "evolver", evolverMapperEntry.getKey()
               ));
-              Grid<SensingVoxel> body = bodyEntry.getValue();
-              Evolver<?, Robot<SensingVoxel>, Double> evolver = evolverEntry.getValue().apply(mapperEntry.getValue(), body);
+              Grid<BreakableVoxel> body = bodyEntry.getValue();
+              Evolver<?, Robot<BreakableVoxel>, Double> evolver = evolverMapperEntry.getValue().apply(robotMapperEntry.getValue(), body);
               Locomotion locomotion = new Locomotion(
                   episodeTime,
                   Locomotion.createTerrain(terrain),
@@ -129,7 +135,7 @@ public class ControllerComparison extends Worker {
                   new Diversity(),
                   new BestInfo("%7.5f")
               );
-              Listener<? super Object, ? super Robot<SensingVoxel>, ? super Double> listener;
+              Listener<? super Object, ? super Robot<BreakableVoxel>, ? super Double> listener;
               if (statsListenerFactory.getBaseFileName() == null) {
                 listener = listener(collectors.toArray(DataCollector[]::new));
               } else {
@@ -149,7 +155,7 @@ public class ControllerComparison extends Worker {
               try {
                 Stopwatch stopwatch = Stopwatch.createStarted();
                 L.info(String.format("Starting %s", keys));
-                Collection<Robot<SensingVoxel>> solutions = evolver.solve(
+                Collection<Robot<BreakableVoxel>> solutions = evolver.solve(
                     Misc.cached(robot -> locomotion.apply(robot).get(0), 10000),
                     new Births(nBirths),
                     new Random(seed),
@@ -178,12 +184,21 @@ public class ControllerComparison extends Worker {
     }
   }
 
-  private static Pair<BodyIOMapper, BodyMapperMapper> buildMapperFromName(String name) {
-    if (name.matches("centralized")) {
+  private static Pair<IODimMapper, RobotMapper> buildRobotMapperFromName(String name) {
+    if (name.matches("centralized(-breaking(-[0-9]+(\\.[0-9]+)?)?)?")) {
       return Pair.of(
           body -> Pair.of(CentralizedSensing.nOfInputs(body), CentralizedSensing.nOfOutputs(body)),
           body -> f -> new Robot<>(
-              new CentralizedSensing<>(body, f),
+              !name.contains("-breaking") ? (new CentralizedSensing<>(body, f)) : (new SequentialBreakingController<>(
+                  new CentralizedSensing<>(body, f),
+                  extractParamValueFromName(name, 0, 1),
+                  new Random(1),
+                  Map.of(
+                      BreakableVoxel.ComponentType.ACTUATOR, Set.of(BreakableVoxel.MalfunctionType.FROZEN, BreakableVoxel.MalfunctionType.ZERO),
+                      BreakableVoxel.ComponentType.SENSORS, Set.of(BreakableVoxel.MalfunctionType.RANDOM, BreakableVoxel.MalfunctionType.ZERO),
+                      BreakableVoxel.ComponentType.STRUCTURE, Set.of(BreakableVoxel.MalfunctionType.FROZEN)
+                  )
+              )),
               SerializationUtils.clone(body)
           )
       );
@@ -207,24 +222,24 @@ public class ControllerComparison extends Worker {
     throw new IllegalArgumentException(String.format("Unknown mapper name: %s", name));
   }
 
-  private static Grid<SensingVoxel> buildBodyFromName(String name) {
+  private static Grid<BreakableVoxel> buildBodyFromName(String name, Random random) {
     if (name.matches("biped(-cpg)?-[0-9]+x[0-9]+")) {
       int w = (int) extractParamValueFromName(name, 0, 4);
       int h = (int) extractParamValueFromName(name, 1, 3);
       return Grid.create(
           w, h,
-          (x, y) -> (y == 0 && x > 0 && x < w - 1) ? null : new SensingVoxel(ofNonNull(
+          (x, y) -> (y == 0 && x > 0 && x < w - 1) ? null : new BreakableVoxel(ofNonNull(
               new AreaRatio(),
               (y == 0) ? new Touch() : null,
               (y == h - 1) ? new Velocity(true, 3d, Velocity.Axis.X, Velocity.Axis.Y) : null,
               (x == w - 1 && y == h - 1 && name.contains("-cpg")) ? new TimeFunction(t -> Math.sin(2 * Math.PI * -1 * t), -1, 1) : null
-          ).stream().filter(Objects::nonNull).collect(Collectors.toList())));
+          ).stream().filter(Objects::nonNull).collect(Collectors.toList()), random));
     }
     throw new IllegalArgumentException(String.format("Unknown body name: %s", name));
   }
 
-  private static BiFunction<Pair<BodyIOMapper, BodyMapperMapper>, Grid<SensingVoxel>, Evolver<?, Robot<SensingVoxel>, Double>> buildEvolverBuilderFromName(String name) {
-    PartialComparator<Individual<?, Robot<SensingVoxel>, Double>> comparator = PartialComparator.from(Double.class).reversed().comparing(Individual::getFitness);
+  private static EvolverMapper buildEvolverBuilderFromName(String name) {
+    PartialComparator<Individual<?, Robot<BreakableVoxel>, Double>> comparator = PartialComparator.from(Double.class).reversed().comparing(Individual::getFitness);
     if (name.matches("mlp-[0-9]+(\\.[0-9]+)?-ga(-[0-9]+)?")) {
       double ratioOfFirstLayer = extractParamValueFromName(name, 0, 0);
       return (p, body) -> new StandardEvolver<>(
@@ -343,7 +358,7 @@ public class ControllerComparison extends Worker {
           0.25,
           individuals -> {
             double[] fitnesses = individuals.stream().mapToDouble(Individual::getFitness).toArray();
-            Individual<Graph<IndexedNode<Node>, Double>, Robot<SensingVoxel>, Double> r = Misc.first(individuals);
+            Individual<Graph<IndexedNode<Node>, Double>, Robot<BreakableVoxel>, Double> r = Misc.first(individuals);
             return new Individual<>(
                 r.getGenotype(),
                 r.getSolution(),

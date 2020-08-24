@@ -115,7 +115,7 @@ public class VideoMaker {
     Locomotion locomotion = new Locomotion(
         episodeTime,
         Locomotion.createTerrain(terrain),
-        Lists.newArrayList(Locomotion.Metric.TRAVEL_X_VELOCITY),
+        Lists.newArrayList(Locomotion.Metric.TRAVELED_X_DISTANCE),
         new Settings()
     );
     //do simulations
