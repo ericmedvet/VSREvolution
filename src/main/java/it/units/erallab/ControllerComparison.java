@@ -21,8 +21,6 @@ import com.google.common.collect.Lists;
 import it.units.erallab.hmsrobots.core.controllers.CentralizedSensing;
 import it.units.erallab.hmsrobots.core.controllers.MultiLayerPerceptron;
 import it.units.erallab.hmsrobots.core.controllers.PhaseSin;
-import it.units.erallab.hmsrobots.core.controllers.SequentialBreakingController;
-import it.units.erallab.hmsrobots.core.objects.BreakableVoxel;
 import it.units.erallab.hmsrobots.core.objects.Robot;
 import it.units.erallab.hmsrobots.core.objects.SensingVoxel;
 import it.units.erallab.hmsrobots.core.sensors.AreaRatio;
@@ -87,13 +85,11 @@ public class ControllerComparison extends Worker {
   private interface IODimMapper extends Function<Grid<? extends SensingVoxel>, Pair<Integer, Integer>> {
   }
 
-  private interface RobotMapper extends Function<Grid<BreakableVoxel>, Function<Function<double[], double[]>, Robot<BreakableVoxel>>> {
+  private interface RobotMapper extends Function<Grid<? extends SensingVoxel>, Function<Function<double[], double[]>, Robot<?>>> {
   }
 
-  private interface EvolverMapper extends BiFunction<Pair<IODimMapper, RobotMapper>, Grid<BreakableVoxel>, Evolver<?, Robot<BreakableVoxel>, Double>> {
+  private interface EvolverMapper extends BiFunction<Pair<IODimMapper, RobotMapper>, Grid<? extends SensingVoxel>, Evolver<?, Robot<?>, Double>> {
   }
-
-  // TODO make breaking a feature of the voxel; fixing a feature of a controller
 
   @Override
   public void run() {
@@ -101,21 +97,21 @@ public class ControllerComparison extends Worker {
     int nBirths = i(a("nBirths", "1000"));
     int[] seeds = ri(a("seed", "0:1"));
     List<String> terrains = l(a("terrain", "flat"));
-    List<String> evolverMapperNames = l(a("evolver", "mlp-0-gadiv-50"));
-    List<String> bodyNames = l(a("body", "biped-4x3"));
-    List<String> robotMapperNames = l(a("mapper", "centralized-breaking"));
+    List<String> evolverMapperNames = l(a("evolver", "mlp-0.65-cmaes"));
+    List<String> bodyNames = l(a("body", "biped-4x3-f"));
+    List<String> robotMapperNames = l(a("mapper", "centralized"));
     Locomotion.Metric metric = Locomotion.Metric.TRAVELED_X_DISTANCE;
     //prepare file listeners
-    MultiFileListenerFactory<Object, Robot<BreakableVoxel>, Double> statsListenerFactory = new MultiFileListenerFactory<>(
+    MultiFileListenerFactory<Object, Robot<?>, Double> statsListenerFactory = new MultiFileListenerFactory<>(
         a("dir", "."),
         a("statsFile", null)
     );
-    MultiFileListenerFactory<Object, Robot<BreakableVoxel>, Double> serializedListenerFactory = new MultiFileListenerFactory<>(
+    MultiFileListenerFactory<Object, Robot<?>, Double> serializedListenerFactory = new MultiFileListenerFactory<>(
         a("dir", "."),
         a("serializedFile", null)
     );
     Random bodyRandom = new Random(1);
-    Map<String, Grid<BreakableVoxel>> bodies = bodyNames.stream()
+    Map<String, Grid<? extends SensingVoxel>> bodies = bodyNames.stream()
         .collect(Collectors.toMap(n -> n, n -> buildBodyFromName(n, bodyRandom)));
     Map<String, Pair<IODimMapper, RobotMapper>> robotMappers = robotMapperNames.stream()
         .collect(Collectors.toMap(n -> n, ControllerComparison::buildRobotMapperFromName));
@@ -126,7 +122,7 @@ public class ControllerComparison extends Worker {
     L.info("Bodies: " + bodies.keySet());
     for (int seed : seeds) {
       for (String terrain : terrains) {
-        for (Map.Entry<String, Grid<BreakableVoxel>> bodyEntry : bodies.entrySet()) {
+        for (Map.Entry<String, Grid<? extends SensingVoxel>> bodyEntry : bodies.entrySet()) {
           for (Map.Entry<String, Pair<IODimMapper, RobotMapper>> robotMapperEntry : robotMappers.entrySet()) {
             for (Map.Entry<String, EvolverMapper> evolverMapperEntry : evolverMappers.entrySet()) {
               Map<String, String> keys = new TreeMap<>(Map.of(
@@ -136,8 +132,8 @@ public class ControllerComparison extends Worker {
                   "mapper", robotMapperEntry.getKey(),
                   "evolver", evolverMapperEntry.getKey()
               ));
-              Grid<BreakableVoxel> body = bodyEntry.getValue();
-              Evolver<?, Robot<BreakableVoxel>, Double> evolver = evolverMapperEntry.getValue().apply(robotMapperEntry.getValue(), body);
+              Grid<? extends SensingVoxel> body = bodyEntry.getValue();
+              Evolver<?, Robot<?>, Double> evolver = evolverMapperEntry.getValue().apply(robotMapperEntry.getValue(), body);
               Locomotion locomotion = new Locomotion(
                   episodeTime,
                   Locomotion.createTerrain(terrain),
@@ -151,7 +147,7 @@ public class ControllerComparison extends Worker {
                   new Diversity(),
                   new BestInfo("%7.5f")
               );
-              Listener<? super Object, ? super Robot<BreakableVoxel>, ? super Double> listener;
+              Listener<? super Object, ? super Robot<?>, ? super Double> listener;
               if (statsListenerFactory.getBaseFileName() == null) {
                 listener = listener(collectors.toArray(DataCollector[]::new));
               } else {
@@ -171,7 +167,7 @@ public class ControllerComparison extends Worker {
               try {
                 Stopwatch stopwatch = Stopwatch.createStarted();
                 L.info(String.format("Starting %s", keys));
-                Collection<Robot<BreakableVoxel>> solutions = evolver.solve(
+                Collection<Robot<?>> solutions = evolver.solve(
                     Misc.cached(robot -> locomotion.apply(robot).get(0), 10000),
                     new Births(nBirths),
                     new Random(seed),
@@ -201,30 +197,21 @@ public class ControllerComparison extends Worker {
   }
 
   private static Pair<IODimMapper, RobotMapper> buildRobotMapperFromName(String name) {
-    if (name.matches("centralized(-breaking(-[0-9]+(\\.[0-9]+)?)?)?")) {
+    if (name.matches("centralized")) {
       return Pair.of(
           body -> Pair.of(CentralizedSensing.nOfInputs(body), CentralizedSensing.nOfOutputs(body)),
           body -> f -> new Robot<>(
-              !name.contains("-breaking") ? (new CentralizedSensing<>(body, f)) : (new SequentialBreakingController<>(
-                  new CentralizedSensing<>(body, f),
-                  extractParamValueFromName(name, 0, 1),
-                  new Random(1),
-                  Map.of(
-                      BreakableVoxel.ComponentType.ACTUATOR, Set.of(BreakableVoxel.MalfunctionType.FROZEN, BreakableVoxel.MalfunctionType.ZERO),
-                      BreakableVoxel.ComponentType.SENSORS, Set.of(BreakableVoxel.MalfunctionType.RANDOM, BreakableVoxel.MalfunctionType.ZERO),
-                      BreakableVoxel.ComponentType.STRUCTURE, Set.of(BreakableVoxel.MalfunctionType.FROZEN)
-                  )
-              )),
+              new CentralizedSensing(body, f),
               SerializationUtils.clone(body)
           )
       );
     }
-    if (name.matches("phases(-[0-9]+(\\.[0-9]+)?)?")) {
+    if (name.matches("phases-(?<f>\\d+(\\.\\d+)?)")) {
       return Pair.of(
           body -> Pair.of(2, 1),
           body -> f -> new Robot<>(
               new PhaseSin(
-                  -extractParamValueFromName(name, 0, 1),
+                  -Double.parseDouble(paramValue("phases-(?<f>\\d+(\\.\\d+)?)", name, "f")),
                   1d,
                   Grid.create(
                       body.getW(),
@@ -238,26 +225,28 @@ public class ControllerComparison extends Worker {
     throw new IllegalArgumentException(String.format("Unknown mapper name: %s", name));
   }
 
-  private static Grid<BreakableVoxel> buildBodyFromName(String name, Random random) {
-    if (name.matches("biped(-cpg)?-[0-9]+x[0-9]+")) {
-      int w = (int) extractParamValueFromName(name, 0, 4);
-      int h = (int) extractParamValueFromName(name, 1, 3);
+  private static Grid<? extends SensingVoxel> buildBodyFromName(String name, Random random) {
+    if (name.matches("biped-(?<w>\\d+)x(?<h>\\d+)-(?<cgp>[tf])")) {
+      int w = Integer.parseInt(paramValue("biped-(?<w>\\d+)x(?<h>\\d+)-(?<cgp>[tf])", name, "w"));
+      int h = Integer.parseInt(paramValue("biped-(?<w>\\d+)x(?<h>\\d+)-(?<cgp>[tf])", name, "h"));
+      boolean withCentralPatternGenerator = paramValue("biped-(?<w>\\d+)x(?<h>\\d+)-(?<cgp>[tf])", name, "cgp").equals("t");
       return Grid.create(
           w, h,
-          (x, y) -> (y == 0 && x > 0 && x < w - 1) ? null : new BreakableVoxel(ofNonNull(
+          (x, y) -> (y == 0 && x > 0 && x < w - 1) ? null : new SensingVoxel(ofNonNull(
               new AreaRatio(),
               (y == 0) ? new Touch() : null,
               (y == h - 1) ? new Velocity(true, 3d, Velocity.Axis.X, Velocity.Axis.Y) : null,
-              (x == w - 1 && y == h - 1 && name.contains("-cpg")) ? new TimeFunction(t -> Math.sin(2 * Math.PI * -1 * t), -1, 1) : null
-          ).stream().filter(Objects::nonNull).collect(Collectors.toList()), random));
+              (x == w - 1 && y == h - 1 && withCentralPatternGenerator) ? new TimeFunction(t -> Math.sin(2 * Math.PI * -1 * t), -1, 1) : null
+          ).stream().filter(Objects::nonNull).collect(Collectors.toList())));
     }
     throw new IllegalArgumentException(String.format("Unknown body name: %s", name));
   }
 
   private static EvolverMapper buildEvolverBuilderFromName(String name) {
-    PartialComparator<Individual<?, Robot<BreakableVoxel>, Double>> comparator = PartialComparator.from(Double.class).reversed().comparing(Individual::getFitness);
-    if (name.matches("mlp-[0-9]+(\\.[0-9]+)?-ga(-[0-9]+)?")) {
-      double ratioOfFirstLayer = extractParamValueFromName(name, 0, 0);
+    PartialComparator<Individual<?, Robot<?>, Double>> comparator = PartialComparator.from(Double.class).reversed().comparing(Individual::getFitness);
+    if (name.matches("mlp-(?<h>\\d+(\\.\\d+)?)-ga-(?<nPop>\\d+)")) {
+      double ratioOfFirstLayer = Double.parseDouble(paramValue("mlp-(?<h>\\d+(\\.\\d+)?)-ga-(?<nPop>\\d+)", name, "h"));
+      int nPop = Integer.parseInt(paramValue("mlp-(?<h>\\d+(\\.\\d+)?)-ga-(?<nPop>\\d+)", name, "nPop"));
       return (p, body) -> new StandardEvolver<>(
           ((Function<List<Double>, MultiLayerPerceptron>) ws -> new MultiLayerPerceptron(
               MultiLayerPerceptron.ActivationFunction.TANH,
@@ -275,19 +264,20 @@ public class ControllerComparison extends Worker {
               new UniformDoubleFactory(-1, 1)
           ),
           comparator,
-          (int) extractParamValueFromName(name, 1, 100),
+          nPop,
           Map.of(
               new GaussianMutation(1d), 0.2d,
               new GeometricCrossover(), 0.8d
           ),
           new Tournament(5),
           new Worst(),
-          (int) extractParamValueFromName(name, 1, 100),
+          nPop,
           true
       );
     }
-    if (name.matches("mlp-[0-9]+(\\.[0-9]+)?-gadiv(-[0-9]+)?")) {
-      double ratioOfFirstLayer = extractParamValueFromName(name, 0, 0);
+    if (name.matches("mlp-(?<h>\\d+(\\.\\d+)?)-gadiv-(?<nPop>\\d+)")) {
+      double ratioOfFirstLayer = Double.parseDouble(paramValue("mlp-(?<h>\\d+(\\.\\d+)?)-gadiv-(?<nPop>\\d+)", name, "h"));
+      int nPop = Integer.parseInt(paramValue("mlp-(?<h>\\d+(\\.\\d+)?)-gadiv-(?<nPop>\\d+)", name, "nPop"));
       return (p, body) -> new StandardWithEnforcedDiversityEvolver<>(
           ((Function<List<Double>, MultiLayerPerceptron>) ws -> new MultiLayerPerceptron(
               MultiLayerPerceptron.ActivationFunction.TANH,
@@ -305,20 +295,20 @@ public class ControllerComparison extends Worker {
               new UniformDoubleFactory(-1, 1)
           ),
           comparator,
-          (int) extractParamValueFromName(name, 1, 100),
+          nPop,
           Map.of(
               new GaussianMutation(1d), 0.2d,
               new GeometricCrossover(), 0.8d
           ),
           new Tournament(5),
           new Worst(),
-          (int) extractParamValueFromName(name, 1, 100),
+          nPop,
           true,
           100
       );
     }
-    if (name.matches("mlp-[0-9]+(\\.[0-9]+)?-cmaes")) {
-      double ratioOfFirstLayer = extractParamValueFromName(name, 0, 0);
+    if (name.matches("mlp-(?<h>\\d+(\\.\\d+)?)-cmaes")) {
+      double ratioOfFirstLayer = Double.parseDouble(paramValue("mlp-(?<h>\\d+(\\.\\d+)?)-cmaes", name, "h"));
       return (p, body) -> new CMAESEvolver<>(
           ((Function<List<Double>, MultiLayerPerceptron>) ws -> new MultiLayerPerceptron(
               MultiLayerPerceptron.ActivationFunction.TANH,
@@ -340,7 +330,8 @@ public class ControllerComparison extends Worker {
           1
       );
     }
-    if (name.matches("fgraph-hash-speciated(-[0-9]+)?")) {
+    if (name.matches("fgraph-hash-speciated-(?<nPop>\\d+)")) {
+      int nPop = Integer.parseInt(paramValue("fgraph-hash-speciated-(?<nPop>\\d+)", name, "nPop"));
       return (p, body) -> new SpeciatedEvolver<>(
           GraphUtils.mapper((Function<IndexedNode<Node>, Node>) IndexedNode::content, (Function<Collection<Double>, Double>) Misc::first)
               .andThen(FunctionGraph.builder())
@@ -351,7 +342,7 @@ public class ControllerComparison extends Worker {
               p.first().apply(body).second()
           ).then(GraphUtils.mapper(IndexedNode.incrementerMapper(Node.class), Misc::first)),
           comparator,
-          (int) extractParamValueFromName(name, 0, 100),
+          nPop,
           Map.of(
               new IndexedNodeAddition<>(
                   FunctionNode.sequentialIndexFactory(BaseFunction.TANH),
@@ -374,7 +365,7 @@ public class ControllerComparison extends Worker {
           0.25,
           individuals -> {
             double[] fitnesses = individuals.stream().mapToDouble(Individual::getFitness).toArray();
-            Individual<Graph<IndexedNode<Node>, Double>, Robot<BreakableVoxel>, Double> r = Misc.first(individuals);
+            Individual<Graph<IndexedNode<Node>, Double>, Robot<?>, Double> r = Misc.first(individuals);
             return new Individual<>(
                 r.getGenotype(),
                 r.getSolution(),
@@ -388,18 +379,12 @@ public class ControllerComparison extends Worker {
     throw new IllegalArgumentException(String.format("Unknown evolver name: %s", name));
   }
 
-  private static double extractParamValueFromName(String name, int index, double defaultValue) {
-    Matcher matcher = Pattern.compile("[0-9]+(\\.[0-9]+)?").matcher(name);
-    List<Double> numbers = new ArrayList<>();
-    int s = 0;
-    while (matcher.find(s)) {
-      numbers.add(Double.parseDouble(name.substring(matcher.start(), matcher.end())));
-      s = matcher.end();
+  private static String paramValue(String pattern, String string, String paramName) {
+    Matcher matcher = Pattern.compile(pattern).matcher(string);
+    if (matcher.matches()) {
+      return matcher.group(paramName);
     }
-    if (numbers.size() > index) {
-      return numbers.get(index);
-    }
-    return defaultValue;
+    throw new IllegalStateException(String.format("Param %s not found in %s with pattern %s", paramName, string, pattern));
   }
 
   private static <E> List<E> ofNonNull(E... es) {
