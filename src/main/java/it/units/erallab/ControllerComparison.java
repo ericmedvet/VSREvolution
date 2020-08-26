@@ -21,6 +21,7 @@ import com.google.common.collect.Lists;
 import it.units.erallab.hmsrobots.core.controllers.CentralizedSensing;
 import it.units.erallab.hmsrobots.core.controllers.MultiLayerPerceptron;
 import it.units.erallab.hmsrobots.core.controllers.PhaseSin;
+import it.units.erallab.hmsrobots.core.objects.BreakableVoxel;
 import it.units.erallab.hmsrobots.core.objects.Robot;
 import it.units.erallab.hmsrobots.core.objects.SensingVoxel;
 import it.units.erallab.hmsrobots.core.sensors.AreaRatio;
@@ -98,7 +99,7 @@ public class ControllerComparison extends Worker {
     int[] seeds = ri(a("seed", "0:1"));
     List<String> terrains = l(a("terrain", "flat"));
     List<String> evolverMapperNames = l(a("evolver", "mlp-0.65-cmaes"));
-    List<String> bodyNames = l(a("body", "biped-4x3-f"));
+    List<String> bodyNames = l(a("body", "biped-4x3-f-0.5-50-0"));
     List<String> robotMapperNames = l(a("mapper", "centralized"));
     Locomotion.Metric metric = Locomotion.Metric.TRAVELED_X_DISTANCE;
     //prepare file listeners
@@ -110,9 +111,8 @@ public class ControllerComparison extends Worker {
         a("dir", "."),
         a("serializedFile", null)
     );
-    Random bodyRandom = new Random(1);
     Map<String, Grid<? extends SensingVoxel>> bodies = bodyNames.stream()
-        .collect(Collectors.toMap(n -> n, n -> buildBodyFromName(n, bodyRandom)));
+        .collect(Collectors.toMap(n -> n, n -> buildBodyFromName(n)));
     Map<String, Pair<IODimMapper, RobotMapper>> robotMappers = robotMapperNames.stream()
         .collect(Collectors.toMap(n -> n, ControllerComparison::buildRobotMapperFromName));
     Map<String, EvolverMapper> evolverMappers = evolverMapperNames.stream()
@@ -197,7 +197,9 @@ public class ControllerComparison extends Worker {
   }
 
   private static Pair<IODimMapper, RobotMapper> buildRobotMapperFromName(String name) {
-    if (name.matches("centralized")) {
+    String centralized = "centralized";
+    String phases = "phases-(?<f>\\d+(\\.\\d+)?)";
+    if (name.matches(centralized)) {
       return Pair.of(
           body -> Pair.of(CentralizedSensing.nOfInputs(body), CentralizedSensing.nOfOutputs(body)),
           body -> f -> new Robot<>(
@@ -206,12 +208,12 @@ public class ControllerComparison extends Worker {
           )
       );
     }
-    if (name.matches("phases-(?<f>\\d+(\\.\\d+)?)")) {
+    if (name.matches(phases)) {
       return Pair.of(
           body -> Pair.of(2, 1),
           body -> f -> new Robot<>(
               new PhaseSin(
-                  -Double.parseDouble(paramValue("phases-(?<f>\\d+(\\.\\d+)?)", name, "f")),
+                  -Double.parseDouble(paramValue(phases, name, "f")),
                   1d,
                   Grid.create(
                       body.getW(),
@@ -225,28 +227,57 @@ public class ControllerComparison extends Worker {
     throw new IllegalArgumentException(String.format("Unknown mapper name: %s", name));
   }
 
-  private static Grid<? extends SensingVoxel> buildBodyFromName(String name, Random random) {
-    if (name.matches("biped-(?<w>\\d+)x(?<h>\\d+)-(?<cgp>[tf])")) {
-      int w = Integer.parseInt(paramValue("biped-(?<w>\\d+)x(?<h>\\d+)-(?<cgp>[tf])", name, "w"));
-      int h = Integer.parseInt(paramValue("biped-(?<w>\\d+)x(?<h>\\d+)-(?<cgp>[tf])", name, "h"));
-      boolean withCentralPatternGenerator = paramValue("biped-(?<w>\\d+)x(?<h>\\d+)-(?<cgp>[tf])", name, "cgp").equals("t");
-      return Grid.create(
+  private static Grid<? extends SensingVoxel> buildBodyFromName(String name) {
+    String wbt = "(?<shape>worm|biped|tripod)-(?<w>\\d+)x(?<h>\\d+)-(?<cgp>[tf])-(?<bRate>\\d+(\\.\\d+)?)-(?<bT>\\d+(\\.\\d+)?)-(?<bSeed>\\d+)";
+    if (name.matches(wbt)) {
+      String shape = paramValue(wbt, name, "shape");
+      int w = Integer.parseInt(paramValue(wbt, name, "w"));
+      int h = Integer.parseInt(paramValue(wbt, name, "h"));
+      boolean withCentralPatternGenerator = paramValue(wbt, name, "cgp").equals("t");
+      double breakableRatio = Double.parseDouble(paramValue(wbt, name, "bRate"));
+      double breakableThreshold = Double.parseDouble(paramValue(wbt, name, "bT"));
+      int seed = Integer.parseInt(paramValue(wbt, name, "bSeed"));
+      Grid<? extends SensingVoxel> body = Grid.create(
           w, h,
-          (x, y) -> (y == 0 && x > 0 && x < w - 1) ? null : new SensingVoxel(ofNonNull(
+          (x, y) -> new SensingVoxel(ofNonNull(
               new AreaRatio(),
               (y == 0) ? new Touch() : null,
               (y == h - 1) ? new Velocity(true, 3d, Velocity.Axis.X, Velocity.Axis.Y) : null,
               (x == w - 1 && y == h - 1 && withCentralPatternGenerator) ? new TimeFunction(t -> Math.sin(2 * Math.PI * -1 * t), -1, 1) : null
           ).stream().filter(Objects::nonNull).collect(Collectors.toList())));
+      if (shape.equals("biped")) {
+        final Grid<? extends SensingVoxel> finalBody = body;
+        body = Grid.create(w, h, (x, y) -> (y == 0 && x > 0 && x < w - 1) ? null : finalBody.get(x, y));
+      } else if (shape.equals("tripod")) {
+        final Grid<? extends SensingVoxel> finalBody = body;
+        body = Grid.create(w, h, (x, y) -> (y != h - 1 && x != 0 && x != w - 1 && x != w / 2) ? null : finalBody.get(x, y));
+      }
+      if (breakableRatio > 0) {
+        Random random = new Random(seed);
+        body = Grid.create(body, v -> v == null ? null : (random.nextDouble() > breakableRatio ? v : new BreakableVoxel(
+            v.getSensors(),
+            random,
+            Map.of(
+                BreakableVoxel.ComponentType.ACTUATOR, Set.of(BreakableVoxel.MalfunctionType.FROZEN),
+                BreakableVoxel.ComponentType.SENSORS, Set.of(BreakableVoxel.MalfunctionType.ZERO)
+            ),
+            Map.of(BreakableVoxel.MalfunctionTrigger.AREA, breakableThreshold)
+        )));
+      }
+      return body;
     }
     throw new IllegalArgumentException(String.format("Unknown body name: %s", name));
   }
 
   private static EvolverMapper buildEvolverBuilderFromName(String name) {
     PartialComparator<Individual<?, Robot<?>, Double>> comparator = PartialComparator.from(Double.class).reversed().comparing(Individual::getFitness);
-    if (name.matches("mlp-(?<h>\\d+(\\.\\d+)?)-ga-(?<nPop>\\d+)")) {
-      double ratioOfFirstLayer = Double.parseDouble(paramValue("mlp-(?<h>\\d+(\\.\\d+)?)-ga-(?<nPop>\\d+)", name, "h"));
-      int nPop = Integer.parseInt(paramValue("mlp-(?<h>\\d+(\\.\\d+)?)-ga-(?<nPop>\\d+)", name, "nPop"));
+    String mlpGa = "mlp-(?<h>\\d+(\\.\\d+)?)-ga-(?<nPop>\\d+)";
+    String mlpGaDiv = "mlp-(?<h>\\d+(\\.\\d+)?)-gadiv-(?<nPop>\\d+)";
+    String mlpCmaEs = "mlp-(?<h>\\d+(\\.\\d+)?)-cmaes";
+    String graphea = "fgraph-hash-speciated-(?<nPop>\\d+)";
+    if (name.matches(mlpGa)) {
+      double ratioOfFirstLayer = Double.parseDouble(paramValue(mlpGa, name, "h"));
+      int nPop = Integer.parseInt(paramValue(mlpGa, name, "nPop"));
       return (p, body) -> new StandardEvolver<>(
           ((Function<List<Double>, MultiLayerPerceptron>) ws -> new MultiLayerPerceptron(
               MultiLayerPerceptron.ActivationFunction.TANH,
@@ -275,9 +306,9 @@ public class ControllerComparison extends Worker {
           true
       );
     }
-    if (name.matches("mlp-(?<h>\\d+(\\.\\d+)?)-gadiv-(?<nPop>\\d+)")) {
-      double ratioOfFirstLayer = Double.parseDouble(paramValue("mlp-(?<h>\\d+(\\.\\d+)?)-gadiv-(?<nPop>\\d+)", name, "h"));
-      int nPop = Integer.parseInt(paramValue("mlp-(?<h>\\d+(\\.\\d+)?)-gadiv-(?<nPop>\\d+)", name, "nPop"));
+    if (name.matches(mlpGaDiv)) {
+      double ratioOfFirstLayer = Double.parseDouble(paramValue(mlpGaDiv, name, "h"));
+      int nPop = Integer.parseInt(paramValue(mlpGaDiv, name, "nPop"));
       return (p, body) -> new StandardWithEnforcedDiversityEvolver<>(
           ((Function<List<Double>, MultiLayerPerceptron>) ws -> new MultiLayerPerceptron(
               MultiLayerPerceptron.ActivationFunction.TANH,
@@ -307,8 +338,8 @@ public class ControllerComparison extends Worker {
           100
       );
     }
-    if (name.matches("mlp-(?<h>\\d+(\\.\\d+)?)-cmaes")) {
-      double ratioOfFirstLayer = Double.parseDouble(paramValue("mlp-(?<h>\\d+(\\.\\d+)?)-cmaes", name, "h"));
+    if (name.matches(mlpCmaEs)) {
+      double ratioOfFirstLayer = Double.parseDouble(paramValue(mlpCmaEs, name, "h"));
       return (p, body) -> new CMAESEvolver<>(
           ((Function<List<Double>, MultiLayerPerceptron>) ws -> new MultiLayerPerceptron(
               MultiLayerPerceptron.ActivationFunction.TANH,
@@ -330,8 +361,8 @@ public class ControllerComparison extends Worker {
           1
       );
     }
-    if (name.matches("fgraph-hash-speciated-(?<nPop>\\d+)")) {
-      int nPop = Integer.parseInt(paramValue("fgraph-hash-speciated-(?<nPop>\\d+)", name, "nPop"));
+    if (name.matches(graphea)) {
+      int nPop = Integer.parseInt(paramValue(graphea, name, "nPop"));
       return (p, body) -> new SpeciatedEvolver<>(
           GraphUtils.mapper((Function<IndexedNode<Node>, Node>) IndexedNode::content, (Function<Collection<Double>, Double>) Misc::first)
               .andThen(FunctionGraph.builder())
