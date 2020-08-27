@@ -24,10 +24,7 @@ import it.units.erallab.hmsrobots.core.controllers.PhaseSin;
 import it.units.erallab.hmsrobots.core.objects.BreakableVoxel;
 import it.units.erallab.hmsrobots.core.objects.Robot;
 import it.units.erallab.hmsrobots.core.objects.SensingVoxel;
-import it.units.erallab.hmsrobots.core.sensors.AreaRatio;
-import it.units.erallab.hmsrobots.core.sensors.TimeFunction;
-import it.units.erallab.hmsrobots.core.sensors.Touch;
-import it.units.erallab.hmsrobots.core.sensors.Velocity;
+import it.units.erallab.hmsrobots.core.sensors.*;
 import it.units.erallab.hmsrobots.tasks.Locomotion;
 import it.units.erallab.hmsrobots.util.Grid;
 import it.units.malelab.jgea.Worker;
@@ -62,6 +59,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.UnaryOperator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -74,6 +72,8 @@ import static it.units.malelab.jgea.core.util.Args.*;
  * @project VSREvolution
  */
 public class ControllerComparison extends Worker {
+
+  public static final int CACHE_SIZE = 10000;
 
   public ControllerComparison(String[] args) {
     super(args);
@@ -97,11 +97,29 @@ public class ControllerComparison extends Worker {
     double episodeTime = d(a("episodeT", "10.0"));
     int nBirths = i(a("nBirths", "1000"));
     int[] seeds = ri(a("seed", "0:1"));
-    List<String> terrains = l(a("terrain", "flat"));
+    //int validationBirthsInterval = i(a("validationBirthsInterval", "100"));
+    List<String> terrainNames = l(a("terrain", "flat"));
     List<String> evolverMapperNames = l(a("evolver", "mlp-0.65-cmaes"));
-    List<String> bodyNames = l(a("body", "biped-4x3-f-0.5-50-0"));
+    List<String> bodyNames = l(a("body", "biped-4x3-f-f"));
+    List<String> transformationNames = l(a("transformations", "identity"));
     List<String> robotMapperNames = l(a("mapper", "centralized"));
-    Locomotion.Metric metric = Locomotion.Metric.TRAVELED_X_DISTANCE;
+    Locomotion.Metric fitnessMetric = Locomotion.Metric.valueOf(a("fitnessMetric", Locomotion.Metric.X_DISTANCE_CORRECTED_EFFICIENCY.name().toLowerCase()).toUpperCase());
+    List<Locomotion.Metric> allMetrics = l(a("metrics", List.of(Locomotion.Metric.values()).stream().map(m -> m.name().toLowerCase()).collect(Collectors.joining(",")))).stream()
+        .map(String::toUpperCase)
+        .map(Locomotion.Metric::valueOf)
+        .collect(Collectors.toList());
+    if (!allMetrics.contains(fitnessMetric)) {
+      allMetrics.add(fitnessMetric);
+    }
+    List<String> validationTransformationNames = l(a("validationTransformations", "")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
+    List<String> validationTerrainNames = l(a("validationTerrains", "")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
+    if (!validationTerrainNames.isEmpty() && validationTransformationNames.isEmpty()) {
+      validationTransformationNames.add("identity");
+    }
+    if (validationTerrainNames.isEmpty() && !validationTransformationNames.isEmpty()) {
+      validationTerrainNames.add(terrainNames.get(0));
+    }
+    Settings physicsSettings = new Settings();
     //prepare file listeners
     MultiFileListenerFactory<Object, Robot<?>, Double> statsListenerFactory = new MultiFileListenerFactory<>(
         a("dir", "."),
@@ -111,83 +129,117 @@ public class ControllerComparison extends Worker {
         a("dir", "."),
         a("serializedFile", null)
     );
-    Map<String, Grid<? extends SensingVoxel>> bodies = bodyNames.stream()
-        .collect(Collectors.toMap(n -> n, n -> buildBodyFromName(n)));
-    Map<String, Pair<IODimMapper, RobotMapper>> robotMappers = robotMapperNames.stream()
-        .collect(Collectors.toMap(n -> n, ControllerComparison::buildRobotMapperFromName));
-    Map<String, EvolverMapper> evolverMappers = evolverMapperNames.stream()
-        .collect(Collectors.toMap(n -> n, ControllerComparison::buildEvolverBuilderFromName));
-    L.info("Evolvers: " + evolverMappers.keySet());
-    L.info("Mappers: " + robotMappers.keySet());
-    L.info("Bodies: " + bodies.keySet());
+    L.info("Evolvers: " + evolverMapperNames);
+    L.info("Mappers: " + robotMapperNames);
+    L.info("Bodies: " + bodyNames);
+    L.info("Terrains: " + terrainNames);
+    L.info("Transformations: " + transformationNames);
+    L.info("Validations: " + Lists.cartesianProduct(validationTerrainNames, validationTransformationNames));
     for (int seed : seeds) {
-      for (String terrain : terrains) {
-        for (Map.Entry<String, Grid<? extends SensingVoxel>> bodyEntry : bodies.entrySet()) {
-          for (Map.Entry<String, Pair<IODimMapper, RobotMapper>> robotMapperEntry : robotMappers.entrySet()) {
-            for (Map.Entry<String, EvolverMapper> evolverMapperEntry : evolverMappers.entrySet()) {
-              Map<String, String> keys = new TreeMap<>(Map.of(
-                  "seed", Integer.toString(seed),
-                  "terrain", terrain,
-                  "body", bodyEntry.getKey(),
-                  "mapper", robotMapperEntry.getKey(),
-                  "evolver", evolverMapperEntry.getKey()
-              ));
-              Grid<? extends SensingVoxel> body = bodyEntry.getValue();
-              Evolver<?, Robot<?>, Double> evolver = evolverMapperEntry.getValue().apply(robotMapperEntry.getValue(), body);
-              Locomotion locomotion = new Locomotion(
-                  episodeTime,
-                  Locomotion.createTerrain(terrain),
-                  Lists.newArrayList(metric),
-                  new Settings()
-              );
-              List<DataCollector<?, ? super Robot<SensingVoxel>, ? super Double>> collectors = List.of(
-                  new Static(keys),
-                  new Basic(),
-                  new Population(),
-                  new Diversity(),
-                  new BestInfo("%7.5f")
-              );
-              Listener<? super Object, ? super Robot<?>, ? super Double> listener;
-              if (statsListenerFactory.getBaseFileName() == null) {
-                listener = listener(collectors.toArray(DataCollector[]::new));
-              } else {
-                listener = statsListenerFactory.build(collectors.toArray(DataCollector[]::new));
-              }
-              if (serializedListenerFactory.getBaseFileName() != null) {
-                listener = serializedListenerFactory.build(
+      for (String terrainName : terrainNames) {
+        for (String bodyName : bodyNames) {
+          for (String robotMapperName : robotMapperNames) {
+            for (String transformationName : transformationNames) {
+              for (String evolverMapperName : evolverMapperNames) {
+                Map<String, String> keys = new TreeMap<>(Map.of(
+                    "seed", Integer.toString(seed),
+                    "terrain", terrainName,
+                    "body", bodyName,
+                    "mapper", robotMapperName,
+                    "transformation", transformationName,
+                    "evolver", evolverMapperName
+                ));
+                Grid<? extends SensingVoxel> body = buildBody(bodyName);
+                //build training task
+                Function<Robot<?>, List<Double>> trainingTask = Misc.cached(
+                    buildRobotTransformation(transformationName).andThen(new Locomotion(
+                        episodeTime,
+                        Locomotion.createTerrain(terrainName),
+                        allMetrics,
+                        physicsSettings
+                    )), CACHE_SIZE);
+                //build main data collectors for listener
+                List<DataCollector<?, ? super Robot<SensingVoxel>, ? super Double>> collectors = new ArrayList<DataCollector<?, ? super Robot<SensingVoxel>, ? super Double>>(List.of(
                     new Static(keys),
                     new Basic(),
-                    new FunctionOfOneBest<>(i -> List.of(
-                        new Item("fitness.value", i.getFitness(), "%7.5f"),
-                        new Item("serialized.robot", Utils.safelySerialize(i.getSolution()), "%s"),
-                        new Item("serialized.genotype", Utils.safelySerialize((Serializable) i.getGenotype()), "%s")
-                    ))
-                ).then(listener);
-              }
-              try {
-                Stopwatch stopwatch = Stopwatch.createStarted();
-                L.info(String.format("Starting %s", keys));
-                Collection<Robot<?>> solutions = evolver.solve(
-                    Misc.cached(robot -> locomotion.apply(robot).get(0), 10000),
-                    new Births(nBirths),
-                    new Random(seed),
-                    executorService,
-                    Listener.onExecutor(
-                        listener,
-                        executorService
+                    new Population(),
+                    new Diversity(),
+                    new BestInfo("%5.2f"),
+                    new FunctionOfOneBest<>(
+                        ((Function<Individual<?, ? extends Robot<SensingVoxel>, ? extends Double>, Robot<SensingVoxel>>) Individual::getSolution)
+                            .andThen(SerializationUtils::clone)
+                            .andThen(metrics(allMetrics, "training", trainingTask, "%6.2f"))
                     )
-                );
-                L.info(String.format("Done %s: %d solutions in %4ds",
-                    keys,
-                    solutions.size(),
-                    stopwatch.elapsed(TimeUnit.SECONDS)
                 ));
-              } catch (InterruptedException | ExecutionException e) {
-                L.severe(String.format("Cannot complete %s due to %s",
-                    keys,
-                    e
-                ));
-                e.printStackTrace();
+                //build body validation tasks
+                if (!validationTransformationNames.isEmpty() && !validationTerrainNames.isEmpty()) {
+                  for (String validationTransformationName : validationTransformationNames) {
+                    for (String validationTerrainName : validationTerrainNames) {
+                      //build validation task
+                      Function<Robot<?>, List<Double>> validationTask = new Locomotion(
+                          episodeTime,
+                          Locomotion.createTerrain(validationTerrainName),
+                          allMetrics,
+                          physicsSettings
+                      );
+                      validationTask = Misc.cached(
+                          buildRobotTransformation(
+                              validationTransformationName)
+                              .andThen(SerializationUtils::clone)
+                              .andThen(validationTask),
+                          CACHE_SIZE);
+                      //add to collector
+                      collectors.add(new FunctionOfOneBest<>(
+                              ((Function<Individual<?, ? extends Robot<SensingVoxel>, ? extends Double>, Robot<SensingVoxel>>) Individual::getSolution)
+                                  .andThen(metrics(allMetrics, "validation." + validationTerrainName + "." + validationTransformationName, validationTask, "%6.2f"))
+                          )
+                      );
+                    }
+                  }
+                }
+                Listener<? super Object, ? super Robot<?>, ? super Double> listener;
+                if (statsListenerFactory.getBaseFileName() == null) {
+                  listener = listener(collectors.toArray(DataCollector[]::new));
+                } else {
+                  listener = statsListenerFactory.build(collectors.toArray(DataCollector[]::new));
+                }
+                if (serializedListenerFactory.getBaseFileName() != null) {
+                  listener = serializedListenerFactory.build(
+                      new Static(keys),
+                      new Basic(),
+                      new FunctionOfOneBest<>(i -> List.of(
+                          new Item("fitness.value", i.getFitness(), "%7.5f"),
+                          new Item("serialized.robot", Utils.safelySerialize(i.getSolution()), "%s"),
+                          new Item("serialized.genotype", Utils.safelySerialize((Serializable) i.getGenotype()), "%s")
+                      ))
+                  ).then(listener);
+                }
+                try {
+                  Stopwatch stopwatch = Stopwatch.createStarted();
+                  L.info(String.format("Starting %s", keys));
+                  Evolver<?, Robot<?>, Double> evolver = buildEvolverMapper(evolverMapperName).apply(buildRobotMapper(robotMapperName), body);
+                  Collection<Robot<?>> solutions = evolver.solve(
+                      trainingTask.andThen(values -> values.get(allMetrics.indexOf(fitnessMetric))),
+                      new Births(nBirths),
+                      new Random(seed),
+                      executorService,
+                      Listener.onExecutor(
+                          listener,
+                          executorService
+                      )
+                  );
+                  L.info(String.format("Done %s: %d solutions in %4ds",
+                      keys,
+                      solutions.size(),
+                      stopwatch.elapsed(TimeUnit.SECONDS)
+                  ));
+                } catch (InterruptedException | ExecutionException e) {
+                  L.severe(String.format("Cannot complete %s due to %s",
+                      keys,
+                      e
+                  ));
+                  e.printStackTrace();
+                }
               }
             }
           }
@@ -196,7 +248,7 @@ public class ControllerComparison extends Worker {
     }
   }
 
-  private static Pair<IODimMapper, RobotMapper> buildRobotMapperFromName(String name) {
+  private static Pair<IODimMapper, RobotMapper> buildRobotMapper(String name) {
     String centralized = "centralized";
     String phases = "phases-(?<f>\\d+(\\.\\d+)?)";
     if (name.matches(centralized)) {
@@ -227,20 +279,90 @@ public class ControllerComparison extends Worker {
     throw new IllegalArgumentException(String.format("Unknown mapper name: %s", name));
   }
 
-  private static Grid<? extends SensingVoxel> buildBodyFromName(String name) {
-    String wbt = "(?<shape>worm|biped|tripod)-(?<w>\\d+)x(?<h>\\d+)-(?<cgp>[tf])-(?<bRate>\\d+(\\.\\d+)?)-(?<bT>\\d+(\\.\\d+)?)-(?<bSeed>\\d+)";
+  private static Function<Robot<?>, List<Item>> metrics(List<Locomotion.Metric> metrics, String prefix, Function<Robot<?>, List<Double>> task, String format) {
+    return individual -> {
+      List<Double> values = task.apply(individual);
+      List<Item> items = new ArrayList<>(metrics.size());
+      for (int i = 0; i < metrics.size(); i++) {
+        items.add(new Item(
+            prefix + "." + metrics.get(i).name().toLowerCase(),
+            values.get(i),
+            format
+        ));
+      }
+      return items;
+    };
+  }
+
+  private static UnaryOperator<Robot<?>> buildRobotTransformation(String name) {
+    String areaBreakable = "areaBreak-(?<rate>\\d+(\\.\\d+)?)-(?<threshold>\\d+(\\.\\d+)?)-(?<seed>\\d+)";
+    String timeBreakable = "timeBreak-(?<time>\\d+(\\.\\d+)?)-(?<seed>\\d+)";
+    String identity = "identity";
+    if (name.matches(identity)) {
+      return UnaryOperator.identity();
+    }
+    if (name.matches(areaBreakable)) {
+      double rate = Double.parseDouble(paramValue(areaBreakable, name, "rate"));
+      double threshold = Double.parseDouble(paramValue(areaBreakable, name, "threshold"));
+      Random random = new Random(Integer.parseInt(paramValue(areaBreakable, name, "seed")));
+      return robot -> new Robot<>(
+          ((Robot<SensingVoxel>) robot).getController(),
+          Grid.create((Grid<SensingVoxel>) robot.getVoxels(), v -> v == null ? null : (random.nextDouble() > rate ? v : new BreakableVoxel(
+              v.getSensors(),
+              random,
+              Map.of(
+                  BreakableVoxel.ComponentType.ACTUATOR, Set.of(BreakableVoxel.MalfunctionType.FROZEN),
+                  BreakableVoxel.ComponentType.SENSORS, Set.of(BreakableVoxel.MalfunctionType.ZERO)
+              ),
+              Map.of(BreakableVoxel.MalfunctionTrigger.AREA, threshold)
+          )))
+      );
+    }
+    if (name.matches(timeBreakable)) {
+      double time = Double.parseDouble(paramValue(timeBreakable, name, "time"));
+      Random random = new Random(Integer.parseInt(paramValue(timeBreakable, name, "seed")));
+      return robot -> {
+        List<Pair<Integer, Integer>> coords = robot.getVoxels().stream()
+            .filter(e -> e.getValue() != null)
+            .map(e -> Pair.of(e.getX(), e.getY()))
+            .collect(Collectors.toList());
+        Collections.shuffle(coords, random);
+        Grid<SensingVoxel> body = SerializationUtils.clone((Grid<SensingVoxel>) robot.getVoxels());
+        for (int i = 0; i < coords.size(); i++) {
+          int x = coords.get(i).first();
+          int y = coords.get(i).second();
+          body.set(x, y, new BreakableVoxel(
+              body.get(x, y).getSensors(),
+              random,
+              Map.of(
+                  BreakableVoxel.ComponentType.ACTUATOR, Set.of(BreakableVoxel.MalfunctionType.FROZEN),
+                  BreakableVoxel.ComponentType.SENSORS, Set.of(BreakableVoxel.MalfunctionType.ZERO)
+              ),
+              Map.of(BreakableVoxel.MalfunctionTrigger.TIME, time * ((double) (i + 1) / (double) coords.size()))
+          ));
+        }
+        return new Robot<>(
+            ((Robot<SensingVoxel>) robot).getController(),
+            body
+        );
+      };
+    }
+    throw new IllegalArgumentException(String.format("Unknown body name: %s", name));
+  }
+
+  private static Grid<? extends SensingVoxel> buildBody(String name) {
+    String wbt = "(?<shape>worm|biped|tripod)-(?<w>\\d+)x(?<h>\\d+)-(?<cgp>[tf])-(?<malfunction>[tf])";
     if (name.matches(wbt)) {
       String shape = paramValue(wbt, name, "shape");
       int w = Integer.parseInt(paramValue(wbt, name, "w"));
       int h = Integer.parseInt(paramValue(wbt, name, "h"));
       boolean withCentralPatternGenerator = paramValue(wbt, name, "cgp").equals("t");
-      double breakableRatio = Double.parseDouble(paramValue(wbt, name, "bRate"));
-      double breakableThreshold = Double.parseDouble(paramValue(wbt, name, "bT"));
-      int seed = Integer.parseInt(paramValue(wbt, name, "bSeed"));
+      boolean withMalfunctionSensor = paramValue(wbt, name, "malfunction").equals("t");
       Grid<? extends SensingVoxel> body = Grid.create(
           w, h,
           (x, y) -> new SensingVoxel(ofNonNull(
               new AreaRatio(),
+              withMalfunctionSensor ? new Malfunction() : null,
               (y == 0) ? new Touch() : null,
               (y == h - 1) ? new Velocity(true, 3d, Velocity.Axis.X, Velocity.Axis.Y) : null,
               (x == w - 1 && y == h - 1 && withCentralPatternGenerator) ? new TimeFunction(t -> Math.sin(2 * Math.PI * -1 * t), -1, 1) : null
@@ -252,24 +374,12 @@ public class ControllerComparison extends Worker {
         final Grid<? extends SensingVoxel> finalBody = body;
         body = Grid.create(w, h, (x, y) -> (y != h - 1 && x != 0 && x != w - 1 && x != w / 2) ? null : finalBody.get(x, y));
       }
-      if (breakableRatio > 0) {
-        Random random = new Random(seed);
-        body = Grid.create(body, v -> v == null ? null : (random.nextDouble() > breakableRatio ? v : new BreakableVoxel(
-            v.getSensors(),
-            random,
-            Map.of(
-                BreakableVoxel.ComponentType.ACTUATOR, Set.of(BreakableVoxel.MalfunctionType.FROZEN),
-                BreakableVoxel.ComponentType.SENSORS, Set.of(BreakableVoxel.MalfunctionType.ZERO)
-            ),
-            Map.of(BreakableVoxel.MalfunctionTrigger.AREA, breakableThreshold)
-        )));
-      }
       return body;
     }
     throw new IllegalArgumentException(String.format("Unknown body name: %s", name));
   }
 
-  private static EvolverMapper buildEvolverBuilderFromName(String name) {
+  private static EvolverMapper buildEvolverMapper(String name) {
     PartialComparator<Individual<?, Robot<?>, Double>> comparator = PartialComparator.from(Double.class).reversed().comparing(Individual::getFitness);
     String mlpGa = "mlp-(?<h>\\d+(\\.\\d+)?)-ga-(?<nPop>\\d+)";
     String mlpGaDiv = "mlp-(?<h>\\d+(\\.\\d+)?)-gadiv-(?<nPop>\\d+)";
