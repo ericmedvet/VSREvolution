@@ -50,9 +50,14 @@ import it.units.malelab.jgea.representation.sequence.FixedLengthListFactory;
 import it.units.malelab.jgea.representation.sequence.numeric.GaussianMutation;
 import it.units.malelab.jgea.representation.sequence.numeric.GeometricCrossover;
 import it.units.malelab.jgea.representation.sequence.numeric.UniformDoubleFactory;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.lang3.SerializationUtils;
 import org.dyn4j.dynamics.Settings;
 
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.io.Serializable;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
@@ -95,7 +100,7 @@ public class ControllerComparison extends Worker {
   @Override
   public void run() {
     double episodeTime = d(a("episodeT", "10.0"));
-    int nBirths = i(a("nBirths", "1000"));
+    int nBirths = i(a("nBirths", "500"));
     int[] seeds = ri(a("seed", "0:1"));
     //int validationBirthsInterval = i(a("validationBirthsInterval", "100"));
     List<String> terrainNames = l(a("terrain", "flat"));
@@ -112,7 +117,7 @@ public class ControllerComparison extends Worker {
       allMetrics.add(fitnessMetric);
     }
     List<String> validationTransformationNames = l(a("validationTransformations", "")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
-    List<String> validationTerrainNames = l(a("validationTerrains", "")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
+    List<String> validationTerrainNames = l(a("validationTerrains", "steppy-1-5-0,hilly-2-5-0")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
     if (!validationTerrainNames.isEmpty() && validationTransformationNames.isEmpty()) {
       validationTransformationNames.add("identity");
     }
@@ -129,12 +134,33 @@ public class ControllerComparison extends Worker {
         a("dir", "."),
         a("serializedFile", null)
     );
+    CSVPrinter validationPrinter;
+    List<String> validationKeyHeaders = List.of("seed", "terrain", "body", "mapper", "transformation", "evolver");
+    try {
+      if (a("validationFile", null) != null) {
+        validationPrinter = new CSVPrinter(new FileWriter(
+            a("dir", ".") + File.separator + a("validationFile", null)
+        ), CSVFormat.DEFAULT.withDelimiter(';'));
+      } else {
+        validationPrinter = new CSVPrinter(System.out, CSVFormat.DEFAULT.withDelimiter(';'));
+      }
+      List<String> headers = new ArrayList<>();
+      headers.addAll(validationKeyHeaders);
+      headers.addAll(List.of("validation.transformation", "validation.terrain"));
+      headers.addAll(allMetrics.stream().map(m -> m.toString().toLowerCase()).collect(Collectors.toList()));
+      validationPrinter.printRecord(headers);
+    } catch (IOException e) {
+      L.severe(String.format("Cannot create printer for validation results due to %s", e));
+      return;
+    }
+    //summarize params
     L.info("Evolvers: " + evolverMapperNames);
     L.info("Mappers: " + robotMapperNames);
     L.info("Bodies: " + bodyNames);
     L.info("Terrains: " + terrainNames);
     L.info("Transformations: " + transformationNames);
     L.info("Validations: " + Lists.cartesianProduct(validationTerrainNames, validationTransformationNames));
+    //start iterations
     for (int seed : seeds) {
       for (String terrainName : terrainNames) {
         for (String bodyName : bodyNames) {
@@ -171,32 +197,6 @@ public class ControllerComparison extends Worker {
                             .andThen(metrics(allMetrics, "training", trainingTask, "%6.2f"))
                     )
                 ));
-                //build body validation tasks
-                if (!validationTransformationNames.isEmpty() && !validationTerrainNames.isEmpty()) {
-                  for (String validationTransformationName : validationTransformationNames) {
-                    for (String validationTerrainName : validationTerrainNames) {
-                      //build validation task
-                      Function<Robot<?>, List<Double>> validationTask = new Locomotion(
-                          episodeTime,
-                          Locomotion.createTerrain(validationTerrainName),
-                          allMetrics,
-                          physicsSettings
-                      );
-                      validationTask = Misc.cached(
-                          buildRobotTransformation(
-                              validationTransformationName)
-                              .andThen(SerializationUtils::clone)
-                              .andThen(validationTask),
-                          CACHE_SIZE);
-                      //add to collector
-                      collectors.add(new FunctionOfOneBest<>(
-                              ((Function<Individual<?, ? extends Robot<SensingVoxel>, ? extends Double>, Robot<SensingVoxel>>) Individual::getSolution)
-                                  .andThen(metrics(allMetrics, "validation." + validationTerrainName + "." + validationTransformationName, validationTask, "%6.2f"))
-                          )
-                      );
-                    }
-                  }
-                }
                 Listener<? super Object, ? super Robot<?>, ? super Double> listener;
                 if (statsListenerFactory.getBaseFileName() == null) {
                   listener = listener(collectors.toArray(DataCollector[]::new));
@@ -218,6 +218,7 @@ public class ControllerComparison extends Worker {
                   Stopwatch stopwatch = Stopwatch.createStarted();
                   L.info(String.format("Starting %s", keys));
                   Evolver<?, Robot<?>, Double> evolver = buildEvolverMapper(evolverMapperName).apply(buildRobotMapper(robotMapperName), body);
+                  //optimize
                   Collection<Robot<?>> solutions = evolver.solve(
                       trainingTask.andThen(values -> values.get(allMetrics.indexOf(fitnessMetric))),
                       new Births(nBirths),
@@ -233,6 +234,37 @@ public class ControllerComparison extends Worker {
                       solutions.size(),
                       stopwatch.elapsed(TimeUnit.SECONDS)
                   ));
+                  //do validation
+                  for (String validationTransformationName : validationTransformationNames) {
+                    for (String validationTerrainName : validationTerrainNames) {
+                      //build validation task
+                      Function<Robot<?>, List<Double>> validationTask = new Locomotion(
+                          episodeTime,
+                          Locomotion.createTerrain(validationTerrainName),
+                          allMetrics,
+                          physicsSettings
+                      );
+                      validationTask = buildRobotTransformation(validationTransformationName)
+                          .andThen(SerializationUtils::clone)
+                          .andThen(validationTask);
+                      List<Double> metrics = validationTask.apply(solutions.stream().findFirst().get());
+                      L.info(String.format(
+                          "Validation %s/%s of \"first\" best done",
+                          validationTransformationName,
+                          validationTerrainName
+                      ));
+                      try {
+                        List<Object> values = new ArrayList<>();
+                        values.addAll(validationKeyHeaders.stream().map(keys::get).collect(Collectors.toList()));
+                        values.addAll(List.of(validationTransformationName, validationTerrainName));
+                        values.addAll(metrics);
+                        validationPrinter.printRecord(values);
+                        validationPrinter.flush();
+                      } catch (IOException e) {
+                        L.severe(String.format("Cannot save validation results due to %s", e));
+                      }
+                    }
+                  }
                 } catch (InterruptedException | ExecutionException e) {
                   L.severe(String.format("Cannot complete %s due to %s",
                       keys,
@@ -245,6 +277,11 @@ public class ControllerComparison extends Worker {
           }
         }
       }
+    }
+    try {
+      validationPrinter.close(true);
+    } catch (IOException e) {
+      L.severe(String.format("Cannot close printer for validation results due to %s", e));
     }
   }
 
