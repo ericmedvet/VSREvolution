@@ -21,7 +21,6 @@ import com.google.common.collect.Lists;
 import it.units.erallab.hmsrobots.core.controllers.CentralizedSensing;
 import it.units.erallab.hmsrobots.core.controllers.MultiLayerPerceptron;
 import it.units.erallab.hmsrobots.core.controllers.PhaseSin;
-import it.units.erallab.hmsrobots.core.objects.BreakableVoxel;
 import it.units.erallab.hmsrobots.core.objects.Robot;
 import it.units.erallab.hmsrobots.core.objects.SensingVoxel;
 import it.units.erallab.hmsrobots.core.sensors.*;
@@ -64,9 +63,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Function;
-import java.util.function.UnaryOperator;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static it.units.malelab.jgea.core.util.Args.*;
@@ -117,7 +113,7 @@ public class ControllerComparison extends Worker {
       allMetrics.add(fitnessMetric);
     }
     List<String> validationTransformationNames = l(a("validationTransformations", "")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
-    List<String> validationTerrainNames = l(a("validationTerrains", "steppy-1-5-0,hilly-2-5-0")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
+    List<String> validationTerrainNames = l(a("validationTerrains", "")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
     if (!validationTerrainNames.isEmpty() && validationTransformationNames.isEmpty()) {
       validationTransformationNames.add("identity");
     }
@@ -178,7 +174,7 @@ public class ControllerComparison extends Worker {
                 Grid<? extends SensingVoxel> body = buildBody(bodyName);
                 //build training task
                 Function<Robot<?>, List<Double>> trainingTask = Misc.cached(
-                    buildRobotTransformation(transformationName).andThen(new Locomotion(
+                    Utils.buildRobotTransformation(transformationName).andThen(new Locomotion(
                         episodeTime,
                         Locomotion.createTerrain(terrainName),
                         allMetrics,
@@ -244,7 +240,7 @@ public class ControllerComparison extends Worker {
                           allMetrics,
                           physicsSettings
                       );
-                      validationTask = buildRobotTransformation(validationTransformationName)
+                      validationTask = Utils.buildRobotTransformation(validationTransformationName)
                           .andThen(SerializationUtils::clone)
                           .andThen(validationTask);
                       List<Double> metrics = validationTask.apply(solutions.stream().findFirst().get());
@@ -302,7 +298,7 @@ public class ControllerComparison extends Worker {
           body -> Pair.of(2, 1),
           body -> f -> new Robot<>(
               new PhaseSin(
-                  -Double.parseDouble(paramValue(phases, name, "f")),
+                  -Double.parseDouble(Utils.paramValue(phases, name, "f")),
                   1d,
                   Grid.create(
                       body.getW(),
@@ -331,78 +327,22 @@ public class ControllerComparison extends Worker {
     };
   }
 
-  private static UnaryOperator<Robot<?>> buildRobotTransformation(String name) {
-    String areaBreakable = "areaBreak-(?<rate>\\d+(\\.\\d+)?)-(?<threshold>\\d+(\\.\\d+)?)-(?<seed>\\d+)";
-    String timeBreakable = "timeBreak-(?<time>\\d+(\\.\\d+)?)-(?<seed>\\d+)";
-    String identity = "identity";
-    if (name.matches(identity)) {
-      return UnaryOperator.identity();
-    }
-    if (name.matches(areaBreakable)) {
-      double rate = Double.parseDouble(paramValue(areaBreakable, name, "rate"));
-      double threshold = Double.parseDouble(paramValue(areaBreakable, name, "threshold"));
-      Random random = new Random(Integer.parseInt(paramValue(areaBreakable, name, "seed")));
-      return robot -> new Robot<>(
-          ((Robot<SensingVoxel>) robot).getController(),
-          Grid.create((Grid<SensingVoxel>) robot.getVoxels(), v -> v == null ? null : (random.nextDouble() > rate ? v : new BreakableVoxel(
-              v.getSensors(),
-              random,
-              Map.of(
-                  BreakableVoxel.ComponentType.ACTUATOR, Set.of(BreakableVoxel.MalfunctionType.FROZEN),
-                  BreakableVoxel.ComponentType.SENSORS, Set.of(BreakableVoxel.MalfunctionType.ZERO)
-              ),
-              Map.of(BreakableVoxel.MalfunctionTrigger.AREA, threshold)
-          )))
-      );
-    }
-    if (name.matches(timeBreakable)) {
-      double time = Double.parseDouble(paramValue(timeBreakable, name, "time"));
-      Random random = new Random(Integer.parseInt(paramValue(timeBreakable, name, "seed")));
-      return robot -> {
-        List<Pair<Integer, Integer>> coords = robot.getVoxels().stream()
-            .filter(e -> e.getValue() != null)
-            .map(e -> Pair.of(e.getX(), e.getY()))
-            .collect(Collectors.toList());
-        Collections.shuffle(coords, random);
-        Grid<SensingVoxel> body = SerializationUtils.clone((Grid<SensingVoxel>) robot.getVoxels());
-        for (int i = 0; i < coords.size(); i++) {
-          int x = coords.get(i).first();
-          int y = coords.get(i).second();
-          body.set(x, y, new BreakableVoxel(
-              body.get(x, y).getSensors(),
-              random,
-              Map.of(
-                  BreakableVoxel.ComponentType.ACTUATOR, Set.of(BreakableVoxel.MalfunctionType.FROZEN),
-                  BreakableVoxel.ComponentType.SENSORS, Set.of(BreakableVoxel.MalfunctionType.ZERO)
-              ),
-              Map.of(BreakableVoxel.MalfunctionTrigger.TIME, time * ((double) (i + 1) / (double) coords.size()))
-          ));
-        }
-        return new Robot<>(
-            ((Robot<SensingVoxel>) robot).getController(),
-            body
-        );
-      };
-    }
-    throw new IllegalArgumentException(String.format("Unknown body name: %s", name));
-  }
-
   private static Grid<? extends SensingVoxel> buildBody(String name) {
     String wbt = "(?<shape>worm|biped|tripod)-(?<w>\\d+)x(?<h>\\d+)-(?<cgp>[tf])-(?<malfunction>[tf])";
     if (name.matches(wbt)) {
-      String shape = paramValue(wbt, name, "shape");
-      int w = Integer.parseInt(paramValue(wbt, name, "w"));
-      int h = Integer.parseInt(paramValue(wbt, name, "h"));
-      boolean withCentralPatternGenerator = paramValue(wbt, name, "cgp").equals("t");
-      boolean withMalfunctionSensor = paramValue(wbt, name, "malfunction").equals("t");
+      String shape = Utils.paramValue(wbt, name, "shape");
+      int w = Integer.parseInt(Utils.paramValue(wbt, name, "w"));
+      int h = Integer.parseInt(Utils.paramValue(wbt, name, "h"));
+      boolean withCentralPatternGenerator = Utils.paramValue(wbt, name, "cgp").equals("t");
+      boolean withMalfunctionSensor = Utils.paramValue(wbt, name, "malfunction").equals("t");
       Grid<? extends SensingVoxel> body = Grid.create(
           w, h,
-          (x, y) -> new SensingVoxel(ofNonNull(
-              new AreaRatio(),
+          (x, y) -> new SensingVoxel(Utils.ofNonNull(
+              new Normalization(new AreaRatio()),
               withMalfunctionSensor ? new Malfunction() : null,
               (y == 0) ? new Touch() : null,
-              (y == h - 1) ? new Velocity(true, 3d, Velocity.Axis.X, Velocity.Axis.Y) : null,
-              (x == w - 1 && y == h - 1 && withCentralPatternGenerator) ? new TimeFunction(t -> Math.sin(2 * Math.PI * -1 * t), -1, 1) : null
+              (y == h - 1) ? new Normalization(new Velocity(true, 5d, Velocity.Axis.X, Velocity.Axis.Y)) : null,
+              (x == w - 1 && y == h - 1 && withCentralPatternGenerator) ? new Normalization(new TimeFunction(t -> Math.sin(2 * Math.PI * -1 * t), -1, 1)) : null
           ).stream().filter(Objects::nonNull).collect(Collectors.toList())));
       if (shape.equals("biped")) {
         final Grid<? extends SensingVoxel> finalBody = body;
@@ -423,8 +363,8 @@ public class ControllerComparison extends Worker {
     String mlpCmaEs = "mlp-(?<h>\\d+(\\.\\d+)?)-cmaes";
     String graphea = "fgraph-hash-speciated-(?<nPop>\\d+)";
     if (name.matches(mlpGa)) {
-      double ratioOfFirstLayer = Double.parseDouble(paramValue(mlpGa, name, "h"));
-      int nPop = Integer.parseInt(paramValue(mlpGa, name, "nPop"));
+      double ratioOfFirstLayer = Double.parseDouble(Utils.paramValue(mlpGa, name, "h"));
+      int nPop = Integer.parseInt(Utils.paramValue(mlpGa, name, "nPop"));
       return (p, body) -> new StandardEvolver<>(
           ((Function<List<Double>, MultiLayerPerceptron>) ws -> new MultiLayerPerceptron(
               MultiLayerPerceptron.ActivationFunction.TANH,
@@ -454,8 +394,8 @@ public class ControllerComparison extends Worker {
       );
     }
     if (name.matches(mlpGaDiv)) {
-      double ratioOfFirstLayer = Double.parseDouble(paramValue(mlpGaDiv, name, "h"));
-      int nPop = Integer.parseInt(paramValue(mlpGaDiv, name, "nPop"));
+      double ratioOfFirstLayer = Double.parseDouble(Utils.paramValue(mlpGaDiv, name, "h"));
+      int nPop = Integer.parseInt(Utils.paramValue(mlpGaDiv, name, "nPop"));
       return (p, body) -> new StandardWithEnforcedDiversityEvolver<>(
           ((Function<List<Double>, MultiLayerPerceptron>) ws -> new MultiLayerPerceptron(
               MultiLayerPerceptron.ActivationFunction.TANH,
@@ -486,7 +426,7 @@ public class ControllerComparison extends Worker {
       );
     }
     if (name.matches(mlpCmaEs)) {
-      double ratioOfFirstLayer = Double.parseDouble(paramValue(mlpCmaEs, name, "h"));
+      double ratioOfFirstLayer = Double.parseDouble(Utils.paramValue(mlpCmaEs, name, "h"));
       return (p, body) -> new CMAESEvolver<>(
           ((Function<List<Double>, MultiLayerPerceptron>) ws -> new MultiLayerPerceptron(
               MultiLayerPerceptron.ActivationFunction.TANH,
@@ -509,7 +449,7 @@ public class ControllerComparison extends Worker {
       );
     }
     if (name.matches(graphea)) {
-      int nPop = Integer.parseInt(paramValue(graphea, name, "nPop"));
+      int nPop = Integer.parseInt(Utils.paramValue(graphea, name, "nPop"));
       return (p, body) -> new SpeciatedEvolver<>(
           GraphUtils.mapper((Function<IndexedNode<Node>, Node>) IndexedNode::content, (Function<Collection<Double>, Double>) Misc::first)
               .andThen(FunctionGraph.builder())
@@ -557,21 +497,4 @@ public class ControllerComparison extends Worker {
     throw new IllegalArgumentException(String.format("Unknown evolver name: %s", name));
   }
 
-  private static String paramValue(String pattern, String string, String paramName) {
-    Matcher matcher = Pattern.compile(pattern).matcher(string);
-    if (matcher.matches()) {
-      return matcher.group(paramName);
-    }
-    throw new IllegalStateException(String.format("Param %s not found in %s with pattern %s", paramName, string, pattern));
-  }
-
-  private static <E> List<E> ofNonNull(E... es) {
-    List<E> list = new ArrayList<>();
-    for (E e : es) {
-      if (e != null) {
-        list.add(e);
-      }
-    }
-    return list;
-  }
 }

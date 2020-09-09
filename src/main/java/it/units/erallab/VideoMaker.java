@@ -63,15 +63,16 @@ public class VideoMaker {
   private static final Logger L = Logger.getLogger(VideoMaker.class.getName());
 
   /* example of invocation
-    /usr/lib/jvm/jdk-14.0.1/bin/java -cp ~/IdeaProjects/VSREvolution/out/artifacts/VSREvolution_jar/VSREvolution.jar it.units.erallab.VideoMaker inputFile=vsrs-short-all-p10-t10-10.ser.txt globalPredicate=seed≡1^terrain≡uneven5^mapper≡centralized columnPredicates=evolver≡mlp-0-cmaes^body≡biped-4x3,evolver≡mlp-0-cmaes^body≡biped-cpg-4x3 rowPredicates=quant[births\;500\;2]≡0,quant[births\;500\;2]≡250,quant[births\;500\;2]≡500
+    /usr/lib/jvm/jdk-14.0.1/bin/java -cp ~/IdeaProjects/VSREvolution/out/artifacts/VSREvolution_jar/VSREvolution.jar it.units.erallab.VideoMaker inputFile=vsrs-short-all-p10-t10-10.ser.txt globalPredicate=seed≡1^terrain≡uneven5^mapper≡centralized columnPredicates=evolver≡mlp-0-cmaes^body≡biped-4x3,evolver≡mlp-0-cmaes^body≡biped-cpg-4x3 rowPredicates=quant[births\;500\;2]≡0,quant[births\;500\;2]≡250,quant[births\;500\;2]≡500 transformation=identity
    */
   public static void main(String[] args) throws IOException {
     //get params
     String inputFileName = a(args, "inputFile", null);
     String outputFileName = a(args, "outputFile", null);
     String serializedRobotColumn = a(args, "serializedRobotColumnName", "best.serialized.robot");
-    String terrain = a(args, "terrain", "flat");
-    double episodeTime = d(a(args, "episodeT", "10.0"));
+    String terrainName = a(args, "terrain", "flat");
+    String transformationName = a(args, "transformation", "identity");
+    double episodeTime = d(a(args, "episodeT", "30.0"));
     int w = i(a(args, "w", "1024"));
     int h = i(a(args, "g", "768"));
     int frameRate = i(a(args, "frameRate", "30"));
@@ -124,13 +125,13 @@ public class VideoMaker {
                 .filter(e -> relevantKeys.contains(e.getKey()))
                 .map(e -> e.toString())
                 .collect(Collectors.joining("\n")),
-            Utils.safelyDeserialize(r.get(0).get(serializedRobotColumn), Robot.class)
+            Utils.buildRobotTransformation(transformationName).apply(Utils.safelyDeserialize(r.get(0).get(serializedRobotColumn), Robot.class))
         )
     );
     //prepare problem
     Locomotion locomotion = new Locomotion(
         episodeTime,
-        Locomotion.createTerrain(terrain),
+        Locomotion.createTerrain(terrainName),
         Lists.newArrayList(Locomotion.Metric.TRAVELED_X_DISTANCE),
         new Settings()
     );
@@ -143,7 +144,7 @@ public class VideoMaker {
           Grid.create(namedRobotGrid, Pair::getLeft),
           uiExecutor
       );
-      ((GridOnlineViewer) gridSnapshotListener).start(5);
+      ((GridOnlineViewer) gridSnapshotListener).start(3);
     } else {
       gridSnapshotListener = new GridFileWriter(
           w, h, frameRate,
