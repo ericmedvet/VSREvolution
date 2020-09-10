@@ -21,6 +21,7 @@ import com.google.common.collect.Sets;
 import it.units.erallab.hmsrobots.core.objects.Robot;
 import it.units.erallab.hmsrobots.tasks.Locomotion;
 import it.units.erallab.hmsrobots.util.Grid;
+import it.units.erallab.hmsrobots.util.Utils;
 import it.units.erallab.hmsrobots.viewers.*;
 import it.units.erallab.hmsrobots.viewers.drawers.Ground;
 import it.units.erallab.hmsrobots.viewers.drawers.SensorReading;
@@ -125,7 +126,7 @@ public class VideoMaker {
                 .filter(e -> relevantKeys.contains(e.getKey()))
                 .map(e -> e.toString())
                 .collect(Collectors.joining("\n")),
-            Utils.buildRobotTransformation(transformationName).apply(Utils.safelyDeserialize(r.get(0).get(serializedRobotColumn), Robot.class))
+            Utils.buildRobotTransformation(transformationName).apply(SerializationUtils.safelyDeserialize(r.get(0).get(serializedRobotColumn), Robot.class))
         )
     );
     //prepare problem

@@ -23,9 +23,9 @@ import it.units.erallab.hmsrobots.core.controllers.MultiLayerPerceptron;
 import it.units.erallab.hmsrobots.core.controllers.PhaseSin;
 import it.units.erallab.hmsrobots.core.objects.Robot;
 import it.units.erallab.hmsrobots.core.objects.SensingVoxel;
-import it.units.erallab.hmsrobots.core.sensors.*;
 import it.units.erallab.hmsrobots.tasks.Locomotion;
 import it.units.erallab.hmsrobots.util.Grid;
+import it.units.erallab.hmsrobots.util.Utils;
 import it.units.malelab.jgea.Worker;
 import it.units.malelab.jgea.core.Individual;
 import it.units.malelab.jgea.core.evolver.*;
@@ -51,7 +51,6 @@ import it.units.malelab.jgea.representation.sequence.numeric.GeometricCrossover;
 import it.units.malelab.jgea.representation.sequence.numeric.UniformDoubleFactory;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
-import org.apache.commons.lang3.SerializationUtils;
 import org.dyn4j.dynamics.Settings;
 
 import java.io.File;
@@ -171,7 +170,7 @@ public class ControllerComparison extends Worker {
                     "transformation", transformationName,
                     "evolver", evolverMapperName
                 ));
-                Grid<? extends SensingVoxel> body = buildBody(bodyName);
+                Grid<? extends SensingVoxel> body = Utils.buildBody(bodyName);
                 //build training task
                 Function<Robot<?>, List<Double>> trainingTask = Misc.cached(
                     Utils.buildRobotTransformation(transformationName).andThen(new Locomotion(
@@ -189,7 +188,7 @@ public class ControllerComparison extends Worker {
                     new BestInfo("%5.2f"),
                     new FunctionOfOneBest<>(
                         ((Function<Individual<?, ? extends Robot<SensingVoxel>, ? extends Double>, Robot<SensingVoxel>>) Individual::getSolution)
-                            .andThen(SerializationUtils::clone)
+                            .andThen(org.apache.commons.lang3.SerializationUtils::clone)
                             .andThen(metrics(allMetrics, "training", trainingTask, "%6.2f"))
                     )
                 ));
@@ -205,8 +204,8 @@ public class ControllerComparison extends Worker {
                       new Basic(),
                       new FunctionOfOneBest<>(i -> List.of(
                           new Item("fitness.value", i.getFitness(), "%7.5f"),
-                          new Item("serialized.robot", Utils.safelySerialize(i.getSolution()), "%s"),
-                          new Item("serialized.genotype", Utils.safelySerialize((Serializable) i.getGenotype()), "%s")
+                          new Item("serialized.robot", SerializationUtils.safelySerialize(i.getSolution()), "%s"),
+                          new Item("serialized.genotype", SerializationUtils.safelySerialize((Serializable) i.getGenotype()), "%s")
                       ))
                   ).then(listener);
                 }
@@ -241,7 +240,7 @@ public class ControllerComparison extends Worker {
                           physicsSettings
                       );
                       validationTask = Utils.buildRobotTransformation(validationTransformationName)
-                          .andThen(SerializationUtils::clone)
+                          .andThen(org.apache.commons.lang3.SerializationUtils::clone)
                           .andThen(validationTask);
                       List<Double> metrics = validationTask.apply(solutions.stream().findFirst().get());
                       L.info(String.format(
@@ -289,7 +288,7 @@ public class ControllerComparison extends Worker {
           body -> Pair.of(CentralizedSensing.nOfInputs(body), CentralizedSensing.nOfOutputs(body)),
           body -> f -> new Robot<>(
               new CentralizedSensing(body, f),
-              SerializationUtils.clone(body)
+              org.apache.commons.lang3.SerializationUtils.clone(body)
           )
       );
     }
@@ -305,7 +304,7 @@ public class ControllerComparison extends Worker {
                       body.getH(),
                       (x, y) -> f.apply(new double[]{(double) x / (double) body.getW(), (double) y / (double) body.getH()})[0]
                   )),
-              SerializationUtils.clone(body)
+              org.apache.commons.lang3.SerializationUtils.clone(body)
           )
       );
     }
@@ -325,35 +324,6 @@ public class ControllerComparison extends Worker {
       }
       return items;
     };
-  }
-
-  private static Grid<? extends SensingVoxel> buildBody(String name) {
-    String wbt = "(?<shape>worm|biped|tripod)-(?<w>\\d+)x(?<h>\\d+)-(?<cgp>[tf])-(?<malfunction>[tf])";
-    if (name.matches(wbt)) {
-      String shape = Utils.paramValue(wbt, name, "shape");
-      int w = Integer.parseInt(Utils.paramValue(wbt, name, "w"));
-      int h = Integer.parseInt(Utils.paramValue(wbt, name, "h"));
-      boolean withCentralPatternGenerator = Utils.paramValue(wbt, name, "cgp").equals("t");
-      boolean withMalfunctionSensor = Utils.paramValue(wbt, name, "malfunction").equals("t");
-      Grid<? extends SensingVoxel> body = Grid.create(
-          w, h,
-          (x, y) -> new SensingVoxel(Utils.ofNonNull(
-              new Normalization(new AreaRatio()),
-              withMalfunctionSensor ? new Malfunction() : null,
-              (y == 0) ? new Touch() : null,
-              (y == h - 1) ? new Normalization(new Velocity(true, 5d, Velocity.Axis.X, Velocity.Axis.Y)) : null,
-              (x == w - 1 && y == h - 1 && withCentralPatternGenerator) ? new Normalization(new TimeFunction(t -> Math.sin(2 * Math.PI * -1 * t), -1, 1)) : null
-          ).stream().filter(Objects::nonNull).collect(Collectors.toList())));
-      if (shape.equals("biped")) {
-        final Grid<? extends SensingVoxel> finalBody = body;
-        body = Grid.create(w, h, (x, y) -> (y == 0 && x > 0 && x < w - 1) ? null : finalBody.get(x, y));
-      } else if (shape.equals("tripod")) {
-        final Grid<? extends SensingVoxel> finalBody = body;
-        body = Grid.create(w, h, (x, y) -> (y != h - 1 && x != 0 && x != w - 1 && x != w / 2) ? null : finalBody.get(x, y));
-      }
-      return body;
-    }
-    throw new IllegalArgumentException(String.format("Unknown body name: %s", name));
   }
 
   private static EvolverMapper buildEvolverMapper(String name) {
