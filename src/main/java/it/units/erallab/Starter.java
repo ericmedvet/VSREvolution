@@ -16,19 +16,14 @@
 
 package it.units.erallab;
 
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
 /**
  * @author eric
  * @created 2020/08/18
  * @project VSREvolution
  */
 public class Starter {
-  public static void main(String[] args) {
-    Pattern p = Pattern.compile("biped-(?<w>\\d++(\\.\\d++)?)x(?<h>[0-9]++)");
-    Matcher m = p.matcher("biped-4.11x3");
-    System.out.println(m.find());
-    System.out.printf("biped-%sx%s%n", m.group("w"), m.group("h"));
+  public static void main(String[] args) throws CloneNotSupportedException {
+    System.out.println("Hello world!");
   }
+
 }

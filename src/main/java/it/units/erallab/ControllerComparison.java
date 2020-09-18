@@ -98,7 +98,6 @@ public class ControllerComparison extends Worker {
     double episodeTime = d(a("episodeT", "10.0"));
     int nBirths = i(a("nBirths", "500"));
     int[] seeds = ri(a("seed", "0:1"));
-    //int validationBirthsInterval = i(a("validationBirthsInterval", "100"));
     List<String> terrainNames = l(a("terrain", "flat"));
     List<String> evolverMapperNames = l(a("evolver", "mlp-0.65-cmaes"));
     List<String> bodyNames = l(a("body", "biped-4x3-f-f"));
