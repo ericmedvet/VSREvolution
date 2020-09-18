@@ -62,6 +62,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static it.units.malelab.jgea.core.util.Args.*;
@@ -331,7 +332,8 @@ public class ControllerComparison extends Worker {
     String mlpGa = "mlp-(?<h>\\d+(\\.\\d+)?)-ga-(?<nPop>\\d+)";
     String mlpGaDiv = "mlp-(?<h>\\d+(\\.\\d+)?)-gadiv-(?<nPop>\\d+)";
     String mlpCmaEs = "mlp-(?<h>\\d+(\\.\\d+)?)-cmaes";
-    String graphea = "fgraph-hash-speciated-(?<nPop>\\d+)";
+    String graphea = "fgraph-hash+-speciated-(?<nPop>\\d+)";
+    String grapheaNoXOver = "fgraph-seq-noxover-(?<nPop>\\d+)";
     if (name.matches(mlpGa)) {
       double ratioOfFirstLayer = Double.parseDouble(Utils.paramValue(mlpGa, name, "h"));
       int nPop = Integer.parseInt(Utils.paramValue(mlpGa, name, "nPop"));
@@ -420,40 +422,82 @@ public class ControllerComparison extends Worker {
     }
     if (name.matches(graphea)) {
       int nPop = Integer.parseInt(Utils.paramValue(graphea, name, "nPop"));
+      return (p, body) -> {
+        Function<Graph<IndexedNode<Node>, Double>, Graph<Node, Double>> graphMapper = GraphUtils.mapper(
+            IndexedNode::content,
+            Misc::first
+        );
+        Predicate<Graph<Node, Double>> checker = FunctionGraph.checker();
+        return new SpeciatedEvolver<>(
+            graphMapper
+                .andThen(FunctionGraph.builder())
+                .andThen(fg -> p.second().apply(body).apply(fg)),
+            new ShallowSparseFactory(
+                0d, 0d, 1d,
+                p.first().apply(body).first(),
+                p.first().apply(body).second()
+            ).then(GraphUtils.mapper(IndexedNode.incrementerMapper(Node.class), Misc::first)),
+            comparator,
+            nPop,
+            Map.of(
+                new IndexedNodeAddition<FunctionNode, Node, Double>(
+                    FunctionNode.sequentialIndexFactory(BaseFunction.TANH),
+                    n -> (n instanceof FunctionNode) ? ((FunctionNode) n).getFunction().hashCode() : 0,
+                    p.first().apply(body).first() + p.first().apply(body).second() + 1,
+                    (w, r) -> w,
+                    (w, r) -> r.nextGaussian()
+                ).withChecker(g -> checker.test(graphMapper.apply(g))), 1d,
+                new ArcModification<IndexedNode<Node>, Double>((w, r) -> w + r.nextGaussian(), 1d).withChecker(g -> checker.test(graphMapper.apply(g))), 1d,
+                new ArcAddition<IndexedNode<Node>, Double>(Random::nextGaussian, false).withChecker(g -> checker.test(graphMapper.apply(g))), 3d,
+                new AlignedCrossover<IndexedNode<Node>, Double>(
+                    (w1, w2, r) -> w1 + (w2 - w1) * (r.nextDouble() * 3d - 1d),
+                    node -> node.content() instanceof Output,
+                    false
+                ).withChecker(g -> checker.test(graphMapper.apply(g))), 1d
+            ),
+            5,
+            (new Jaccard()).on(i -> i.getGenotype().nodes()),
+            0.25,
+            individuals -> {
+              double[] fitnesses = individuals.stream().mapToDouble(Individual::getFitness).toArray();
+              Individual<Graph<IndexedNode<Node>, Double>, Robot<?>, Double> r = Misc.first(individuals);
+              return new Individual<>(
+                  r.getGenotype(),
+                  r.getSolution(),
+                  Misc.median(fitnesses),
+                  r.getBirthIteration()
+              );
+            },
+            0.75
+        );
+      };
+    }
+    if (name.matches(grapheaNoXOver)) {
+      int nPop = Integer.parseInt(Utils.paramValue(graphea, name, "nPop"));
       return (p, body) -> new SpeciatedEvolver<>(
-          GraphUtils.mapper((Function<IndexedNode<Node>, Node>) IndexedNode::content, (Function<Collection<Double>, Double>) Misc::first)
-              .andThen(FunctionGraph.builder())
-              .andThen(fg -> p.second().apply(body).apply(fg)),
+          FunctionGraph.builder().andThen(fg -> p.second().apply(body).apply(fg)),
           new ShallowSparseFactory(
               0d, 0d, 1d,
               p.first().apply(body).first(),
               p.first().apply(body).second()
-          ).then(GraphUtils.mapper(IndexedNode.incrementerMapper(Node.class), Misc::first)),
+          ),
           comparator,
           nPop,
           Map.of(
-              new IndexedNodeAddition<>(
+              new NodeAddition<Node, Double>(
                   FunctionNode.sequentialIndexFactory(BaseFunction.TANH),
-                  n -> n.getFunction().hashCode(),
-                  p.first().apply(body).first() + p.first().apply(body).second() + 1,
                   (w, r) -> w,
                   (w, r) -> r.nextGaussian()
-              ), 1d,
-              new ArcModification<>((w, r) -> w + r.nextGaussian(), 1d), 1d,
-              new ArcAddition
-                  <>(Random::nextGaussian, false), 3d,
-              new AlignedCrossover<>(
-                  (w1, w2, r) -> w1 + (w2 - w1) * (r.nextDouble() * 3d - 1d),
-                  node -> node.content() instanceof Output,
-                  false
-              ), 1d
+              ).withChecker(FunctionGraph.checker()), 1d,
+              new ArcModification<Node, Double>((w, r) -> w + r.nextGaussian(), 1d).withChecker(FunctionGraph.checker()), 1d,
+              new ArcAddition<Node, Double>(Random::nextGaussian, false).withChecker(FunctionGraph.checker()), 3d
           ),
           5,
           (new Jaccard()).on(i -> i.getGenotype().nodes()),
           0.25,
           individuals -> {
             double[] fitnesses = individuals.stream().mapToDouble(Individual::getFitness).toArray();
-            Individual<Graph<IndexedNode<Node>, Double>, Robot<?>, Double> r = Misc.first(individuals);
+            Individual<Graph<Node, Double>, Robot<?>, Double> r = Misc.first(individuals);
             return new Individual<>(
                 r.getGenotype(),
                 r.getSolution(),
