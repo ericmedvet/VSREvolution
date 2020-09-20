@@ -103,7 +103,7 @@ public class ControllerComparison extends Worker {
     List<String> bodyNames = l(a("body", "biped-4x3-f-f"));
     List<String> transformationNames = l(a("transformations", "identity"));
     List<String> robotMapperNames = l(a("mapper", "centralized"));
-    Locomotion.Metric fitnessMetric = Locomotion.Metric.valueOf(a("fitnessMetric", Locomotion.Metric.X_DISTANCE_CORRECTED_EFFICIENCY.name().toLowerCase()).toUpperCase());
+    Locomotion.Metric fitnessMetric = Locomotion.Metric.valueOf(a("fitnessMetric", Locomotion.Metric.TRAVELED_X_DISTANCE.name().toLowerCase()).toUpperCase());
     List<Locomotion.Metric> allMetrics = l(a("metrics", List.of(Locomotion.Metric.values()).stream().map(m -> m.name().toLowerCase()).collect(Collectors.joining(",")))).stream()
         .map(String::toUpperCase)
         .map(Locomotion.Metric::valueOf)
@@ -472,7 +472,7 @@ public class ControllerComparison extends Worker {
       };
     }
     if (name.matches(grapheaNoXOver)) {
-      int nPop = Integer.parseInt(Utils.paramValue(graphea, name, "nPop"));
+      int nPop = Integer.parseInt(Utils.paramValue(grapheaNoXOver, name, "nPop"));
       return (p, body) -> new SpeciatedEvolver<>(
           FunctionGraph.builder().andThen(fg -> p.second().apply(body).apply(fg)),
           new ShallowSparseFactory(
