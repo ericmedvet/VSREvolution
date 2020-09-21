@@ -17,7 +17,7 @@
 package it.units.erallab;
 
 import java.io.*;
-import java.util.*;
+import java.util.Base64;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.zip.GZIPInputStream;
