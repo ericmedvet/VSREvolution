@@ -331,7 +331,7 @@ public class ControllerComparison extends Worker {
     String mlpGa = "mlp-(?<h>\\d+(\\.\\d+)?)-ga-(?<nPop>\\d+)";
     String mlpGaDiv = "mlp-(?<h>\\d+(\\.\\d+)?)-gadiv-(?<nPop>\\d+)";
     String mlpCmaEs = "mlp-(?<h>\\d+(\\.\\d+)?)-cmaes";
-    String graphea = "fgraph-hash+-speciated-(?<nPop>\\d+)";
+    String graphea = "fgraph-hash\\+-speciated-(?<nPop>\\d+)";
     String grapheaNoXOver = "fgraph-seq-noxover-(?<nPop>\\d+)";
     if (name.matches(mlpGa)) {
       double ratioOfFirstLayer = Double.parseDouble(Utils.paramValue(mlpGa, name, "h"));
