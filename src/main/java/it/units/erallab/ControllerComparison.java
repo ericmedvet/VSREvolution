@@ -414,9 +414,7 @@ public class ControllerComparison extends Worker {
               ),
               new UniformDoubleFactory(-1, 1)
           ),
-          comparator,
-          -1,
-          1
+          comparator
       );
     }
     if (name.matches(graphea)) {
