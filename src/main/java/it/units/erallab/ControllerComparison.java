@@ -101,7 +101,7 @@ public class ControllerComparison extends Worker {
     List<String> terrainNames = l(a("terrain", "flat"));
     List<String> evolverMapperNames = l(a("evolver", "mlp-0.65-cmaes"));
     List<String> bodyNames = l(a("body", "biped-4x3-f-f"));
-    List<String> transformationNames = l(a("transformations", "breakable-area-1000/500-1/0.5-rnd,identity"));
+    List<String> transformationNames = l(a("transformations", "identity"));
     List<String> robotMapperNames = l(a("mapper", "centralized"));
     Locomotion.Metric fitnessMetric = Locomotion.Metric.valueOf(a("fitnessMetric", Locomotion.Metric.TRAVELED_X_DISTANCE.name().toLowerCase()).toUpperCase());
     List<Locomotion.Metric> allMetrics = l(a("metrics", List.of(Locomotion.Metric.values()).stream().map(m -> m.name().toLowerCase()).collect(Collectors.joining(",")))).stream()
