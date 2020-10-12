@@ -19,7 +19,7 @@ package it.units.erallab;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import it.units.erallab.hmsrobots.core.objects.Robot;
-import it.units.erallab.hmsrobots.tasks.Locomotion;
+import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
 import it.units.erallab.hmsrobots.util.Grid;
 import it.units.erallab.hmsrobots.util.Utils;
 import it.units.erallab.hmsrobots.viewers.*;
@@ -133,7 +133,6 @@ public class VideoMaker {
     Locomotion locomotion = new Locomotion(
         episodeTime,
         Locomotion.createTerrain(terrainName),
-        Lists.newArrayList(Locomotion.Metric.TRAVELED_X_DISTANCE),
         new Settings()
     );
     //do simulations

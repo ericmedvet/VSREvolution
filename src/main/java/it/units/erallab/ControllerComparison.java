@@ -23,8 +23,11 @@ import it.units.erallab.hmsrobots.core.controllers.MultiLayerPerceptron;
 import it.units.erallab.hmsrobots.core.controllers.PhaseSin;
 import it.units.erallab.hmsrobots.core.objects.Robot;
 import it.units.erallab.hmsrobots.core.objects.SensingVoxel;
-import it.units.erallab.hmsrobots.tasks.Locomotion;
+import it.units.erallab.hmsrobots.tasks.locomotion.Footprint;
+import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
+import it.units.erallab.hmsrobots.tasks.locomotion.Outcome;
 import it.units.erallab.hmsrobots.util.Grid;
+import it.units.erallab.hmsrobots.util.Point2;
 import it.units.erallab.hmsrobots.util.Utils;
 import it.units.malelab.jgea.Worker;
 import it.units.malelab.jgea.core.Individual;
@@ -64,6 +67,7 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static it.units.malelab.jgea.core.util.Args.*;
 
@@ -103,14 +107,13 @@ public class ControllerComparison extends Worker {
     List<String> bodyNames = l(a("body", "biped-4x3-f-f"));
     List<String> transformationNames = l(a("transformations", "identity"));
     List<String> robotMapperNames = l(a("mapper", "centralized"));
-    Locomotion.Metric fitnessMetric = Locomotion.Metric.valueOf(a("fitnessMetric", Locomotion.Metric.TRAVELED_X_DISTANCE.name().toLowerCase()).toUpperCase());
-    List<Locomotion.Metric> allMetrics = l(a("metrics", List.of(Locomotion.Metric.values()).stream().map(m -> m.name().toLowerCase()).collect(Collectors.joining(",")))).stream()
-        .map(String::toUpperCase)
-        .map(Locomotion.Metric::valueOf)
-        .collect(Collectors.toList());
-    if (!allMetrics.contains(fitnessMetric)) {
-      allMetrics.add(fitnessMetric);
-    }
+    Function<Outcome, Double> fitnessFunction = Outcome::getCorrectedEfficiency;
+    List<String> validationOutcomeHeaders = DataCollector.fromBean(
+        prototypeOutcome(),
+        true,
+        Map.of(Double.TYPE, "%5.3f", List.class, "%30.30s"),
+        Map.of(List.class, Object::toString)
+    ).stream().map(Item::getName).collect(Collectors.toList());
     List<String> validationTransformationNames = l(a("validationTransformations", "")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
     List<String> validationTerrainNames = l(a("validationTerrains", "")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
     if (!validationTerrainNames.isEmpty() && validationTransformationNames.isEmpty()) {
@@ -142,7 +145,7 @@ public class ControllerComparison extends Worker {
       List<String> headers = new ArrayList<>();
       headers.addAll(validationKeyHeaders);
       headers.addAll(List.of("validation.transformation", "validation.terrain"));
-      headers.addAll(allMetrics.stream().map(m -> m.toString().toLowerCase()).collect(Collectors.toList()));
+      headers.addAll(validationOutcomeHeaders.stream().map(n -> "validation." + n).collect(Collectors.toList()));
       validationPrinter.printRecord(headers);
     } catch (IOException e) {
       L.severe(String.format("Cannot create printer for validation results due to %s", e));
@@ -173,13 +176,12 @@ public class ControllerComparison extends Worker {
                 ));
                 Grid<? extends SensingVoxel> body = Utils.buildBody(bodyName);
                 //build training task
-                Function<Robot<?>, List<Double>> trainingTask = Misc.cached(
+                Function<Robot<?>, Outcome> trainingTask = Misc.cached(
                     Utils.buildRobotTransformation(
                         transformationName.replace("rnd", Integer.toString(random.nextInt(10000)))
                     ).andThen(new Locomotion(
                         episodeTime,
                         Locomotion.createTerrain(terrainName),
-                        allMetrics,
                         physicsSettings
                     )), CACHE_SIZE);
                 //build main data collectors for listener
@@ -192,7 +194,13 @@ public class ControllerComparison extends Worker {
                     new FunctionOfOneBest<>(
                         ((Function<Individual<?, ? extends Robot<SensingVoxel>, ? extends Double>, Robot<SensingVoxel>>) Individual::getSolution)
                             .andThen(org.apache.commons.lang3.SerializationUtils::clone)
-                            .andThen(metrics(allMetrics, "training", trainingTask, "%6.2f"))
+                            .andThen(trainingTask)
+                            .andThen(o -> DataCollector.fromBean(
+                                o,
+                                true,
+                                Map.of(Double.TYPE, "%5.3f", List.class, "%30.30s"),
+                                Map.of(List.class, Object::toString)
+                            ))
                     )
                 ));
                 Listener<? super Object, ? super Robot<?>, ? super Double> listener;
@@ -218,7 +226,7 @@ public class ControllerComparison extends Worker {
                   Evolver<?, Robot<?>, Double> evolver = buildEvolverMapper(evolverMapperName).apply(buildRobotMapper(robotMapperName), body);
                   //optimize
                   Collection<Robot<?>> solutions = evolver.solve(
-                      trainingTask.andThen(values -> values.get(allMetrics.indexOf(fitnessMetric))),
+                      trainingTask.andThen(fitnessFunction),
                       new Births(nBirths),
                       random,
                       executorService,
@@ -236,16 +244,15 @@ public class ControllerComparison extends Worker {
                   for (String validationTransformationName : validationTransformationNames) {
                     for (String validationTerrainName : validationTerrainNames) {
                       //build validation task
-                      Function<Robot<?>, List<Double>> validationTask = new Locomotion(
+                      Function<Robot<?>, Outcome> validationTask = new Locomotion(
                           episodeTime,
                           Locomotion.createTerrain(validationTerrainName),
-                          allMetrics,
                           physicsSettings
                       );
                       validationTask = Utils.buildRobotTransformation(validationTransformationName)
                           .andThen(org.apache.commons.lang3.SerializationUtils::clone)
                           .andThen(validationTask);
-                      List<Double> metrics = validationTask.apply(solutions.stream().findFirst().get());
+                      Outcome validationOutcome = validationTask.apply(solutions.stream().findFirst().get());
                       L.info(String.format(
                           "Validation %s/%s of \"first\" best done",
                           validationTransformationName,
@@ -255,7 +262,20 @@ public class ControllerComparison extends Worker {
                         List<Object> values = new ArrayList<>();
                         values.addAll(validationKeyHeaders.stream().map(keys::get).collect(Collectors.toList()));
                         values.addAll(List.of(validationTransformationName, validationTerrainName));
-                        values.addAll(metrics);
+                        List<Item> validationItems = DataCollector.fromBean(
+                            validationOutcome,
+                            true,
+                            Map.of(Double.TYPE, "%5.3f"),
+                            Map.of(List.class, Object::toString)
+                        );
+                        values.addAll(validationOutcomeHeaders.stream()
+                            .map(n -> validationItems.stream()
+                                .filter(i -> i.getName().equals(n))
+                                .map(Item::getValue)
+                                .findFirst()
+                                .orElse(null))
+                            .collect(Collectors.toList())
+                        );
                         validationPrinter.printRecord(values);
                         validationPrinter.flush();
                       } catch (IOException e) {
@@ -312,21 +332,6 @@ public class ControllerComparison extends Worker {
       );
     }
     throw new IllegalArgumentException(String.format("Unknown mapper name: %s", name));
-  }
-
-  private static Function<Robot<?>, List<Item>> metrics(List<Locomotion.Metric> metrics, String prefix, Function<Robot<?>, List<Double>> task, String format) {
-    return individual -> {
-      List<Double> values = task.apply(individual);
-      List<Item> items = new ArrayList<>(metrics.size());
-      for (int i = 0; i < metrics.size(); i++) {
-        items.add(new Item(
-            prefix + "." + metrics.get(i).name().toLowerCase(),
-            values.get(i),
-            format
-        ));
-      }
-      return items;
-    };
   }
 
   private static EvolverMapper buildEvolverMapper(String name) {
@@ -509,6 +514,18 @@ public class ControllerComparison extends Worker {
       );
     }
     throw new IllegalArgumentException(String.format("Unknown evolver name: %s", name));
+  }
+
+  private static Outcome prototypeOutcome() {
+    return new Outcome(
+        0d, 10d, 0d, 0d, 0d,
+        new TreeMap<>(Map.of(0d, Point2.build(0d, 0d))),
+        new TreeMap<>(IntStream.range(0, 100).boxed().collect(Collectors.toMap(
+            i -> (double) i / 10d,
+            i -> new Footprint(new boolean[]{true, false, true}))
+        )),
+        new TreeMap<>(Map.of(0d, Grid.create(1, 1, true)))
+    );
   }
 
 }
