@@ -117,12 +117,14 @@ public class ControllerComparison extends Worker {
             Grid.class, "%30.30s"
         ),
         Map.of(
-            List.class, l -> ((List<?>) l).stream().map(Object::toString).collect(Collectors.joining(";")),
+            List.class, l -> ((List<?>) l).stream()
+                .map(Object::toString)
+                .collect(Collectors.joining("|")),
             Grid.class, g -> Grid.create((Grid<Boolean>) g, b -> b ? 'o' : '.').rows().stream()
                 .map(r -> r.stream()
                     .map(c -> Character.toString(c))
                     .collect(Collectors.joining()))
-                .collect(Collectors.joining(";"))
+                .collect(Collectors.joining("|"))
         )
     );
     List<String> validationOutcomeHeaders = outcomeTransformer.apply(prototypeOutcome()).stream().map(Item::getName).collect(Collectors.toList());
@@ -521,7 +523,10 @@ public class ControllerComparison extends Worker {
   private static Outcome prototypeOutcome() {
     return new Outcome(
         0d, 10d, 0d, 0d, 0d,
-        new TreeMap<>(Map.of(0d, Point2.build(0d, 0d))),
+        new TreeMap<>(IntStream.range(0, 100).boxed().collect(Collectors.toMap(
+            i -> (double) i / 10d,
+            i -> Point2.build(Math.sin((double) i / 10d), Math.sin((double) i / 5d))
+        ))),
         new TreeMap<>(IntStream.range(0, 100).boxed().collect(Collectors.toMap(
             i -> (double) i / 10d,
             i -> new Footprint(new boolean[]{true, false, true}))
