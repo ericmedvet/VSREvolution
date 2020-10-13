@@ -108,14 +108,26 @@ public class ControllerComparison extends Worker {
     List<String> transformationNames = l(a("transformations", "identity"));
     List<String> robotMapperNames = l(a("mapper", "centralized"));
     Function<Outcome, Double> fitnessFunction = Outcome::getCorrectedEfficiency;
-    List<String> validationOutcomeHeaders = DataCollector.fromBean(
-        prototypeOutcome(),
+    Function<Outcome, List<Item>> outcomeTransformer = o -> DataCollector.fromBean(
+        o,
         true,
-        Map.of(Double.TYPE, "%5.3f", List.class, "%30.30s"),
-        Map.of(List.class, Object::toString)
-    ).stream().map(Item::getName).collect(Collectors.toList());
+        Map.of(
+            Double.TYPE, "%5.3f",
+            List.class, "%30.30s",
+            Grid.class, "%30.30s"
+        ),
+        Map.of(
+            List.class, l -> ((List<?>) l).stream().map(Object::toString).collect(Collectors.joining(";")),
+            Grid.class, g -> Grid.create((Grid<Boolean>) g, b -> b ? 'o' : '.').rows().stream()
+                .map(r -> r.stream()
+                    .map(c -> Character.toString(c))
+                    .collect(Collectors.joining()))
+                .collect(Collectors.joining(";"))
+        )
+    );
+    List<String> validationOutcomeHeaders = outcomeTransformer.apply(prototypeOutcome()).stream().map(Item::getName).collect(Collectors.toList());
     List<String> validationTransformationNames = l(a("validationTransformations", "")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
-    List<String> validationTerrainNames = l(a("validationTerrains", "")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
+    List<String> validationTerrainNames = l(a("validationTerrains", "flat")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
     if (!validationTerrainNames.isEmpty() && validationTransformationNames.isEmpty()) {
       validationTransformationNames.add("identity");
     }
@@ -195,12 +207,7 @@ public class ControllerComparison extends Worker {
                         ((Function<Individual<?, ? extends Robot<SensingVoxel>, ? extends Double>, Robot<SensingVoxel>>) Individual::getSolution)
                             .andThen(org.apache.commons.lang3.SerializationUtils::clone)
                             .andThen(trainingTask)
-                            .andThen(o -> DataCollector.fromBean(
-                                o,
-                                true,
-                                Map.of(Double.TYPE, "%5.3f", List.class, "%30.30s"),
-                                Map.of(List.class, Object::toString)
-                            ))
+                            .andThen(outcomeTransformer)
                     )
                 ));
                 Listener<? super Object, ? super Robot<?>, ? super Double> listener;
@@ -262,12 +269,7 @@ public class ControllerComparison extends Worker {
                         List<Object> values = new ArrayList<>();
                         values.addAll(validationKeyHeaders.stream().map(keys::get).collect(Collectors.toList()));
                         values.addAll(List.of(validationTransformationName, validationTerrainName));
-                        List<Item> validationItems = DataCollector.fromBean(
-                            validationOutcome,
-                            true,
-                            Map.of(Double.TYPE, "%5.3f"),
-                            Map.of(List.class, Object::toString)
-                        );
+                        List<Item> validationItems = outcomeTransformer.apply(validationOutcome);
                         values.addAll(validationOutcomeHeaders.stream()
                             .map(n -> validationItems.stream()
                                 .filter(i -> i.getName().equals(n))
