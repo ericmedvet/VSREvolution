@@ -28,13 +28,13 @@ import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
 import it.units.erallab.hmsrobots.tasks.locomotion.Outcome;
 import it.units.erallab.hmsrobots.util.Grid;
 import it.units.erallab.hmsrobots.util.Point2;
-import it.units.erallab.hmsrobots.util.Utils;
 import it.units.malelab.jgea.Worker;
 import it.units.malelab.jgea.core.Individual;
 import it.units.malelab.jgea.core.evolver.*;
 import it.units.malelab.jgea.core.evolver.stopcondition.Births;
+import it.units.malelab.jgea.core.listener.FileListenerFactory;
 import it.units.malelab.jgea.core.listener.Listener;
-import it.units.malelab.jgea.core.listener.MultiFileListenerFactory;
+import it.units.malelab.jgea.core.listener.ListnerFactory;
 import it.units.malelab.jgea.core.listener.collector.*;
 import it.units.malelab.jgea.core.order.PartialComparator;
 import it.units.malelab.jgea.core.selector.Tournament;
@@ -99,7 +99,8 @@ public class ControllerComparison extends Worker {
 
   @Override
   public void run() {
-    int nOfFrequencies = 5;
+    int nOfModes = 5;
+    Settings physicsSettings = new Settings();
     double episodeTime = d(a("episodeT", "30"));
     int nBirths = i(a("nBirths", "500"));
     int[] seeds = ri(a("seed", "0:1"));
@@ -109,7 +110,7 @@ public class ControllerComparison extends Worker {
     List<String> transformationNames = l(a("transformations", "identity"));
     List<String> robotMapperNames = l(a("mapper", "centralized"));
     Function<Outcome, Double> fitnessFunction = Outcome::getVelocity;
-    Function<Outcome, List<Item>> outcomeTransformer = o -> concat(
+    Function<Outcome, List<Item>> outcomeTransformer = o -> Utils.concat(
         List.of(
             new Item("area.ratio.power", o.getAreaRatioPower(), "%5.1f"),
             new Item("control.power", o.getControlPower(), "%5.1f"),
@@ -122,7 +123,7 @@ public class ControllerComparison extends Worker {
                 "%10.10s"
             )
         ),
-        ifThenElse(
+        Utils.ifThenElse(
             (Predicate<Outcome.Gait>) Objects::isNull,
             g -> new ArrayList<Item>(),
             g -> List.of(
@@ -130,27 +131,28 @@ public class ControllerComparison extends Worker {
                 new Item("gait.coverage", g.getCoverage(), "%4.2f"),
                 new Item("gait.mode.interval", g.getModeInterval(), "%3.1f"),
                 new Item("gait.purity", g.getPurity(), "%4.2f"),
-                new Item("gait.num.footprints", g.getNOfUniqueFootprints(), "%2d"),
-                new Item("gait.footprints", g.getFootprints().stream().map(Footprint::toString).collect(Collectors.joining("|")), "%40.40s")
+                new Item("gait.num.unique.footprints", g.getFootprints().stream().distinct().count(), "%2d"),
+                new Item("gait.num.footprints", g.getFootprints().size(), "%2d"),
+                new Item("gait.footprints", g.getFootprints().stream().map(Footprint::toString).collect(Collectors.joining("|")), "%10.10s")
             )
         ).apply(o.getMainGait()),
-        index(o.getMainFrequencies(Outcome.Component.X)).entrySet().stream()
+        Utils.index(o.getCenterModes(Outcome.Component.X)).entrySet().stream()
             .sorted(Map.Entry.comparingByKey())
-            .limit(nOfFrequencies)
+            .limit(nOfModes)
             .map(e -> List.of(
                 new Item(String.format("mode.x.%d.f", e.getKey() + 1), e.getValue().getFrequency(), "%3.1f"),
                 new Item(String.format("mode.x.%d.s", e.getKey() + 1), e.getValue().getStrength(), "%4.1f")
             ))
-            .reduce(ControllerComparison::concat)
+            .reduce(Utils::concat)
             .orElse(List.of()),
-        index(o.getMainFrequencies(Outcome.Component.Y)).entrySet().stream()
+        Utils.index(o.getCenterModes(Outcome.Component.Y)).entrySet().stream()
             .sorted(Map.Entry.comparingByKey())
-            .limit(nOfFrequencies)
+            .limit(nOfModes)
             .map(e -> List.of(
                 new Item(String.format("mode.y.%d.f", e.getKey() + 1), e.getValue().getFrequency(), "%3.1f"),
                 new Item(String.format("mode.y.%d.s", e.getKey() + 1), e.getValue().getStrength(), "%4.1f")
             ))
-            .reduce(ControllerComparison::concat)
+            .reduce(Utils::concat)
             .orElse(List.of())
     );
     List<String> validationOutcomeHeaders = outcomeTransformer.apply(prototypeOutcome()).stream().map(Item::getName).collect(Collectors.toList());
@@ -162,16 +164,11 @@ public class ControllerComparison extends Worker {
     if (validationTerrainNames.isEmpty() && !validationTransformationNames.isEmpty()) {
       validationTerrainNames.add(terrainNames.get(0));
     }
-    Settings physicsSettings = new Settings();
     //prepare file listeners
-    MultiFileListenerFactory<Object, Robot<?>, Double> statsListenerFactory = new MultiFileListenerFactory<>(
-        a("dir", "."),
-        a("statsFile", null)
-    );
-    MultiFileListenerFactory<Object, Robot<?>, Double> serializedListenerFactory = new MultiFileListenerFactory<>(
-        a("dir", "."),
-        a("serializedFile", null)
-    );
+    String statsFileName = a("statsFile", null) == null ? null : a("dir", ".") + File.separator + a("statsFile", null);
+    String serializedFileName = a("serializedFile", null) == null ? null : a("dir", ".") + File.separator + a("serializedFile", null);
+    ListnerFactory<Object, Robot<?>, Double> statsListenerFactory = new FileListenerFactory<>(statsFileName);
+    ListnerFactory<Object, Robot<?>, Double> serializedListenerFactory = new FileListenerFactory<>(serializedFileName);
     CSVPrinter validationPrinter;
     List<String> validationKeyHeaders = List.of("seed", "terrain", "body", "mapper", "transformation", "evolver");
     try {
@@ -214,10 +211,10 @@ public class ControllerComparison extends Worker {
                     "transformation", transformationName,
                     "evolver", evolverMapperName
                 ));
-                Grid<? extends SensingVoxel> body = Utils.buildBody(bodyName);
+                Grid<? extends SensingVoxel> body = it.units.erallab.hmsrobots.util.Utils.buildBody(bodyName);
                 //build training task
                 Function<Robot<?>, Outcome> trainingTask = Misc.cached(
-                    Utils.buildRobotTransformation(
+                    it.units.erallab.hmsrobots.util.Utils.buildRobotTransformation(
                         transformationName.replace("rnd", Integer.toString(random.nextInt(10000)))
                     ).andThen(new Locomotion(
                         episodeTime,
@@ -239,19 +236,19 @@ public class ControllerComparison extends Worker {
                     )
                 ));
                 Listener<? super Object, ? super Robot<?>, ? super Double> listener;
-                if (statsListenerFactory.getBaseFileName() == null) {
+                if (statsFileName == null) {
                   listener = listener(collectors.toArray(DataCollector[]::new));
                 } else {
                   listener = statsListenerFactory.build(collectors.toArray(DataCollector[]::new));
                 }
-                if (serializedListenerFactory.getBaseFileName() != null) {
+                if (serializedFileName != null) {
                   listener = serializedListenerFactory.build(
                       new Static(keys),
                       new Basic(),
                       new FunctionOfOneBest<>(i -> List.of(
                           new Item("fitness.value", i.getFitness(), "%7.5f"),
-                          new Item("serialized.robot", SerializationUtils.safelySerialize(i.getSolution()), "%s"),
-                          new Item("serialized.genotype", SerializationUtils.safelySerialize((Serializable) i.getGenotype()), "%s")
+                          new Item("serialized.robot", Utils.safelySerialize(i.getSolution()), "%s"),
+                          new Item("serialized.genotype", Utils.safelySerialize((Serializable) i.getGenotype()), "%s")
                       ))
                   ).then(listener);
                 }
@@ -284,7 +281,7 @@ public class ControllerComparison extends Worker {
                           Locomotion.createTerrain(validationTerrainName),
                           physicsSettings
                       );
-                      validationTask = Utils.buildRobotTransformation(validationTransformationName)
+                      validationTask = it.units.erallab.hmsrobots.util.Utils.buildRobotTransformation(validationTransformationName)
                           .andThen(org.apache.commons.lang3.SerializationUtils::clone)
                           .andThen(validationTask);
                       Outcome validationOutcome = validationTask.apply(solutions.stream().findFirst().get());
@@ -350,7 +347,7 @@ public class ControllerComparison extends Worker {
           body -> Pair.of(2, 1),
           body -> f -> new Robot<>(
               new PhaseSin(
-                  -Double.parseDouble(Utils.paramValue(phases, name, "f")),
+                  -Double.parseDouble(it.units.erallab.hmsrobots.util.Utils.paramValue(phases, name, "f")),
                   1d,
                   Grid.create(
                       body.getW(),
@@ -372,8 +369,8 @@ public class ControllerComparison extends Worker {
     String graphea = "fgraph-hash\\+-speciated-(?<nPop>\\d+)";
     String grapheaNoXOver = "fgraph-seq-noxover-(?<nPop>\\d+)";
     if (name.matches(mlpGa)) {
-      double ratioOfFirstLayer = Double.parseDouble(Utils.paramValue(mlpGa, name, "h"));
-      int nPop = Integer.parseInt(Utils.paramValue(mlpGa, name, "nPop"));
+      double ratioOfFirstLayer = Double.parseDouble(it.units.erallab.hmsrobots.util.Utils.paramValue(mlpGa, name, "h"));
+      int nPop = Integer.parseInt(it.units.erallab.hmsrobots.util.Utils.paramValue(mlpGa, name, "nPop"));
       return (p, body) -> new StandardEvolver<>(
           ((Function<List<Double>, MultiLayerPerceptron>) ws -> new MultiLayerPerceptron(
               MultiLayerPerceptron.ActivationFunction.TANH,
@@ -403,8 +400,8 @@ public class ControllerComparison extends Worker {
       );
     }
     if (name.matches(mlpGaDiv)) {
-      double ratioOfFirstLayer = Double.parseDouble(Utils.paramValue(mlpGaDiv, name, "h"));
-      int nPop = Integer.parseInt(Utils.paramValue(mlpGaDiv, name, "nPop"));
+      double ratioOfFirstLayer = Double.parseDouble(it.units.erallab.hmsrobots.util.Utils.paramValue(mlpGaDiv, name, "h"));
+      int nPop = Integer.parseInt(it.units.erallab.hmsrobots.util.Utils.paramValue(mlpGaDiv, name, "nPop"));
       return (p, body) -> new StandardWithEnforcedDiversityEvolver<>(
           ((Function<List<Double>, MultiLayerPerceptron>) ws -> new MultiLayerPerceptron(
               MultiLayerPerceptron.ActivationFunction.TANH,
@@ -435,7 +432,7 @@ public class ControllerComparison extends Worker {
       );
     }
     if (name.matches(mlpCmaEs)) {
-      double ratioOfFirstLayer = Double.parseDouble(Utils.paramValue(mlpCmaEs, name, "h"));
+      double ratioOfFirstLayer = Double.parseDouble(it.units.erallab.hmsrobots.util.Utils.paramValue(mlpCmaEs, name, "h"));
       return (p, body) -> new CMAESEvolver<>(
           ((Function<List<Double>, MultiLayerPerceptron>) ws -> new MultiLayerPerceptron(
               MultiLayerPerceptron.ActivationFunction.TANH,
@@ -456,7 +453,7 @@ public class ControllerComparison extends Worker {
       );
     }
     if (name.matches(graphea)) {
-      int nPop = Integer.parseInt(Utils.paramValue(graphea, name, "nPop"));
+      int nPop = Integer.parseInt(it.units.erallab.hmsrobots.util.Utils.paramValue(graphea, name, "nPop"));
       return (p, body) -> {
         Function<Graph<IndexedNode<Node>, Double>, Graph<Node, Double>> graphMapper = GraphUtils.mapper(
             IndexedNode::content,
@@ -508,7 +505,7 @@ public class ControllerComparison extends Worker {
       };
     }
     if (name.matches(grapheaNoXOver)) {
-      int nPop = Integer.parseInt(Utils.paramValue(grapheaNoXOver, name, "nPop"));
+      int nPop = Integer.parseInt(it.units.erallab.hmsrobots.util.Utils.paramValue(grapheaNoXOver, name, "nPop"));
       return (p, body) -> new SpeciatedEvolver<>(
           FunctionGraph.builder().andThen(fg -> p.second().apply(body).apply(fg)),
           new ShallowSparseFactory(
@@ -559,27 +556,6 @@ public class ControllerComparison extends Worker {
         )),
         new TreeMap<>(Map.of(0d, Grid.create(1, 1, true)))
     );
-  }
-
-  @SafeVarargs
-  private static <K> List<K> concat(List<K>... lists) {
-    List<K> all = new ArrayList<>();
-    for (List<K> list : lists) {
-      all.addAll(list);
-    }
-    return all;
-  }
-
-  private static <K, T> Function<K, T> ifThenElse(Predicate<K> predicate, Function<K, T> thenFunction, Function<K, T> elseFunction) {
-    return k -> predicate.test(k) ? thenFunction.apply(k) : elseFunction.apply(k);
-  }
-
-  private static <K> SortedMap<Integer, K> index(List<K> list) {
-    SortedMap<Integer, K> map = new TreeMap<>();
-    for (int i = 0; i < list.size(); i++) {
-      map.put(i, list.get(i));
-    }
-    return map;
   }
 
 }
