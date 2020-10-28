@@ -32,6 +32,7 @@ import it.units.malelab.jgea.Worker;
 import it.units.malelab.jgea.core.Individual;
 import it.units.malelab.jgea.core.evolver.*;
 import it.units.malelab.jgea.core.evolver.stopcondition.Births;
+import it.units.malelab.jgea.core.fitness.SequencedFitness;
 import it.units.malelab.jgea.core.listener.FileListenerFactory;
 import it.units.malelab.jgea.core.listener.Listener;
 import it.units.malelab.jgea.core.listener.ListnerFactory;
@@ -78,7 +79,7 @@ import static it.units.malelab.jgea.core.util.Args.*;
  */
 public class ControllerComparison extends Worker {
 
-  public static final int CACHE_SIZE = 10000;
+  public static final int CACHE_SIZE = 1000;
 
   public ControllerComparison(String[] args) {
     super(args);
@@ -109,7 +110,10 @@ public class ControllerComparison extends Worker {
     List<String> bodyNames = l(a("body", "biped-4x2-f-f"));
     List<String> transformationNames = l(a("transformations", "identity"));
     List<String> robotMapperNames = l(a("mapper", "centralized"));
-    Function<Outcome, Double> fitnessFunction = Outcome::getVelocity;
+    Function<Outcome, Double> fitnessFunction = new SequencedFitness<>(Map.of(
+        1000L, Outcome::getVelocity,
+        50000L, Outcome::getCorrectedEfficiency
+    ));
     Function<Outcome, List<Item>> outcomeTransformer = o -> Utils.concat(
         List.of(
             new Item("area.ratio.power", o.getAreaRatioPower(), "%5.1f"),
@@ -213,21 +217,23 @@ public class ControllerComparison extends Worker {
                 ));
                 Grid<? extends SensingVoxel> body = it.units.erallab.hmsrobots.util.Utils.buildBody(bodyName);
                 //build training task
-                Function<Robot<?>, Outcome> trainingTask = Misc.cached(
-                    it.units.erallab.hmsrobots.util.Utils.buildRobotTransformation(
-                        transformationName.replace("rnd", Integer.toString(random.nextInt(10000)))
-                    ).andThen(new Locomotion(
-                        episodeTime,
-                        Locomotion.createTerrain(terrainName),
-                        physicsSettings
-                    )), CACHE_SIZE);
+                Function<Robot<?>, Outcome> trainingTask = it.units.erallab.hmsrobots.util.Utils.buildRobotTransformation(
+                    transformationName.replace("rnd", Integer.toString(random.nextInt(10000)))
+                ).andThen(new Locomotion(
+                    episodeTime,
+                    Locomotion.createTerrain(terrainName),
+                    physicsSettings
+                ));
+                if (CACHE_SIZE > 0) {
+                  trainingTask = Misc.cached(trainingTask, CACHE_SIZE);
+                }
                 //build main data collectors for listener
                 List<DataCollector<?, ? super Robot<SensingVoxel>, ? super Double>> collectors = new ArrayList<DataCollector<?, ? super Robot<SensingVoxel>, ? super Double>>(List.of(
                     new Static(keys),
                     new Basic(),
                     new Population(),
                     new Diversity(),
-                    new BestInfo("%6.4f"),
+                    new BestInfo("%5.3f"),
                     new FunctionOfOneBest<>(
                         ((Function<Individual<?, ? extends Robot<SensingVoxel>, ? extends Double>, Robot<SensingVoxel>>) Individual::getSolution)
                             .andThen(org.apache.commons.lang3.SerializationUtils::clone)
