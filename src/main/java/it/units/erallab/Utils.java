@@ -16,12 +16,24 @@
 
 package it.units.erallab;
 
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.PropertyAccessor;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import it.units.erallab.hmsrobots.core.controllers.CentralizedSensing;
+import it.units.erallab.hmsrobots.core.controllers.MultiLayerPerceptron;
+import it.units.erallab.hmsrobots.core.objects.Robot;
+import it.units.erallab.hmsrobots.core.objects.SensingVoxel;
+import it.units.erallab.hmsrobots.util.Grid;
+
 import java.io.*;
 import java.util.*;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.IntStream;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
@@ -84,6 +96,33 @@ public class Utils {
       map.put(i, list.get(i));
     }
     return map;
+  }
+
+  public static void main(String[] args) throws JsonProcessingException {
+    Random rnd = new Random();
+    Grid<? extends SensingVoxel> body = it.units.erallab.hmsrobots.util.Utils.buildBody("biped-8x5-t-t");
+    MultiLayerPerceptron mlp = new MultiLayerPerceptron(
+        MultiLayerPerceptron.ActivationFunction.RELU,
+        CentralizedSensing.nOfInputs(body),
+        new int[]{(int) Math.round((double) CentralizedSensing.nOfInputs(body) * 0.65d)},
+        CentralizedSensing.nOfOutputs(body)
+    );
+    System.out.printf("weights=%d%n", mlp.getParams().length);
+    double[] ws = new double[mlp.getParams().length];
+    IntStream.range(0, ws.length).forEach(i -> ws[i] = rnd.nextDouble() * 2d - 1d);
+    mlp.setParams(ws);
+    Robot<SensingVoxel> r = new Robot<>(
+        new CentralizedSensing(body, mlp),
+        body
+    );
+    System.out.println(safelySerialize(r).length());
+    ObjectMapper om = new ObjectMapper();
+    om.disable(SerializationFeature.FAIL_ON_EMPTY_BEANS);
+    om.setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
+    om.setVisibility(PropertyAccessor.GETTER, JsonAutoDetect.Visibility.NONE);
+    System.out.println(om.writeValueAsString(body).length());
+    System.out.println(om.writeValueAsString(body));
+    System.out.println(om.writeValueAsString(body.get(0, 0)));
   }
 
 }
