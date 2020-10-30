@@ -21,6 +21,8 @@ import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
+import com.fasterxml.jackson.databind.jsontype.PolymorphicTypeValidator;
 import it.units.erallab.hmsrobots.core.controllers.CentralizedSensing;
 import it.units.erallab.hmsrobots.core.controllers.MultiLayerPerceptron;
 import it.units.erallab.hmsrobots.core.objects.Robot;
@@ -117,12 +119,21 @@ public class Utils {
     );
     System.out.println(safelySerialize(r).length());
     ObjectMapper om = new ObjectMapper();
+    om.enable(SerializationFeature.INDENT_OUTPUT);
     om.disable(SerializationFeature.FAIL_ON_EMPTY_BEANS);
     om.setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
     om.setVisibility(PropertyAccessor.GETTER, JsonAutoDetect.Visibility.NONE);
+    PolymorphicTypeValidator ptv = BasicPolymorphicTypeValidator.builder().build();
+    //om.activateDefaultTyping(ptv);
+    //om.activateDefaultTyping(ptv, ObjectMapper.DefaultTyping.NON_FINAL);
+    om.activateDefaultTyping(ptv, ObjectMapper.DefaultTyping.OBJECT_AND_NON_CONCRETE);
     System.out.println(om.writeValueAsString(body).length());
     System.out.println(om.writeValueAsString(body));
     System.out.println(om.writeValueAsString(body.get(0, 0)));
+    System.out.println(body.get(0, 0).getSensors().get(0));
+    System.out.println(om.writeValueAsString(body.get(0, 0).getSensors().get(0)));
+    System.out.println(body.get(0, 0).getSensors().get(1));
+    System.out.println(om.writeValueAsString(body.get(0, 0).getSensors().get(1)));
   }
 
 }
