@@ -252,9 +252,9 @@ public class ControllerComparison extends Worker {
                       new Static(keys),
                       new Basic(),
                       new FunctionOfOneBest<>(i -> List.of(
-                          new Item("fitness.value", i.getFitness(), "%7.5f"),
+                          new Item("fitness.value", i.getFitness(), "%7.5f")/*,
                           new Item("serialized.robot", Utils.safelySerialize(i.getSolution()), "%s"),
-                          new Item("serialized.genotype", Utils.safelySerialize((Serializable) i.getGenotype()), "%s")
+                          new Item("serialized.genotype", Utils.safelySerialize((Serializable) i.getGenotype()), "%s")*/ // TODO restore
                       ))
                   ).then(listener);
                 }

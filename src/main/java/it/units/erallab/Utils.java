@@ -16,28 +16,13 @@
 
 package it.units.erallab;
 
-import com.fasterxml.jackson.annotation.JsonAutoDetect;
-import com.fasterxml.jackson.annotation.PropertyAccessor;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
-import com.fasterxml.jackson.databind.jsontype.PolymorphicTypeValidator;
-import it.units.erallab.hmsrobots.core.controllers.CentralizedSensing;
-import it.units.erallab.hmsrobots.core.controllers.MultiLayerPerceptron;
-import it.units.erallab.hmsrobots.core.objects.Robot;
-import it.units.erallab.hmsrobots.core.objects.SensingVoxel;
-import it.units.erallab.hmsrobots.util.Grid;
-
-import java.io.*;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.stream.IntStream;
-import java.util.zip.GZIPInputStream;
-import java.util.zip.GZIPOutputStream;
 
 /**
  * @author eric
@@ -49,34 +34,6 @@ public class Utils {
   private static final Logger L = Logger.getLogger(Utils.class.getName());
 
   private Utils() {
-  }
-
-  public static String safelySerialize(Serializable object) {
-    try (
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        ObjectOutputStream oos = new ObjectOutputStream(new GZIPOutputStream(baos, true))
-    ) {
-      oos.writeObject(object);
-      oos.flush();
-      oos.close();
-      return Base64.getEncoder().encodeToString(baos.toByteArray());
-    } catch (IOException e) {
-      L.log(Level.SEVERE, String.format("Cannot serialize due to %s", e), e);
-      return "";
-    }
-  }
-
-  public static <T> T safelyDeserialize(String string, Class<T> tClass) {
-    try (
-        ByteArrayInputStream bais = new ByteArrayInputStream(Base64.getDecoder().decode(string));
-        ObjectInputStream ois = new ObjectInputStream(new GZIPInputStream(bais))
-    ) {
-      Object o = ois.readObject();
-      return (T) o;
-    } catch (IOException | ClassNotFoundException e) {
-      L.log(Level.SEVERE, String.format("Cannot deserialize due to %s", e), e);
-      return null;
-    }
   }
 
   @SafeVarargs
@@ -99,41 +56,4 @@ public class Utils {
     }
     return map;
   }
-
-  public static void main(String[] args) throws JsonProcessingException {
-    Random rnd = new Random();
-    Grid<? extends SensingVoxel> body = it.units.erallab.hmsrobots.util.Utils.buildBody("biped-8x5-t-t");
-    MultiLayerPerceptron mlp = new MultiLayerPerceptron(
-        MultiLayerPerceptron.ActivationFunction.RELU,
-        CentralizedSensing.nOfInputs(body),
-        new int[]{(int) Math.round((double) CentralizedSensing.nOfInputs(body) * 0.65d)},
-        CentralizedSensing.nOfOutputs(body)
-    );
-    System.out.printf("weights=%d%n", mlp.getParams().length);
-    double[] ws = new double[mlp.getParams().length];
-    IntStream.range(0, ws.length).forEach(i -> ws[i] = rnd.nextDouble() * 2d - 1d);
-    mlp.setParams(ws);
-    Robot<SensingVoxel> r = new Robot<>(
-        new CentralizedSensing(body, mlp),
-        body
-    );
-    System.out.println(safelySerialize(r).length());
-    ObjectMapper om = new ObjectMapper();
-    om.enable(SerializationFeature.INDENT_OUTPUT);
-    om.disable(SerializationFeature.FAIL_ON_EMPTY_BEANS);
-    om.setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
-    om.setVisibility(PropertyAccessor.GETTER, JsonAutoDetect.Visibility.NONE);
-    PolymorphicTypeValidator ptv = BasicPolymorphicTypeValidator.builder().build();
-    //om.activateDefaultTyping(ptv);
-    //om.activateDefaultTyping(ptv, ObjectMapper.DefaultTyping.NON_FINAL);
-    om.activateDefaultTyping(ptv, ObjectMapper.DefaultTyping.OBJECT_AND_NON_CONCRETE);
-    System.out.println(om.writeValueAsString(body).length());
-    System.out.println(om.writeValueAsString(body));
-    System.out.println(om.writeValueAsString(body.get(0, 0)));
-    System.out.println(body.get(0, 0).getSensors().get(0));
-    System.out.println(om.writeValueAsString(body.get(0, 0).getSensors().get(0)));
-    System.out.println(body.get(0, 0).getSensors().get(1));
-    System.out.println(om.writeValueAsString(body.get(0, 0).getSensors().get(1)));
-  }
-
 }

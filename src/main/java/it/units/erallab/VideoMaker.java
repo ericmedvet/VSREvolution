@@ -124,7 +124,8 @@ public class VideoMaker {
                 .filter(e -> relevantKeys.contains(e.getKey()))
                 .map(e -> e.toString())
                 .collect(Collectors.joining("\n")),
-            it.units.erallab.hmsrobots.util.Utils.buildRobotTransformation(transformationName).apply(Utils.safelyDeserialize(r.get(0).get(serializedRobotColumn), Robot.class))
+            null // TODO restore
+            //it.units.erallab.hmsrobots.util.Utils.buildRobotTransformation(transformationName).apply(Utils.safelyDeserialize(r.get(0).get(serializedRobotColumn), Robot.class))
         )
     );
     //prepare problem
