@@ -20,6 +20,7 @@ import com.google.common.collect.Sets;
 import it.units.erallab.hmsrobots.core.objects.Robot;
 import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
 import it.units.erallab.hmsrobots.util.Grid;
+import it.units.erallab.hmsrobots.util.SerializationUtils;
 import it.units.erallab.hmsrobots.viewers.*;
 import it.units.erallab.hmsrobots.viewers.drawers.Ground;
 import it.units.erallab.hmsrobots.viewers.drawers.SensorReading;
@@ -73,7 +74,7 @@ public class VideoMaker {
     String transformationName = a(args, "transformation", "identity");
     double episodeTime = d(a(args, "episodeT", "30.0"));
     int w = i(a(args, "w", "1024"));
-    int h = i(a(args, "g", "768"));
+    int h = i(a(args, "h", "768"));
     int frameRate = i(a(args, "frameRate", "30"));
     //read predicates
     Map<String, Predicate<String>> globalPredicate = Arrays.stream(a(args, "globalPredicate", "").split(PREDICATE_SEP)).sequential()
@@ -124,8 +125,7 @@ public class VideoMaker {
                 .filter(e -> relevantKeys.contains(e.getKey()))
                 .map(e -> e.toString())
                 .collect(Collectors.joining("\n")),
-            null // TODO restore
-            //it.units.erallab.hmsrobots.util.Utils.buildRobotTransformation(transformationName).apply(Utils.safelyDeserialize(r.get(0).get(serializedRobotColumn), Robot.class))
+            it.units.erallab.hmsrobots.util.Utils.buildRobotTransformation(transformationName).apply(SerializationUtils.deserialize(r.get(0).get(serializedRobotColumn), Robot.class, SerializationUtils.Mode.GZIPPED_JSON))
         )
     );
     //prepare problem

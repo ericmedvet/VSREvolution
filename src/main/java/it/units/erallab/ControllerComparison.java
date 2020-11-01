@@ -28,6 +28,7 @@ import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
 import it.units.erallab.hmsrobots.tasks.locomotion.Outcome;
 import it.units.erallab.hmsrobots.util.Grid;
 import it.units.erallab.hmsrobots.util.Point2;
+import it.units.erallab.hmsrobots.util.SerializationUtils;
 import it.units.malelab.jgea.Worker;
 import it.units.malelab.jgea.core.Individual;
 import it.units.malelab.jgea.core.evolver.*;
@@ -60,7 +61,6 @@ import org.dyn4j.dynamics.Settings;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.Serializable;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -105,6 +105,7 @@ public class ControllerComparison extends Worker {
     double episodeTime = d(a("episodeT", "30"));
     int nBirths = i(a("nBirths", "500"));
     int[] seeds = ri(a("seed", "0:1"));
+    String experimentName = a("expName", "");
     List<String> terrainNames = l(a("terrain", "flat"));
     List<String> evolverMapperNames = l(a("evolver", "mlp-0.65-cmaes"));
     List<String> bodyNames = l(a("body", "biped-4x2-f-f"));
@@ -116,6 +117,8 @@ public class ControllerComparison extends Worker {
     ));
     Function<Outcome, List<Item>> outcomeTransformer = o -> Utils.concat(
         List.of(
+            new Item("computation.time", o.getComputationTime(), "%4.1f"),
+            new Item("time", o.getTime(), "%4.1f"),
             new Item("area.ratio.power", o.getAreaRatioPower(), "%5.1f"),
             new Item("control.power", o.getControlPower(), "%5.1f"),
             new Item("corrected.efficiency", o.getCorrectedEfficiency(), "%6.3f"),
@@ -193,6 +196,7 @@ public class ControllerComparison extends Worker {
       return;
     }
     //summarize params
+    L.info("Experiment name: " + experimentName);
     L.info("Evolvers: " + evolverMapperNames);
     L.info("Mappers: " + robotMapperNames);
     L.info("Bodies: " + bodyNames);
@@ -208,6 +212,7 @@ public class ControllerComparison extends Worker {
               for (String evolverMapperName : evolverMapperNames) {
                 final Random random = new Random(seed);
                 Map<String, String> keys = new TreeMap<>(Map.of(
+                    "experiment.name", experimentName,
                     "seed", Integer.toString(seed),
                     "terrain", terrainName,
                     "body", bodyName,
@@ -236,7 +241,7 @@ public class ControllerComparison extends Worker {
                     new BestInfo("%5.3f"),
                     new FunctionOfOneBest<>(
                         ((Function<Individual<?, ? extends Robot<SensingVoxel>, ? extends Double>, Robot<SensingVoxel>>) Individual::getSolution)
-                            .andThen(org.apache.commons.lang3.SerializationUtils::clone)
+                            .andThen(SerializationUtils::clone)
                             .andThen(trainingTask)
                             .andThen(outcomeTransformer)
                     )
@@ -252,9 +257,7 @@ public class ControllerComparison extends Worker {
                       new Static(keys),
                       new Basic(),
                       new FunctionOfOneBest<>(i -> List.of(
-                          new Item("fitness.value", i.getFitness(), "%7.5f")/*,
-                          new Item("serialized.robot", Utils.safelySerialize(i.getSolution()), "%s"),
-                          new Item("serialized.genotype", Utils.safelySerialize((Serializable) i.getGenotype()), "%s")*/ // TODO restore
+                          new Item("serialized.robot", SerializationUtils.serialize(i.getSolution(), SerializationUtils.Mode.GZIPPED_JSON), "%s")
                       ))
                   ).then(listener);
                 }
@@ -288,7 +291,7 @@ public class ControllerComparison extends Worker {
                           physicsSettings
                       );
                       validationTask = it.units.erallab.hmsrobots.util.Utils.buildRobotTransformation(validationTransformationName)
-                          .andThen(org.apache.commons.lang3.SerializationUtils::clone)
+                          .andThen(SerializationUtils::clone)
                           .andThen(validationTask);
                       Outcome validationOutcome = validationTask.apply(solutions.stream().findFirst().get());
                       L.info(String.format(
@@ -344,7 +347,7 @@ public class ControllerComparison extends Worker {
           body -> Pair.of(CentralizedSensing.nOfInputs(body), CentralizedSensing.nOfOutputs(body)),
           body -> f -> new Robot<>(
               new CentralizedSensing(body, f),
-              org.apache.commons.lang3.SerializationUtils.clone(body)
+              SerializationUtils.clone(body)
           )
       );
     }
@@ -360,7 +363,7 @@ public class ControllerComparison extends Worker {
                       body.getH(),
                       (x, y) -> f.apply(new double[]{(double) x / (double) body.getW(), (double) y / (double) body.getH()})[0]
                   )),
-              org.apache.commons.lang3.SerializationUtils.clone(body)
+              SerializationUtils.clone(body)
           )
       );
     }
@@ -551,7 +554,7 @@ public class ControllerComparison extends Worker {
 
   private static Outcome prototypeOutcome() {
     return new Outcome(
-        0d, 10d, 0d, 0d, 0d,
+        0d, 0d, 10d, 0d, 0d, 0d,
         new TreeMap<>(IntStream.range(0, 100).boxed().collect(Collectors.toMap(
             i -> (double) i / 10d,
             i -> Point2.build(Math.sin((double) i / 10d), Math.sin((double) i / 5d))
