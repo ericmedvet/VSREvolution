@@ -1,8 +1,13 @@
 package it.units.erallab;
 
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.regex.MatchResult;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class CsvQuerier {
 
@@ -13,13 +18,19 @@ public class CsvQuerier {
 
   private static final String VAR_NAME = "[a-zA-Z][a-zA-Z0-9.]*";
 
-  private static final Map<String, Function<String, String>> FUNCTIONS;
+  private static final Map<String, Processor> PROCESSORS;
 
   static {
-    FUNCTIONS = Map.of(
-        "quantize\\(" + VAR_NAME + ",(?<n>\\d+(\\.\\d+)?)\\)",
-        s -> s
+    PROCESSORS = new HashMap<>();
+    PROCESSORS.put(
+        "quantize\\(\\s*(" + VAR_NAME + ")\\s*,\\s*(\\d+(\\.\\d+)?)\\s*\\)",
+        args -> args[0]
     );
+  }
+
+  @FunctionalInterface
+  private interface Processor {
+    String process(String... args);
   }
 
   private static class Filter {
@@ -44,6 +55,19 @@ public class CsvQuerier {
     public Predicate<String> getPredicate() {
       return predicate;
     }
+  }
+
+  private static String[] extractParams(String string, String pattern) {
+    Matcher matcher = Pattern.compile(pattern).matcher(string);
+    System.out.println(matcher.groupCount()); //not working
+    return matcher.results().map(MatchResult::group).toArray(String[]::new);
+  }
+
+  public static void main(String[] args) {
+    String f = "quantize(x,100)";
+    PROCESSORS.keySet().stream()
+        .filter(f::matches)
+        .forEach(s -> System.out.println(Arrays.toString(extractParams(f, s))));
   }
 
 
