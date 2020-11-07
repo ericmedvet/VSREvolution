@@ -102,7 +102,7 @@ public class ControllerComparison extends Worker {
   public void run() {
     int nOfModes = 5;
     Settings physicsSettings = new Settings();
-    double episodeTime = d(a("episodeT", "30"));
+    double episodeTime = d(a("episodeTime", "30"));
     int nBirths = i(a("nBirths", "500"));
     int[] seeds = ri(a("seed", "0:1"));
     String experimentName = a("expName", "");

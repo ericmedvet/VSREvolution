@@ -50,20 +50,17 @@ public class VideoMaker {
 
   private static final Logger L = Logger.getLogger(VideoMaker.class.getName());
 
-  /* example of invocation
-    /usr/lib/jvm/jdk-14.0.1/bin/java -cp ~/IdeaProjects/VSREvolution/out/artifacts/VSREvolution_jar/VSREvolution.jar it.units.erallab.VideoMaker inputFile=vsrs-short-all-p10-t10-10.ser.txt globalPredicate=seed≡1^terrain≡uneven5^mapper≡centralized columnPredicates=evolver≡mlp-0-cmaes^body≡biped-4x3,evolver≡mlp-0-cmaes^body≡biped-cpg-4x3 rowPredicates=quant[births\;500\;2]≡0,quant[births\;500\;2]≡250,quant[births\;500\;2]≡500 transformation=identity
-   */
   public static void main(String[] args) {
     //get params
-    String inputFileName = a(args, "inputFile", "/home/eric/experiments/vsrs-stat.txt");
+    String inputFileName = a(args, "inputFile", null);
     String outputFileName = a(args, "outputFile", null);
     String serializedRobotColumn = a(args, "serializedRobotColumnName", "best.serialized.robot");
     String terrainName = a(args, "terrain", "flat");
     String transformationName = a(args, "transformation", "identity");
     double startTime = d(a(args, "startTime", "0.0"));
-    double endTime = d(a(args, "endTime", "30.0"));
-    int w = i(a(args, "w", "1024"));
-    int h = i(a(args, "h", "768"));
+    double endTime = d(a(args, "endTime", "10.0"));
+    int w = i(a(args, "w", "600"));
+    int h = i(a(args, "h", "400"));
     int frameRate = i(a(args, "frameRate", "30"));
     SerializationUtils.Mode mode = SerializationUtils.Mode.valueOf(a(args, "deserializationMode", SerializationUtils.Mode.GZIPPED_JSON.name()).toUpperCase());
     //read data
@@ -91,8 +88,20 @@ public class VideoMaker {
       }
       System.exit(-1);
     }
-    L.info(String.format("Read %d data lines from %s", records.size(), (inputFileName != null) ? inputFileName : "stdin"));
-    //TODO maybe check that col nums is appropriate
+    L.info(String.format("Read %d data lines from %s with columns %s",
+        records.size(),
+        (inputFileName != null) ? inputFileName : "stdin",
+        headers
+    ));
+    //check columns
+    if (headers.size() < 3) {
+      L.severe(String.format("Found %d columns: expected 3 or more", headers.size()));
+      System.exit(-1);
+    }
+    if (!headers.contains(serializedRobotColumn)) {
+      L.severe(String.format("Cannot find serialized robot column %s in %s", serializedRobotColumn, headers));
+      System.exit(-1);
+    }
     //find x- and y- values
     String xHeader = headers.get(0);
     String yHeader = headers.get(1);
@@ -111,14 +120,14 @@ public class VideoMaker {
         yValues.size(),
         (x, y) -> finalRecords.stream()
             .filter(r -> r.get(xHeader).equals(xValues.get(x)) && r.get(yHeader).equals(yValues.get(y)))
-            .map(r -> r.get(2))
+            .map(r -> r.get(serializedRobotColumn))
             .collect(Collectors.toList())
     );
     //build named grid of robots
     Grid<Pair<String, Robot<?>>> namedRobotGrid = Grid.create(
         rawGrid.getW(),
         rawGrid.getH(),
-        (x, y) -> Pair.of(
+        (x, y) -> rawGrid.get(x, y).isEmpty() ? null : Pair.of(
             xValues.get(x) + " " + yValues.get(y),
             it.units.erallab.hmsrobots.util.Utils.buildRobotTransformation(transformationName)
                 .apply(SerializationUtils.deserialize(rawGrid.get(x, y).get(0), Robot.class, mode))
@@ -136,16 +145,16 @@ public class VideoMaker {
     GridSnapshotListener gridSnapshotListener = null;
     if (outputFileName == null) {
       gridSnapshotListener = new GridOnlineViewer(
-          Grid.create(namedRobotGrid, Pair::getLeft),
+          Grid.create(namedRobotGrid, p -> p == null ? null : p.getLeft()),
           uiExecutor
       );
       ((GridOnlineViewer) gridSnapshotListener).start(3);
     } else {
       try {
         gridSnapshotListener = new GridFileWriter(
-            w, h, frameRate,
+            w, h, startTime, frameRate,
             new File(outputFileName),
-            Grid.create(namedRobotGrid, Pair::getLeft),
+            Grid.create(namedRobotGrid, p -> p == null ? null : p.getLeft()),
             uiExecutor,
             GraphicsDrawer.build().setConfigurable("drawers", List.of(
                 it.units.erallab.hmsrobots.viewers.drawers.Robot.build(),
