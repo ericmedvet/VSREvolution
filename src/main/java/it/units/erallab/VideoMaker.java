@@ -62,6 +62,7 @@ public class VideoMaker {
     int w = i(a(args, "w", "600"));
     int h = i(a(args, "h", "400"));
     int frameRate = i(a(args, "frameRate", "30"));
+    String encoderName = a(args, "encoder", VideoUtils.EncoderFacility.JCODEC.name());
     SerializationUtils.Mode mode = SerializationUtils.Mode.valueOf(a(args, "deserializationMode", SerializationUtils.Mode.GZIPPED_JSON.name()).toUpperCase());
     //read data
     Reader reader = null;
@@ -152,7 +153,7 @@ public class VideoMaker {
     } else {
       try {
         gridSnapshotListener = new GridFileWriter(
-            w, h, startTime, frameRate,
+            w, h, startTime, frameRate, VideoUtils.EncoderFacility.valueOf(encoderName.toUpperCase()),
             new File(outputFileName),
             Grid.create(namedRobotGrid, p -> p == null ? null : p.getLeft()),
             uiExecutor,
