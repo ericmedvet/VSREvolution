@@ -554,7 +554,7 @@ public class ControllerComparison extends Worker {
 
   private static Outcome prototypeOutcome() {
     return new Outcome(
-        0d, 0d, 10d, 0d, 0d, 0d,
+        0d, 0d, 10d, 0, 0d, 0d,
         new TreeMap<>(IntStream.range(0, 100).boxed().collect(Collectors.toMap(
             i -> (double) i / 10d,
             i -> Point2.build(Math.sin((double) i / 10d), Math.sin((double) i / 5d))

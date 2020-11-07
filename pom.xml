@@ -60,6 +60,16 @@
                     <shadedClassifierName>with-dependencies</shadedClassifierName>
                     <createDependencyReducedPom>false</createDependencyReducedPom>
                     <outputFile>${project.build.directory}/${project.artifactId}.jar</outputFile>
+                    <filters> <!-- see https://stackoverflow.com/a/6743609/1003056 -->
+                        <filter>
+                            <artifact>*:*</artifact>
+                            <excludes>
+                                <exclude>META-INF/*.SF</exclude>
+                                <exclude>META-INF/*.DSA</exclude>
+                                <exclude>META-INF/*.RSA</exclude>
+                            </excludes>
+                        </filter>
+                    </filters>
                 </configuration>
                 <executions>
                     <execution>
