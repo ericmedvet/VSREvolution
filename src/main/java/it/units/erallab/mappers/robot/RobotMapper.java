@@ -1,16 +1,15 @@
 package it.units.erallab.mappers.robot;
 
 import it.units.erallab.hmsrobots.core.objects.Robot;
-import it.units.erallab.hmsrobots.core.objects.SensingVoxel;
-import it.units.erallab.hmsrobots.util.Grid;
-import it.units.erallab.mappers.ReversableMapper;
-
-import java.util.function.Function;
+import it.units.erallab.mappers.ReversableFunction;
 
 /**
  * @author eric
  * @created 2020/12/07
  * @project VSREvolution
  */
-public interface RobotMapper<T> extends ReversableMapper<Grid<? extends SensingVoxel>, T, Robot<?>> {
+public interface RobotMapper<T> extends ReversableFunction<T, Robot<?>> {
+  default T example() {
+    return example(null);
+  }
 }

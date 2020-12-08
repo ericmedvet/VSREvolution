@@ -7,51 +7,48 @@ import it.units.erallab.hmsrobots.core.objects.SensingVoxel;
 import it.units.erallab.hmsrobots.util.Grid;
 import it.units.erallab.hmsrobots.util.SerializationUtils;
 
-import java.util.function.Function;
-
 /**
  * @author eric
  * @created 2020/12/07
  * @project VSREvolution
  */
-public class PhaseFunction implements RobotMapper<RealFunction> {
+public class PhaseFunction extends FixedBody<RealFunction> {
   private final double frequency;
   private final double amplitude;
 
-  public PhaseFunction(double frequency, double amplitude) {
+  public PhaseFunction(Grid<? extends SensingVoxel> body, double frequency, double amplitude) {
+    super(body);
     this.frequency = frequency;
     this.amplitude = amplitude;
   }
 
   @Override
-  public Function<RealFunction, Robot<?>> apply(Grid<? extends SensingVoxel> body) {
-    return function -> {
-      if (function.getInputDim() != 2) {
-        throw new IllegalArgumentException(String.format(
-            "Wrong number of function input args: 2 expected, %d found",
-            function.getInputDim()
-        ));
-      }
-      return new Robot<>(
-          new PhaseSin(
-              frequency,
-              amplitude,
-              Grid.create(
-                  body.getW(),
-                  body.getH(),
-                  (x, y) -> function.apply(new double[]{
-                      (double) x / (double) body.getW(),
-                      (double) y / (double) body.getW()}
-                  )[0]
-              )
-          ),
-          SerializationUtils.clone(body)
-      );
-    };
+  public Robot<?> apply(RealFunction function) {
+    if (function.getInputDim() != 2) {
+      throw new IllegalArgumentException(String.format(
+          "Wrong number of function input args: 2 expected, %d found",
+          function.getInputDim()
+      ));
+    }
+    return new Robot<>(
+        new PhaseSin(
+            frequency,
+            amplitude,
+            Grid.create(
+                body.getW(),
+                body.getH(),
+                (x, y) -> function.apply(new double[]{
+                    (double) x / (double) body.getW(),
+                    (double) y / (double) body.getW()}
+                )[0]
+            )
+        ),
+        SerializationUtils.clone(body)
+    );
   }
 
   @Override
-  public RealFunction example(Grid<? extends SensingVoxel> body) {
+  public RealFunction example(Robot<?> robot) {
     return RealFunction.from(2, 1, in -> new double[]{0});
   }
 }

@@ -55,5 +55,10 @@ public interface RealFunction extends Function<double[], double[]> {
     public double[] apply(double[] input) {
       return function.apply(input);
     }
+
+    @Override
+    public String toString() {
+      return String.format("f:R^%d->R^%d = %s", inputDim, outputDim, function);
+    }
   }
 }

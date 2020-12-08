@@ -5,9 +5,9 @@ import it.units.erallab.hmsrobots.core.objects.Robot;
 import it.units.erallab.hmsrobots.core.objects.SensingVoxel;
 import it.units.erallab.hmsrobots.util.Grid;
 import it.units.erallab.hmsrobots.util.Utils;
-import it.units.erallab.mappers.ReversableMapper;
-import it.units.erallab.mappers.robot.PhaseValues;
-import it.units.erallab.mappers.robot.RobotMapper;
+import it.units.erallab.mappers.MLP;
+import it.units.erallab.mappers.ReversableFunction;
+import it.units.erallab.mappers.robot.*;
 import it.units.malelab.jgea.core.Individual;
 import it.units.malelab.jgea.core.evolver.Evolver;
 import it.units.malelab.jgea.core.evolver.StandardEvolver;
@@ -21,32 +21,29 @@ import it.units.malelab.jgea.representation.sequence.numeric.UniformDoubleFactor
 
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 
 /**
  * @author eric
  * @created 2020/12/08
  * @project VSREvolution
  */
-public class Standard<T> extends Doubles<T> {
+public class DoublesStandard implements EvolverBuilder<List<Double>> {
 
   protected final int nPop;
   protected final int nTournament;
   protected final double xOverProb;
 
-  public Standard(ReversableMapper<Grid<? extends SensingVoxel>, List<Double>, T> mapper, int nPop, int nTournament, double xOverProb) {
-    super(mapper);
+  public DoublesStandard(int nPop, int nTournament, double xOverProb) {
     this.nPop = nPop;
     this.nTournament = nTournament;
     this.xOverProb = xOverProb;
   }
 
   @Override
-  public Evolver<List<Double>, Robot<?>, Double> apply(Grid<? extends SensingVoxel> body, RobotMapper<T> tRobotMapper) {
+  public <T> Evolver<List<Double>, Robot<?>, Double> build(ReversableFunction<List<Double>, T> innerMapper, RobotMapper<T> outerMapper) {
     PartialComparator<Individual<?, Robot<?>, Double>> comparator = PartialComparator.from(Double.class).reversed().comparing(Individual::getFitness);
-    Function<List<Double>, T> innerMapper = mapper.apply(body);
-    Function<T, Robot<?>> outerMapper = tRobotMapper.apply(body);
-    int length = mapper.example(body).size();
+    int length = innerMapper.example(outerMapper.example()).size();
+    System.out.println(length);
     return new StandardEvolver<>(
         innerMapper.andThen(outerMapper),
         new FixedLengthListFactory<>(length, new UniformDoubleFactory(-1d, 1d)),
@@ -64,14 +61,21 @@ public class Standard<T> extends Doubles<T> {
   }
 
   public static void main(String[] args) {
-    RobotMapper<List<Double>> robotMapper = new PhaseValues(1d, 1d);
-    EvolverMapper<List<Double>, List<Double>> evolverMapper = new Standard<>(
-        ReversableMapper.identityOn(robotMapper),
-        100,
-        5,
-        0.75d
-    );
-    Grid<? extends SensingVoxel> body = Utils.buildBody("biped-4x2-f-f");
-    Evolver<List<Double>, Robot<?>, Double> evolver = evolverMapper.apply(body, robotMapper);
+    for (int l = 5; l < 20; l++) {
+      Grid<? extends SensingVoxel> body = Utils.buildBody(String.format("biped-%dx2-f-f", l));
+      System.out.printf("l=%d%n", l);
+      new DoublesStandard(100, 5, 0.75d).build(
+          new MLP(0.65d),
+          new PhaseFunction(body, 1d, 1d)
+      );
+      new DoublesStandard(100, 5, 0.75d).build(
+          ReversableFunction.identity(),
+          new PhaseValues(body, 1d, 1d)
+      );
+      new DoublesStandard(100, 5, 0.75d).build(
+          new MLP(0.65d),
+          new Centralized(body)
+      );
+    }
   }
 }
