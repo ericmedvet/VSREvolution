@@ -90,19 +90,25 @@ public class ControllerComparison extends Worker {
   }
 
   private interface IODimMapper extends Function<Grid<? extends SensingVoxel>, Pair<Integer, Integer>> {
+    // takes a shape and returns the signature of the size that describe the controller
   }
 
   private interface RobotMapper extends Function<Grid<? extends SensingVoxel>, Function<Function<double[], double[]>, Robot<?>>> {
+    // takes a shape and returns a function that takes a function (with the signature above) and returns a robot
   }
 
   private interface EvolverMapper extends BiFunction<Pair<IODimMapper, RobotMapper>, Grid<? extends SensingVoxel>, Evolver<?, Robot<?>, Double>> {
+    // takes a pair and a shape and returns an evolver of robots
   }
 
   @Override
   public void run() {
-    int nOfModes = 5;
+    int spectrumSize = 20;
+    double spectrumMinFreq = 0d;
+    double spectrumMaxFreq = 5d;
     Settings physicsSettings = new Settings();
     double episodeTime = d(a("episodeTime", "30"));
+    double episodeTransientTime = d(a("episodeTransientTime", "5"));
     int nBirths = i(a("nBirths", "500"));
     int[] seeds = ri(a("seed", "0:1"));
     String experimentName = a("expName", "");
@@ -126,7 +132,7 @@ public class ControllerComparison extends Worker {
             new Item("velocity", o.getVelocity(), "%6.3f"),
             new Item(
                 "average.posture",
-                Grid.toString(o.getAveragePosture(), (Predicate<Boolean>) b -> b, "|"),
+                Grid.toString(o.getAveragePosture(episodeTransientTime, episodeTransientTime), (Predicate<Boolean>) b -> b, "|"),
                 "%10.10s"
             )
         ),
@@ -142,22 +148,20 @@ public class ControllerComparison extends Worker {
                 new Item("gait.num.footprints", g.getFootprints().size(), "%2d"),
                 new Item("gait.footprints", g.getFootprints().stream().map(Footprint::toString).collect(Collectors.joining("|")), "%10.10s")
             )
-        ).apply(o.getMainGait()),
-        Utils.index(o.getCenterModes(Outcome.Component.X)).entrySet().stream()
+        ).apply(o.getMainGait(episodeTransientTime, episodeTransientTime)),
+        Utils.index(o.getCenterPowerSpectrum(episodeTransientTime, episodeTransientTime, Outcome.Component.X, spectrumMinFreq, spectrumMaxFreq, spectrumSize)).entrySet().stream()
             .sorted(Map.Entry.comparingByKey())
-            .limit(nOfModes)
             .map(e -> List.of(
-                new Item(String.format("mode.x.%d.f", e.getKey() + 1), e.getValue().getFrequency(), "%3.1f"),
-                new Item(String.format("mode.x.%d.s", e.getKey() + 1), e.getValue().getStrength(), "%4.1f")
+                new Item(String.format("spectrum.x.%d.f", e.getKey() + 1), e.getValue().getFrequency(), "%3.1f"),
+                new Item(String.format("spectrum.x.%d.s", e.getKey() + 1), e.getValue().getStrength(), "%4.1f")
             ))
             .reduce(Utils::concat)
             .orElse(List.of()),
-        Utils.index(o.getCenterModes(Outcome.Component.Y)).entrySet().stream()
+        Utils.index(o.getCenterPowerSpectrum(episodeTransientTime, episodeTransientTime, Outcome.Component.X, spectrumMinFreq, spectrumMaxFreq, spectrumSize)).entrySet().stream()
             .sorted(Map.Entry.comparingByKey())
-            .limit(nOfModes)
             .map(e -> List.of(
-                new Item(String.format("mode.y.%d.f", e.getKey() + 1), e.getValue().getFrequency(), "%3.1f"),
-                new Item(String.format("mode.y.%d.s", e.getKey() + 1), e.getValue().getStrength(), "%4.1f")
+                new Item(String.format("spectrum.y.%d.f", e.getKey() + 1), e.getValue().getFrequency(), "%3.1f"),
+                new Item(String.format("spectrum.y.%d.s", e.getKey() + 1), e.getValue().getStrength(), "%4.1f")
             ))
             .reduce(Utils::concat)
             .orElse(List.of())
@@ -341,7 +345,7 @@ public class ControllerComparison extends Worker {
 
   private static Pair<IODimMapper, RobotMapper> buildRobotMapper(String name) {
     String centralized = "centralized";
-    String phases = "phases-(?<f>\\d+(\\.\\d+)?)";
+        String phases = "phases-(?<f>\\d+(\\.\\d+)?)";
     if (name.matches(centralized)) {
       return Pair.of(
           body -> Pair.of(CentralizedSensing.nOfInputs(body), CentralizedSensing.nOfOutputs(body)),
