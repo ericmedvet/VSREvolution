@@ -11,44 +11,44 @@ import java.util.function.Function;
  * @project VSREvolution
  */
 public interface RealFunction extends Function<double[], double[]> {
-  int getInputDim();
+  int getNOfInputs();
 
-  int getOutputDim();
+  int getNOfOutputs();
 
-  static RealFunction from(int inputDim, int outputDim, Function<double[], double[]> f) {
-    return new DefaultRealFunction(inputDim, outputDim, f);
+  static RealFunction from(int nOfInputs, int nOfOutputs, Function<double[], double[]> f) {
+    return new DefaultRealFunction(nOfInputs, nOfOutputs, f);
   }
 
   class DefaultRealFunction implements RealFunction {
     @JsonProperty
-    private final int inputDim;
+    private final int nOfInputs;
     @JsonProperty
-    private final int outputDim;
+    private final int nOfOutputs;
     @JsonProperty
     private final Function<double[], double[]> function;
 
     @JsonCreator
     public DefaultRealFunction(
-        @JsonProperty("inputDim")
-            int inputDim,
-        @JsonProperty("outputDim")
-            int outputDim,
+        @JsonProperty("nOfInputs")
+            int nOfInputs,
+        @JsonProperty("nOfOutputs")
+            int nOfOutputs,
         @JsonProperty("function")
             Function<double[], double[]> function
     ) {
-      this.inputDim = inputDim;
-      this.outputDim = outputDim;
+      this.nOfInputs = nOfInputs;
+      this.nOfOutputs = nOfOutputs;
       this.function = function;
     }
 
     @Override
-    public int getInputDim() {
-      return inputDim;
+    public int getNOfInputs() {
+      return nOfInputs;
     }
 
     @Override
-    public int getOutputDim() {
-      return outputDim;
+    public int getNOfOutputs() {
+      return nOfOutputs;
     }
 
     @Override
@@ -58,7 +58,7 @@ public interface RealFunction extends Function<double[], double[]> {
 
     @Override
     public String toString() {
-      return String.format("f:R^%d->R^%d = %s", inputDim, outputDim, function);
+      return String.format("f:R^%d->R^%d = %s", nOfInputs, nOfOutputs, function);
     }
   }
 }

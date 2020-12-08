@@ -1,13 +1,16 @@
-package it.units.erallab.mappers.evolver;
+package it.units.erallab.mapper.evolver;
 
 import com.google.common.collect.Range;
 import it.units.erallab.hmsrobots.core.objects.Robot;
 import it.units.erallab.hmsrobots.core.objects.SensingVoxel;
 import it.units.erallab.hmsrobots.util.Grid;
 import it.units.erallab.hmsrobots.util.Utils;
-import it.units.erallab.mappers.MLP;
-import it.units.erallab.mappers.ReversableFunction;
-import it.units.erallab.mappers.robot.*;
+import it.units.erallab.mapper.function.MLP;
+import it.units.erallab.mapper.PrototypedFunctionBuilder;
+import it.units.erallab.mapper.robot.Centralized;
+import it.units.erallab.mapper.robot.HomoDistributed;
+import it.units.erallab.mapper.robot.PhaseFunction;
+import it.units.erallab.mapper.robot.PhaseValues;
 import it.units.malelab.jgea.core.Individual;
 import it.units.malelab.jgea.core.evolver.Evolver;
 import it.units.malelab.jgea.core.evolver.StandardEvolver;
@@ -40,14 +43,12 @@ public class DoublesStandard implements EvolverBuilder<List<Double>> {
   }
 
   @Override
-  public <T> Evolver<List<Double>, Robot<?>, Double> build(ReversableFunction<List<Double>, T> innerMapper, RobotMapper<T> outerMapper) {
-    PartialComparator<Individual<?, Robot<?>, Double>> comparator = PartialComparator.from(Double.class).reversed().comparing(Individual::getFitness);
-    int length = innerMapper.example(outerMapper.example()).size();
-    System.out.println(length);
+  public <T> Evolver<List<Double>, T, Double> build(PrototypedFunctionBuilder<List<Double>, T> builder, T target) {
+    int length = builder.exampleFor(target).size();
     return new StandardEvolver<>(
-        innerMapper.andThen(outerMapper),
+        builder.buildFor(target),
         new FixedLengthListFactory<>(length, new UniformDoubleFactory(-1d, 1d)),
-        comparator,
+        PartialComparator.from(Double.class).reversed().comparing(Individual::getFitness),
         nPop,
         Map.of(
             new GaussianMutation(1d), 1d - xOverProb,
@@ -60,22 +61,4 @@ public class DoublesStandard implements EvolverBuilder<List<Double>> {
     );
   }
 
-  public static void main(String[] args) {
-    for (int l = 5; l < 20; l++) {
-      Grid<? extends SensingVoxel> body = Utils.buildBody(String.format("biped-%dx2-f-f", l));
-      System.out.printf("l=%d%n", l);
-      new DoublesStandard(100, 5, 0.75d).build(
-          new MLP(0.65d),
-          new PhaseFunction(body, 1d, 1d)
-      );
-      new DoublesStandard(100, 5, 0.75d).build(
-          ReversableFunction.identity(),
-          new PhaseValues(body, 1d, 1d)
-      );
-      new DoublesStandard(100, 5, 0.75d).build(
-          new MLP(0.65d),
-          new Centralized(body)
-      );
-    }
-  }
 }
