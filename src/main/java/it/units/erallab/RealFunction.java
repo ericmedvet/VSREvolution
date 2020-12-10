@@ -2,6 +2,7 @@ package it.units.erallab;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
 import java.util.function.Function;
 
@@ -25,6 +26,7 @@ public interface RealFunction extends Function<double[], double[]> {
     @JsonProperty
     private final int nOfOutputs;
     @JsonProperty
+    @JsonTypeInfo(use = JsonTypeInfo.Id.CLASS, property = "@class")
     private final Function<double[], double[]> function;
 
     @JsonCreator

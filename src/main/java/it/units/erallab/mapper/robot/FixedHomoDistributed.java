@@ -18,10 +18,10 @@ import java.util.stream.Collectors;
  * @created 2020/12/07
  * @project VSREvolution
  */
-public class HomoDistributed implements PrototypedFunctionBuilder<RealFunction, Robot<?>> {
+public class FixedHomoDistributed implements PrototypedFunctionBuilder<RealFunction, Robot<?>> {
   private final int signals;
 
-  public HomoDistributed(int signals) {
+  public FixedHomoDistributed(int signals) {
     this.signals = signals;
   }
 

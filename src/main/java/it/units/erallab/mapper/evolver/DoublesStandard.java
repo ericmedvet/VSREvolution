@@ -1,16 +1,7 @@
 package it.units.erallab.mapper.evolver;
 
 import com.google.common.collect.Range;
-import it.units.erallab.hmsrobots.core.objects.Robot;
-import it.units.erallab.hmsrobots.core.objects.SensingVoxel;
-import it.units.erallab.hmsrobots.util.Grid;
-import it.units.erallab.hmsrobots.util.Utils;
-import it.units.erallab.mapper.function.MLP;
 import it.units.erallab.mapper.PrototypedFunctionBuilder;
-import it.units.erallab.mapper.robot.Centralized;
-import it.units.erallab.mapper.robot.HomoDistributed;
-import it.units.erallab.mapper.robot.PhaseFunction;
-import it.units.erallab.mapper.robot.PhaseValues;
 import it.units.malelab.jgea.core.Individual;
 import it.units.malelab.jgea.core.evolver.Evolver;
 import it.units.malelab.jgea.core.evolver.StandardEvolver;

@@ -17,12 +17,12 @@ import java.util.function.Function;
  * @created 2020/12/07
  * @project VSREvolution
  */
-public class PhaseValues implements PrototypedFunctionBuilder<List<Double>, Robot<?>> {
+public class FixedPhaseValues implements PrototypedFunctionBuilder<List<Double>, Robot<?>> {
 
   private final double frequency;
   private final double amplitude;
 
-  public PhaseValues(double frequency, double amplitude) {
+  public FixedPhaseValues(double frequency, double amplitude) {
     this.frequency = frequency;
     this.amplitude = amplitude;
   }

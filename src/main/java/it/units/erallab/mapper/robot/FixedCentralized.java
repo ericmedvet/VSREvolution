@@ -15,7 +15,7 @@ import java.util.function.Function;
  * @created 2020/12/07
  * @project VSREvolution
  */
-public class Centralized implements PrototypedFunctionBuilder<RealFunction, Robot<?>> {
+public class FixedCentralized implements PrototypedFunctionBuilder<RealFunction, Robot<?>> {
 
   @Override
   public Function<RealFunction, Robot<?>> buildFor(Robot<?> robot) {

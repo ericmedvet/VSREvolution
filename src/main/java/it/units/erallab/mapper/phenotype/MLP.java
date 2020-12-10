@@ -1,4 +1,4 @@
-package it.units.erallab.mapper.function;
+package it.units.erallab.mapper.phenotype;
 
 import it.units.erallab.RealFunction;
 import it.units.erallab.hmsrobots.core.controllers.MultiLayerPerceptron;

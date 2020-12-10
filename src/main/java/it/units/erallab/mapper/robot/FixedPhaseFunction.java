@@ -15,11 +15,11 @@ import java.util.function.Function;
  * @created 2020/12/07
  * @project VSREvolution
  */
-public class PhaseFunction implements PrototypedFunctionBuilder<RealFunction, Robot<?>> {
+public class FixedPhaseFunction implements PrototypedFunctionBuilder<RealFunction, Robot<?>> {
   private final double frequency;
   private final double amplitude;
 
-  public PhaseFunction(double frequency, double amplitude) {
+  public FixedPhaseFunction(double frequency, double amplitude) {
     this.frequency = frequency;
     this.amplitude = amplitude;
   }
