@@ -12,8 +12,6 @@ import java.util.function.Function;
 
 /**
  * @author eric
- * @created 2020/12/07
- * @project VSREvolution
  */
 public class FixedPhaseFunction implements PrototypedFunctionBuilder<RealFunction, Robot<?>> {
   private final double frequency;

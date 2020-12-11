@@ -4,8 +4,6 @@ import java.util.function.Function;
 
 /**
  * @author eric
- * @created 2020/12/08
- * @project VSREvolution
  */
 public interface PrototypedFunctionBuilder<A, B> {
   Function<A, B> buildFor(B b);

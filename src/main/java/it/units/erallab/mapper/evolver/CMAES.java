@@ -12,8 +12,6 @@ import java.util.List;
 
 /**
  * @author eric
- * @created 2020/12/08
- * @project VSREvolution
  */
 public class CMAES implements EvolverBuilder<List<Double>> {
   @Override

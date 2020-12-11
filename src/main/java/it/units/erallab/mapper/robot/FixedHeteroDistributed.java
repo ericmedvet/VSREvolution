@@ -12,8 +12,6 @@ import java.util.function.Function;
 
 /**
  * @author eric
- * @created 2020/12/07
- * @project VSREvolution
  */
 public class FixedHeteroDistributed implements PrototypedFunctionBuilder<Grid<RealFunction>, Robot<?>> {
   private final int signals;

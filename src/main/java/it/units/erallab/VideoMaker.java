@@ -43,8 +43,6 @@ import static it.units.malelab.jgea.core.util.Args.*;
 
 /**
  * @author eric
- * @created 2020/08/19
- * @project VSREvolution
  */
 public class VideoMaker {
 

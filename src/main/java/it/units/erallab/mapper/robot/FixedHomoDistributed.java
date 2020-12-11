@@ -15,8 +15,6 @@ import java.util.stream.Collectors;
 
 /**
  * @author eric
- * @created 2020/12/07
- * @project VSREvolution
  */
 public class FixedHomoDistributed implements PrototypedFunctionBuilder<RealFunction, Robot<?>> {
   private final int signals;

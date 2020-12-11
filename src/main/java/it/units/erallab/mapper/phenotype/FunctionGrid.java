@@ -11,8 +11,6 @@ import java.util.function.Function;
 
 /**
  * @author eric
- * @created 2020/12/11
- * @project VSREvolution
  */
 public class FunctionGrid implements PrototypedFunctionBuilder<List<Double>, Grid<RealFunction>> {
 

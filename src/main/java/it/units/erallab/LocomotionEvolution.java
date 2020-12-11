@@ -62,8 +62,6 @@ import static it.units.malelab.jgea.core.util.Args.*;
 
 /**
  * @author eric
- * @created 2020/08/18
- * @project VSREvolution
  */
 public class LocomotionEvolution extends Worker {
 

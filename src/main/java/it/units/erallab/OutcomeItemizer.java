@@ -14,8 +14,6 @@ import java.util.stream.Collectors;
 
 /**
  * @author eric
- * @created 2020/12/10
- * @project VSREvolution
  */
 public class OutcomeItemizer implements Function<Outcome, List<Item>> {
 

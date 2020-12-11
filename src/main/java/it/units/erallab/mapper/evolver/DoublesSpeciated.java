@@ -18,8 +18,6 @@ import java.util.Map;
 
 /**
  * @author eric
- * @created 2020/12/08
- * @project VSREvolution
  */
 public class DoublesSpeciated extends DoublesStandard {
 

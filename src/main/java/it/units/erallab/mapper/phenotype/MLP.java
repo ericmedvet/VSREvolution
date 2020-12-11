@@ -10,8 +10,6 @@ import java.util.function.Function;
 
 /**
  * @author eric
- * @created 2020/12/08
- * @project VSREvolution
  */
 public class MLP implements PrototypedFunctionBuilder<List<Double>, RealFunction> {
 

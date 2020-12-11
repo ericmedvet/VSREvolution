@@ -12,8 +12,6 @@ import java.util.function.Function;
 
 /**
  * @author eric
- * @created 2020/12/08
- * @project VSREvolution
  */
 public class FGraph implements PrototypedFunctionBuilder<Graph<Node, Double>, RealFunction> {
 

@@ -26,8 +26,6 @@ import java.util.logging.Logger;
 
 /**
  * @author eric
- * @created 2020/08/19
- * @project VSREvolution
  */
 public class Utils {
 
