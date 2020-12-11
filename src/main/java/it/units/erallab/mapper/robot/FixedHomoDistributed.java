@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 /**
  * @author eric
  */
-public class FixedHomoDistributed implements PrototypedFunctionBuilder<RealFunction, Robot<?>> {
+public class FixedHomoDistributed implements PrototypedFunctionBuilder<RealFunction, Robot<? extends SensingVoxel>> {
   private final int signals;
 
   public FixedHomoDistributed(int signals) {
@@ -24,9 +24,9 @@ public class FixedHomoDistributed implements PrototypedFunctionBuilder<RealFunct
   }
 
   @Override
-  public Function<RealFunction, Robot<?>> buildFor(Robot<?> robot) {
+  public Function<RealFunction, Robot<? extends SensingVoxel>> buildFor(Robot<? extends SensingVoxel> robot) {
     int[] dim = getIODim(robot);
-    Grid<? extends SensingVoxel> body = (Grid<? extends SensingVoxel>) robot.getVoxels();
+    Grid<? extends SensingVoxel> body = robot.getVoxels();
     int nOfInputs = dim[0];
     int nOfOutputs = dim[1];
     return function -> {
@@ -58,13 +58,13 @@ public class FixedHomoDistributed implements PrototypedFunctionBuilder<RealFunct
   }
 
   @Override
-  public RealFunction exampleFor(Robot<?> robot) {
+  public RealFunction exampleFor(Robot<? extends SensingVoxel> robot) {
     int[] dim = getIODim(robot);
     return RealFunction.from(dim[0], dim[1], d -> d);
   }
 
-  private int[] getIODim(Robot<?> robot) {
-    Grid<? extends SensingVoxel> body = (Grid<? extends SensingVoxel>) robot.getVoxels();
+  private int[] getIODim(Robot<? extends SensingVoxel> robot) {
+    Grid<? extends SensingVoxel> body = robot.getVoxels();
     int nOfInputs = DistributedSensing.nOfInputs(body.values().stream().filter(Objects::nonNull).findFirst().get(), signals);
     int nOfOutputs = DistributedSensing.nOfOutputs(body.values().stream().filter(Objects::nonNull).findFirst().get(), signals);
     List<Grid.Entry<? extends SensingVoxel>> wrongVoxels = body.stream()

@@ -13,7 +13,7 @@ import java.util.function.Function;
 /**
  * @author eric
  */
-public class FixedHeteroDistributed implements PrototypedFunctionBuilder<Grid<RealFunction>, Robot<?>> {
+public class FixedHeteroDistributed implements PrototypedFunctionBuilder<Grid<RealFunction>, Robot<? extends SensingVoxel>> {
   private final int signals;
 
   public FixedHeteroDistributed(int signals) {
@@ -21,9 +21,9 @@ public class FixedHeteroDistributed implements PrototypedFunctionBuilder<Grid<Re
   }
 
   @Override
-  public Function<Grid<RealFunction>, Robot<?>> buildFor(Robot<?> robot) {
+  public Function<Grid<RealFunction>, Robot<? extends SensingVoxel>> buildFor(Robot<? extends SensingVoxel> robot) {
     Grid<int[]> dims = getIODims(robot);
-    Grid<? extends SensingVoxel> body = (Grid<? extends SensingVoxel>) robot.getVoxels();
+    Grid<? extends SensingVoxel> body = robot.getVoxels();
     return functions -> {
       //check
       if (dims.getW() != functions.getW() || dims.getH() != functions.getH()) {
@@ -69,15 +69,15 @@ public class FixedHeteroDistributed implements PrototypedFunctionBuilder<Grid<Re
   }
 
   @Override
-  public Grid<RealFunction> exampleFor(Robot<?> robot) {
+  public Grid<RealFunction> exampleFor(Robot<? extends SensingVoxel> robot) {
     return Grid.create(
         getIODims(robot),
-        dim -> RealFunction.from(dim[0], dim[1], d -> d)
+        dim -> dim == null ? null : RealFunction.from(dim[0], dim[1], d -> d)
     );
   }
 
-  private Grid<int[]> getIODims(Robot<?> robot) {
-    Grid<? extends SensingVoxel> body = (Grid<? extends SensingVoxel>) robot.getVoxels();
+  private Grid<int[]> getIODims(Robot<? extends SensingVoxel> robot) {
+    Grid<? extends SensingVoxel> body = robot.getVoxels();
     return Grid.create(
         body,
         v -> v == null ? null : new int[]{

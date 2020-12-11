@@ -13,11 +13,11 @@ import java.util.function.Function;
 /**
  * @author eric
  */
-public class FixedCentralized implements PrototypedFunctionBuilder<RealFunction, Robot<?>> {
+public class FixedCentralized implements PrototypedFunctionBuilder<RealFunction, Robot<? extends SensingVoxel>> {
 
   @Override
-  public Function<RealFunction, Robot<?>> buildFor(Robot<?> robot) {
-    Grid<? extends SensingVoxel> body = (Grid<? extends SensingVoxel>) robot.getVoxels();
+  public Function<RealFunction, Robot<? extends SensingVoxel>> buildFor(Robot<? extends SensingVoxel> robot) {
+    Grid<? extends SensingVoxel> body = robot.getVoxels();
     return function -> {
       if (function.getNOfInputs() != CentralizedSensing.nOfInputs(body)) {
         throw new IllegalArgumentException(String.format(
@@ -41,8 +41,8 @@ public class FixedCentralized implements PrototypedFunctionBuilder<RealFunction,
   }
 
   @Override
-  public RealFunction exampleFor(Robot<?> robot) {
-    Grid<? extends SensingVoxel> body = (Grid<? extends SensingVoxel>) robot.getVoxels();
+  public RealFunction exampleFor(Robot<? extends SensingVoxel> robot) {
+    Grid<? extends SensingVoxel> body = robot.getVoxels();
     return RealFunction.from(
         CentralizedSensing.nOfInputs(body),
         CentralizedSensing.nOfOutputs(body),

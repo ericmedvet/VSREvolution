@@ -3,63 +3,52 @@ package it.units.erallab;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import it.units.erallab.hmsrobots.util.SerializableFunction;
 
+import java.io.Serializable;
 import java.util.function.Function;
 
 /**
  * @author eric
  */
-public interface RealFunction extends SerializableFunction<double[], double[]> {
-  int getNOfInputs();
+public class RealFunction implements Function<double[], double[]>, Serializable {
 
-  int getNOfOutputs();
-
-  static RealFunction from(int nOfInputs, int nOfOutputs, Function<double[], double[]> f) {
-    return new DefaultRealFunction(nOfInputs, nOfOutputs, f);
+  public static RealFunction from(int nOfInputs, int nOfOutputs, Function<double[], double[]> f) {
+    return new RealFunction(nOfInputs, nOfOutputs, f);
   }
 
-  class DefaultRealFunction implements RealFunction {
-    @JsonProperty
-    private final int nOfInputs;
-    @JsonProperty
-    private final int nOfOutputs;
-    @JsonProperty
-    @JsonTypeInfo(use = JsonTypeInfo.Id.CLASS, property = "@class")
-    private final Function<double[], double[]> function;
+  @JsonProperty
+  private final int nOfInputs;
+  @JsonProperty
+  private final int nOfOutputs;
+  @JsonProperty
+  @JsonTypeInfo(use = JsonTypeInfo.Id.CLASS, property = "@class")
+  private final Function<double[], double[]> function;
 
-    @JsonCreator
-    public DefaultRealFunction(
-        @JsonProperty("nOfInputs")
-            int nOfInputs,
-        @JsonProperty("nOfOutputs")
-            int nOfOutputs,
-        @JsonProperty("function")
-            Function<double[], double[]> function
-    ) {
-      this.nOfInputs = nOfInputs;
-      this.nOfOutputs = nOfOutputs;
-      this.function = function;
-    }
+  @JsonCreator
+  public RealFunction(
+      @JsonProperty("nOfInputs") int nOfInputs,
+      @JsonProperty("nOfOutputs") int nOfOutputs,
+      @JsonProperty("function") Function<double[], double[]> function
+  ) {
+    this.nOfInputs = nOfInputs;
+    this.nOfOutputs = nOfOutputs;
+    this.function = function;
+  }
 
-    @Override
-    public int getNOfInputs() {
-      return nOfInputs;
-    }
+  public int getNOfInputs() {
+    return nOfInputs;
+  }
 
-    @Override
-    public int getNOfOutputs() {
-      return nOfOutputs;
-    }
+  public int getNOfOutputs() {
+    return nOfOutputs;
+  }
 
-    @Override
-    public double[] apply(double[] input) {
-      return function.apply(input);
-    }
+  public double[] apply(double[] input) {
+    return function.apply(input);
+  }
 
-    @Override
-    public String toString() {
-      return String.format("f:R^%d->R^%d = %s", nOfInputs, nOfOutputs, function);
-    }
+  @Override
+  public String toString() {
+    return String.format("f:R^%d->R^%d = %s", nOfInputs, nOfOutputs, function);
   }
 }

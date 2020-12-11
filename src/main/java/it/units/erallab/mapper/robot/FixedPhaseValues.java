@@ -27,7 +27,7 @@ public class FixedPhaseValues implements PrototypedFunctionBuilder<List<Double>,
 
   @Override
   public Function<List<Double>, Robot<?>> buildFor(Robot<?> robot) {
-    Grid<?> body = robot.getVoxels();
+    Grid<? extends ControllableVoxel> body = robot.getVoxels();
     long nOfVoxel = body.values().stream().filter(Objects::nonNull).count();
     return values -> {
       if (nOfVoxel != values.size()) {
@@ -47,7 +47,7 @@ public class FixedPhaseValues implements PrototypedFunctionBuilder<List<Double>,
       }
       return new Robot<>(
           new PhaseSin(frequency, amplitude, phases),
-          (Grid<ControllableVoxel>) SerializationUtils.clone(body)
+          SerializationUtils.clone(body)
       );
     };
   }
