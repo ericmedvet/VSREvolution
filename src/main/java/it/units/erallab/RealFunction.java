@@ -3,6 +3,7 @@ package it.units.erallab;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import it.units.erallab.hmsrobots.util.SerializableFunction;
 
 import java.util.function.Function;
 
@@ -11,7 +12,7 @@ import java.util.function.Function;
  * @created 2020/12/07
  * @project VSREvolution
  */
-public interface RealFunction extends Function<double[], double[]> {
+public interface RealFunction extends SerializableFunction<double[], double[]> {
   int getNOfInputs();
 
   int getNOfOutputs();

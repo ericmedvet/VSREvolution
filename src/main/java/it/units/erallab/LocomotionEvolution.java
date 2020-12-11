@@ -33,10 +33,7 @@ import it.units.erallab.mapper.evolver.DoublesStandard;
 import it.units.erallab.mapper.evolver.EvolverBuilder;
 import it.units.erallab.mapper.phenotype.FGraph;
 import it.units.erallab.mapper.phenotype.MLP;
-import it.units.erallab.mapper.robot.FixedCentralized;
-import it.units.erallab.mapper.robot.FixedHomoDistributed;
-import it.units.erallab.mapper.robot.FixedPhaseFunction;
-import it.units.erallab.mapper.robot.FixedPhaseValues;
+import it.units.erallab.mapper.robot.*;
 import it.units.malelab.jgea.Worker;
 import it.units.malelab.jgea.core.Individual;
 import it.units.malelab.jgea.core.evolver.Evolver;
@@ -60,6 +57,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static it.units.erallab.hmsrobots.util.Utils.*;
 import static it.units.malelab.jgea.core.util.Args.*;
 
 /**
@@ -91,11 +89,12 @@ public class LocomotionEvolution extends Worker {
     int[] seeds = ri(a("seed", "0:1"));
     String experimentName = a("expName", "short");
     List<String> terrainNames = l(a("terrain", "flat"));
-    List<String> targetNames = l(a("target", "biped-4x2-f-f"));
+    List<String> targetShapeNames = l(a("shape", "biped-4x2"));
+    List<String> targetSensorConfigNames = l(a("sensorConfig", "uniform"));
     List<String> transformationNames = l(a("transformations", "identity"));
-    List<String> evolverMapperNames = l(a("evolver", "CMAES,numGA-50"));
-    List<String> robotMapperNames = l(a("robotMapper", "fixedCentralized"));
-    List<String> phenotypeMapperNames = l(a("phenotypeMapper", "MLP-1"));
+    List<String> evolverMapperNames = l(a("evolver", "CMAES"));
+    List<String> robotMapperNames = l(a("robotMapper", "fixedHomoDist-2"));
+    List<String> phenotypeMapperNames = l(a("phenotypeMapper", "MLP-2"));
     Function<Outcome, Double> fitnessFunction = Outcome::getVelocity;
     Function<Outcome, List<Item>> outcomeTransformer = new OutcomeItemizer(
         episodeTransientTime,
@@ -119,7 +118,7 @@ public class LocomotionEvolution extends Worker {
     ListenerFactory<Object, Robot<?>, Double> statsListenerFactory = new FileListenerFactory<>(statsFileName);
     ListenerFactory<Object, Robot<?>, Double> serializedListenerFactory = new FileListenerFactory<>(serializedFileName);
     CSVPrinter validationPrinter;
-    List<String> validationKeyHeaders = List.of("experiment.name", "seed", "terrain", "target", "phenotype.mapper", "robot.mapper", "transformation", "evolver");
+    List<String> validationKeyHeaders = List.of("experiment.name", "seed", "terrain", "shape", "sensor.config", "phenotype.mapper", "robot.mapper", "transformation", "evolver");
     try {
       if (a("validationFile", null) != null) {
         validationPrinter = new CSVPrinter(new FileWriter(
@@ -142,142 +141,160 @@ public class LocomotionEvolution extends Worker {
     L.info("Evolvers: " + evolverMapperNames);
     L.info("Robot mappers: " + robotMapperNames);
     L.info("Phenotype mappers: " + phenotypeMapperNames);
-    L.info("Targets: " + targetNames);
+    L.info("Shapes: " + targetShapeNames);
+    L.info("Sensor configs: " + targetSensorConfigNames);
     L.info("Terrains: " + terrainNames);
     L.info("Transformations: " + transformationNames);
     L.info("Validations: " + Lists.cartesianProduct(validationTerrainNames, validationTransformationNames));
     //start iterations
     for (int seed : seeds) {
       for (String terrainName : terrainNames) {
-        for (String targetName : targetNames) {
-          for (String robotMapperName : robotMapperNames) {
-            for (String phenotypeMapperName : phenotypeMapperNames) {
-              for (String transformationName : transformationNames) {
-                for (String evolverName : evolverMapperNames) {
-                  final Random random = new Random(seed);
-                  Map<String, String> keys = new TreeMap<>(Map.of(
-                      "experiment.name", experimentName,
-                      "seed", Integer.toString(seed),
-                      "terrain", terrainName,
-                      "target", targetName,
-                      "robot.mapper", robotMapperName,
-                      "phenotype.mapper", phenotypeMapperName,
-                      "transformation", transformationName,
-                      "evolver", evolverName
-                  ));
-                  Robot<?> target = getTargetFromName(targetName);
-                  //build training task
-                  Function<Robot<?>, Outcome> trainingTask = it.units.erallab.hmsrobots.util.Utils.buildRobotTransformation(
-                      transformationName.replace("rnd", Integer.toString(random.nextInt(10000)))
-                  ).andThen(new Locomotion(
-                      episodeTime,
-                      Locomotion.createTerrain(terrainName),
-                      physicsSettings
-                  ));
-                  if (CACHE_SIZE > 0) {
-                    trainingTask = Misc.cached(trainingTask, CACHE_SIZE);
-                  }
-                  //build main data collectors for listener
-                  List<DataCollector<?, ? super Robot<SensingVoxel>, ? super Double>> collectors = new ArrayList<DataCollector<?, ? super Robot<SensingVoxel>, ? super Double>>(List.of(
-                      new Static(keys),
-                      new Basic(),
-                      new Population(),
-                      new Diversity(),
-                      new FitnessHistogram(),
-                      new BestInfo("%5.3f"),
-                      new FunctionOfOneBest<>(
-                          ((Function<Individual<?, ? extends Robot<SensingVoxel>, ? extends Double>, Robot<SensingVoxel>>) Individual::getSolution)
-                              .andThen(SerializationUtils::clone)
-                              .andThen(trainingTask)
-                              .andThen(outcomeTransformer)
-                      )
-                  ));
-                  Listener<? super Object, ? super Robot<?>, ? super Double> listener;
-                  if (statsFileName == null) {
-                    listener = listener(collectors.toArray(DataCollector[]::new));
-                  } else {
-                    listener = statsListenerFactory.build(collectors.toArray(DataCollector[]::new));
-                  }
-                  if (serializedFileName != null) {
-                    listener = serializedListenerFactory.build(
+        for (String targetShapeName : targetShapeNames) {
+          for (String targetSensorConfigName : targetSensorConfigNames) {
+            for (String robotMapperName : robotMapperNames) {
+              for (String phenotypeMapperName : phenotypeMapperNames) {
+                for (String transformationName : transformationNames) {
+                  for (String evolverName : evolverMapperNames) {
+                    final Random random = new Random(seed);
+                    Map<String, String> keys = new TreeMap<>(Map.of(
+                        "experiment.name", experimentName,
+                        "seed", Integer.toString(seed),
+                        "terrain", terrainName,
+                        "shape", targetShapeName,
+                        "sensor.config", targetSensorConfigName,
+                        "robot.mapper", robotMapperName,
+                        "phenotype.mapper", phenotypeMapperName,
+                        "transformation", transformationName,
+                        "evolver", evolverName
+                    ));
+                    Robot<?> target = new Robot<>(
+                        null,
+                        buildSensorizingFunction(targetSensorConfigName).apply(buildShape(targetShapeName))
+                    );
+                    //build training task
+                    Function<Robot<?>, Outcome> trainingTask = it.units.erallab.hmsrobots.util.Utils.buildRobotTransformation(
+                        transformationName.replace("rnd", Integer.toString(random.nextInt(10000)))
+                    ).andThen(new Locomotion(
+                        episodeTime,
+                        Locomotion.createTerrain(terrainName),
+                        physicsSettings
+                    ));
+                    if (CACHE_SIZE > 0) {
+                      trainingTask = Misc.cached(trainingTask, CACHE_SIZE);
+                    }
+                    //build main data collectors for listener
+                    List<DataCollector<?, ? super Robot<SensingVoxel>, ? super Double>> collectors = new ArrayList<DataCollector<?, ? super Robot<SensingVoxel>, ? super Double>>(List.of(
                         new Static(keys),
                         new Basic(),
-                        new FunctionOfOneBest<>(i -> List.of(
-                            new Item("serialized.robot", SerializationUtils.serialize(i.getSolution(), SerializationUtils.Mode.GZIPPED_JSON), "%s")
-                        ))
-                    ).then(listener);
-                  }
-                  try {
-                    Stopwatch stopwatch = Stopwatch.createStarted();
-                    L.info(String.format("Starting %s", keys));
-                    PrototypedFunctionBuilder<?, Robot<?>> mapperBuilder = getRobotMapperBuilderFromName(robotMapperName);
-                    if (getPhenotypeMapperBuilderFromName(phenotypeMapperName) != null) {
-                      mapperBuilder = mapperBuilder.compose((PrototypedFunctionBuilder) getPhenotypeMapperBuilderFromName(phenotypeMapperName));
-                    }
-                    Evolver<?, Robot<?>, Double> evolver = getEvolverBuilderFromName(evolverName).build(
-                        (PrototypedFunctionBuilder) mapperBuilder,
-                        target
-                    );
-                    //optimize
-                    Collection<Robot<?>> solutions = evolver.solve(
-                        trainingTask.andThen(fitnessFunction),
-                        new Births(nBirths),
-                        random,
-                        executorService,
-                        Listener.onExecutor(
-                            listener,
-                            executorService
+                        new Population(),
+                        new Diversity(),
+                        new FitnessHistogram(),
+                        new BestInfo("%5.3f"),
+                        new FunctionOfOneBest<>(
+                            ((Function<Individual<?, ? extends Robot<SensingVoxel>, ? extends Double>, Robot<SensingVoxel>>) Individual::getSolution)
+                                .andThen(SerializationUtils::clone)
+                                .andThen(trainingTask)
+                                .andThen(outcomeTransformer)
                         )
-                    );
-                    L.info(String.format("Done %s: %d solutions in %4ds",
-                        keys,
-                        solutions.size(),
-                        stopwatch.elapsed(TimeUnit.SECONDS)
                     ));
-                    //do validation
-                    for (String validationTransformationName : validationTransformationNames) {
-                      for (String validationTerrainName : validationTerrainNames) {
-                        //build validation task
-                        Function<Robot<?>, Outcome> validationTask = new Locomotion(
-                            episodeTime,
-                            Locomotion.createTerrain(validationTerrainName),
-                            physicsSettings
+                    Listener<? super Object, ? super Robot<?>, ? super Double> listener;
+                    if (statsFileName == null) {
+                      listener = listener(collectors.toArray(DataCollector[]::new));
+                    } else {
+                      listener = statsListenerFactory.build(collectors.toArray(DataCollector[]::new));
+                    }
+                    if (serializedFileName != null) {
+                      listener = serializedListenerFactory.build(
+                          new Static(keys),
+                          new Basic(),
+                          new FunctionOfOneBest<>(i -> List.of(
+                              new Item("serialized.robot", SerializationUtils.serialize(i.getSolution(), SerializationUtils.Mode.GZIPPED_JSON), "%s")
+                          ))
+                      ).then(listener);
+                    }
+                    try {
+                      Evolver<?, Robot<?>, Double> evolver;
+                      try {
+                        PrototypedFunctionBuilder<?, Robot<?>> mapperBuilder = getRobotMapperBuilderFromName(robotMapperName);
+                        if (getPhenotypeMapperBuilderFromName(phenotypeMapperName) != null) {
+                          mapperBuilder = mapperBuilder.compose((PrototypedFunctionBuilder) getPhenotypeMapperBuilderFromName(phenotypeMapperName));
+                        }
+                        evolver = getEvolverBuilderFromName(evolverName).build(
+                            (PrototypedFunctionBuilder) mapperBuilder,
+                            target
                         );
-                        validationTask = it.units.erallab.hmsrobots.util.Utils.buildRobotTransformation(validationTransformationName)
-                            .andThen(SerializationUtils::clone)
-                            .andThen(validationTask);
-                        Outcome validationOutcome = validationTask.apply(solutions.stream().findFirst().get());
-                        L.info(String.format(
-                            "Validation %s/%s of \"first\" best done",
-                            validationTransformationName,
-                            validationTerrainName
+                      } catch (ClassCastException | IllegalArgumentException e) {
+                        L.warning(String.format(
+                            "Cannot instantiate %s for %s: %s",
+                            evolverName,
+                            robotMapperName,
+                            phenotypeMapperName
                         ));
-                        try {
-                          List<Object> values = new ArrayList<>();
-                          values.addAll(validationKeyHeaders.stream().map(keys::get).collect(Collectors.toList()));
-                          values.addAll(List.of(validationTransformationName, validationTerrainName));
-                          List<Item> validationItems = outcomeTransformer.apply(validationOutcome);
-                          values.addAll(validationOutcomeHeaders.stream()
-                              .map(n -> validationItems.stream()
-                                  .filter(i -> i.getName().equals(n))
-                                  .map(Item::getValue)
-                                  .findFirst()
-                                  .orElse(null))
-                              .collect(Collectors.toList())
+                        continue;
+                      }
+                      //optimize
+                      Stopwatch stopwatch = Stopwatch.createStarted();
+                      L.info(String.format("Starting %s", keys));
+                      Collection<Robot<?>> solutions = evolver.solve(
+                          trainingTask.andThen(fitnessFunction),
+                          new Births(nBirths),
+                          random,
+                          executorService,
+                          Listener.onExecutor(
+                              listener,
+                              executorService
+                          )
+                      );
+                      L.info(String.format("Done %s: %d solutions in %4ds",
+                          keys,
+                          solutions.size(),
+                          stopwatch.elapsed(TimeUnit.SECONDS)
+                      ));
+                      //do validation
+                      for (String validationTransformationName : validationTransformationNames) {
+                        for (String validationTerrainName : validationTerrainNames) {
+                          //build validation task
+                          Function<Robot<?>, Outcome> validationTask = new Locomotion(
+                              episodeTime,
+                              Locomotion.createTerrain(validationTerrainName),
+                              physicsSettings
                           );
-                          validationPrinter.printRecord(values);
-                          validationPrinter.flush();
-                        } catch (IOException e) {
-                          L.severe(String.format("Cannot save validation results due to %s", e));
+                          validationTask = it.units.erallab.hmsrobots.util.Utils.buildRobotTransformation(validationTransformationName)
+                              .andThen(SerializationUtils::clone)
+                              .andThen(validationTask);
+                          Outcome validationOutcome = validationTask.apply(solutions.stream().findFirst().get());
+                          L.info(String.format(
+                              "Validation %s/%s of \"first\" best done",
+                              validationTransformationName,
+                              validationTerrainName
+                          ));
+                          try {
+                            List<Object> values = new ArrayList<>();
+                            values.addAll(validationKeyHeaders.stream().map(keys::get).collect(Collectors.toList()));
+                            values.addAll(List.of(validationTransformationName, validationTerrainName));
+                            List<Item> validationItems = outcomeTransformer.apply(validationOutcome);
+                            values.addAll(validationOutcomeHeaders.stream()
+                                .map(n -> validationItems.stream()
+                                    .filter(i -> i.getName().equals(n))
+                                    .map(Item::getValue)
+                                    .findFirst()
+                                    .orElse(null))
+                                .collect(Collectors.toList())
+                            );
+                            validationPrinter.printRecord(values);
+                            validationPrinter.flush();
+                          } catch (IOException e) {
+                            L.severe(String.format("Cannot save validation results due to %s", e));
+                          }
                         }
                       }
+                    } catch (InterruptedException | ExecutionException e) {
+                      L.severe(String.format("Cannot complete %s due to %s",
+                          keys,
+                          e
+                      ));
+                      e.printStackTrace();
                     }
-                  } catch (InterruptedException | ExecutionException e) {
-                    L.severe(String.format("Cannot complete %s due to %s",
-                        keys,
-                        e
-                    ));
-                    e.printStackTrace();
                   }
                 }
               }
@@ -312,21 +329,24 @@ public class LocomotionEvolution extends Worker {
   private EvolverBuilder<?> getEvolverBuilderFromName(String name) {
     String numGA = "numGA-(?<nPop>\\d+)";
     String numGASpeciated = "numGASpec-(?<nPop>\\d+)-(?<dT>\\d+(\\.\\d+)?)";
-    String cmaEs = "CMAES";
-    if (name.matches(numGA)) {
+    String cmaES = "CMAES";
+    Map<String, String> params;
+    if ((params = params(numGA, name)) != null) {
       return new DoublesStandard(
-          Integer.parseInt(pv(numGA, name, "nPop")),
-          (int) Math.max(Math.round((double) Integer.parseInt(pv(numGA, name, "nPop")) / 10d), 3),
+          Integer.parseInt(params.get("nPop")),
+          (int) Math.max(Math.round((double) Integer.parseInt(params.get("nPop")) / 10d), 3),
           0.75d
       );
-    } else if (name.matches(numGASpeciated)) {
+    }
+    if ((params = params(numGASpeciated, name)) != null) {
       return new DoublesSpeciated(
-          Integer.parseInt(pv(numGA, name, "nPop")),
-          (int) Math.max(Math.round((double) Integer.parseInt(pv(numGASpeciated, name, "nPop")) / 10d), 3),
+          Integer.parseInt(params.get("nPop")),
+          (int) Math.max(Math.round((double) Integer.parseInt(params.get("nPop")) / 10d), 3),
           0.75d,
-          Double.parseDouble(pv(numGA, name, "dT"))
+          Double.parseDouble(params.get("dT"))
       );
-    } else if (name.matches(cmaEs)) {
+    }
+    if ((params = params(cmaES, name)) != null) {
       return new CMAES();
     }
     throw new IllegalArgumentException(String.format("Unknown evolver builder name: %s", name));
@@ -338,20 +358,29 @@ public class LocomotionEvolution extends Worker {
     String fixedHeteroDistributed = "fixedHeteroDist-(?<nSignals>\\d+)";
     String fixedPhasesFunction = "fixedPhasesFunct-(?<f>\\d+)";
     String fixedPhases = "fixedPhases-(?<f>\\d+)";
-    if (name.matches(fixedCentralized)) {
+    Map<String, String> params;
+    if ((params = params(fixedCentralized, name)) != null) {
       return new FixedCentralized();
-    } else if (name.matches(fixedHomoDistributed)) {
+    }
+    if ((params = params(fixedHomoDistributed, name)) != null) {
       return new FixedHomoDistributed(
-          Integer.parseInt(pv(fixedHomoDistributed, name, "nSignals"))
+          Integer.parseInt(params.get("nSignals"))
       );
-    } else if (name.matches(fixedPhasesFunction)) {
+    }
+    if ((params = params(fixedHeteroDistributed, name)) != null) {
+      return new FixedHeteroDistributed(
+          Integer.parseInt(params.get("nSignals"))
+      );
+    }
+    if ((params = params(fixedPhasesFunction, name)) != null) {
       return new FixedPhaseFunction(
-          Double.parseDouble(pv(fixedPhasesFunction, name, "f")),
+          Double.parseDouble(params.get("f")),
           1d
       );
-    } else if (name.matches(fixedPhases)) {
+    }
+    if ((params = params(fixedPhases, name)) != null) {
       return new FixedPhaseValues(
-          Double.parseDouble(pv(fixedPhases, name, "f")),
+          Double.parseDouble(params.get("f")),
           1d
       );
     }
@@ -360,29 +389,22 @@ public class LocomotionEvolution extends Worker {
 
   private PrototypedFunctionBuilder<?, ?> getPhenotypeMapperBuilderFromName(String name) {
     String mlp = "MLP-(?<nLayers>\\d+)";
-    String identity = "identity";
     String fgraph = "fGraph";
-    if (name.matches(mlp)) {
+    String identity = "identity";
+    Map<String, String> params;
+    if ((params = params(mlp, name)) != null) {
       return new MLP(
           0.65d,
-          Integer.parseInt(pv(mlp, name, "nLayers"))
+          Integer.parseInt(params.get("nLayers"))
       );
-    } else if (name.matches(identity)) {
+    }
+    if ((params = params(identity, name)) != null) {
       return null;
-    } else if (name.matches(fgraph)) {
+    }
+    if ((params = params(fgraph, name)) != null) {
       return new FGraph();
     }
     throw new IllegalArgumentException(String.format("Unknown phenotype mapper name: %s", name));
   }
 
-  private Robot<?> getTargetFromName(String name) {
-    return new Robot<>(
-        null,
-        it.units.erallab.hmsrobots.util.Utils.buildBody(name)
-    );
-  }
-
-  private static String pv(String pattern, String string, String paramName) {
-    return it.units.erallab.hmsrobots.util.Utils.paramValue(pattern, string, paramName);
-  }
 }

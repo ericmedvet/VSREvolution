@@ -30,7 +30,7 @@ public class FixedHomoDistributed implements PrototypedFunctionBuilder<RealFunct
     int[] dim = getIODim(robot);
     Grid<? extends SensingVoxel> body = (Grid<? extends SensingVoxel>) robot.getVoxels();
     int nOfInputs = dim[0];
-    int nOfOutputs = dim[0];
+    int nOfOutputs = dim[1];
     return function -> {
       if (function.getNOfInputs() != nOfInputs) {
         throw new IllegalArgumentException(String.format(
@@ -56,7 +56,6 @@ public class FixedHomoDistributed implements PrototypedFunctionBuilder<RealFunct
           controller,
           SerializationUtils.clone(body)
       );
-
     };
   }
 
