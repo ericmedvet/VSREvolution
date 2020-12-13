@@ -1,11 +1,11 @@
-package it.units.erallab.mapper.robot;
+package it.units.erallab.builder.robot;
 
 import it.units.erallab.hmsrobots.core.controllers.PhaseSin;
 import it.units.erallab.hmsrobots.core.objects.ControllableVoxel;
 import it.units.erallab.hmsrobots.core.objects.Robot;
 import it.units.erallab.hmsrobots.util.Grid;
 import it.units.erallab.hmsrobots.util.SerializationUtils;
-import it.units.erallab.mapper.PrototypedFunctionBuilder;
+import it.units.erallab.builder.PrototypedFunctionBuilder;
 
 import java.util.Collections;
 import java.util.List;

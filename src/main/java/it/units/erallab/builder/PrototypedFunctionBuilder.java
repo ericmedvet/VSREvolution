@@ -1,4 +1,4 @@
-package it.units.erallab.mapper;
+package it.units.erallab.builder;
 
 import java.util.function.Function;
 

@@ -32,6 +32,7 @@ import org.dyn4j.dynamics.Settings;
 
 import java.io.*;
 import java.util.List;
+import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -128,7 +129,7 @@ public class VideoMaker {
         rawGrid.getH(),
         (x, y) -> rawGrid.get(x, y).isEmpty() ? null : Pair.of(
             xValues.get(x) + " " + yValues.get(y),
-            it.units.erallab.hmsrobots.util.Utils.buildRobotTransformation(transformationName)
+            it.units.erallab.hmsrobots.util.Utils.buildRobotTransformation(transformationName, new Random(0))
                 .apply(SerializationUtils.deserialize(rawGrid.get(x, y).get(0), Robot.class, mode))
         )
     );

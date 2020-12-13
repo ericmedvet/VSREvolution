@@ -18,23 +18,22 @@ package it.units.erallab;
 
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.Lists;
+import it.units.erallab.builder.PrototypedFunctionBuilder;
+import it.units.erallab.builder.evolver.CMAES;
+import it.units.erallab.builder.evolver.DoublesSpeciated;
+import it.units.erallab.builder.evolver.DoublesStandard;
+import it.units.erallab.builder.evolver.EvolverBuilder;
+import it.units.erallab.builder.phenotype.FGraph;
+import it.units.erallab.builder.phenotype.FunctionGrid;
+import it.units.erallab.builder.phenotype.MLP;
+import it.units.erallab.builder.robot.*;
 import it.units.erallab.hmsrobots.core.objects.Robot;
-import it.units.erallab.hmsrobots.core.objects.SensingVoxel;
 import it.units.erallab.hmsrobots.tasks.locomotion.Footprint;
 import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
 import it.units.erallab.hmsrobots.tasks.locomotion.Outcome;
 import it.units.erallab.hmsrobots.util.Grid;
 import it.units.erallab.hmsrobots.util.Point2;
 import it.units.erallab.hmsrobots.util.SerializationUtils;
-import it.units.erallab.mapper.PrototypedFunctionBuilder;
-import it.units.erallab.mapper.evolver.CMAES;
-import it.units.erallab.mapper.evolver.DoublesSpeciated;
-import it.units.erallab.mapper.evolver.DoublesStandard;
-import it.units.erallab.mapper.evolver.EvolverBuilder;
-import it.units.erallab.mapper.phenotype.FGraph;
-import it.units.erallab.mapper.phenotype.FunctionGrid;
-import it.units.erallab.mapper.phenotype.MLP;
-import it.units.erallab.mapper.robot.*;
 import it.units.malelab.jgea.Worker;
 import it.units.malelab.jgea.core.Individual;
 import it.units.malelab.jgea.core.evolver.Evolver;
@@ -43,7 +42,9 @@ import it.units.malelab.jgea.core.listener.FileListenerFactory;
 import it.units.malelab.jgea.core.listener.Listener;
 import it.units.malelab.jgea.core.listener.ListenerFactory;
 import it.units.malelab.jgea.core.listener.collector.*;
+import it.units.malelab.jgea.core.order.PartialComparator;
 import it.units.malelab.jgea.core.util.Misc;
+import it.units.malelab.jgea.core.util.SequentialFunction;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
 import org.dyn4j.dynamics.Settings;
@@ -88,13 +89,14 @@ public class LocomotionEvolution extends Worker {
     int nBirths = i(a("nBirths", "500"));
     int[] seeds = ri(a("seed", "0:1"));
     String experimentName = a("expName", "short");
-    List<String> terrainNames = l(a("terrain", "flat"));
+    List<String> terrainNames = l(a("terrain", "300:flat;1000:hilly-1-10-0"));
     List<String> targetShapeNames = l(a("shape", "biped-4x2"));
     List<String> targetSensorConfigNames = l(a("sensorConfig", "uniform-f"));
-    List<String> transformationNames = l(a("transformations", "identity"));
+    List<String> transformationNames = l(a("transformation", "3:identity;1000:broken-0.5-0"));
     List<String> evolverMapperNames = l(a("evolver", "CMAES"));
-    List<String> robotMapperNames = l(a("robotMapper", "fixedHomoDist-2<MLP-2"));
+    List<String> robotMapperNames = l(a("robotMapper", "fixedPhases-1,fixedHomoDist-1<MLP-1"));
     Function<Outcome, Double> fitnessFunction = Outcome::getVelocity;
+    //collectors
     Function<Outcome, List<Item>> outcomeTransformer = new OutcomeItemizer(
         episodeTransientTime,
         episodeTime,
@@ -102,6 +104,20 @@ public class LocomotionEvolution extends Worker {
         spectrumMaxFreq,
         spectrumSize
     );
+    List<DataCollector<? super Object, ? super Robot<?>, ? super Outcome>> dataCollectors = List.of(
+        new Basic(),
+        new Population(),
+        new Diversity(),
+        new FunctionOfOneBest<>(i -> List.of(new Item("fitness", fitnessFunction.apply(i.getFitness()), "%5.3f"))),
+        new Histogram<>(fitnessFunction.compose(Individual::getFitness), "fitness", 8),
+        new FunctionOfOneBest<>(outcomeTransformer.compose(Individual::getFitness))
+    );
+    List<DataCollector<? super Object, ? super Robot<?>, ? super Outcome>> serializedCollectors = List.of(
+        new Basic(),
+        new FunctionOfOneBest<>(i -> List.of(new Item("fitness", fitnessFunction.apply(i.getFitness()), "%5.3f"))),
+        new FunctionOfOneBest<>(i -> List.of(new Item("serialized.robot", SerializationUtils.serialize(i.getSolution(), SerializationUtils.Mode.GZIPPED_JSON), "%s")))
+    );
+    //validation
     List<String> validationOutcomeHeaders = outcomeTransformer.apply(prototypeOutcome()).stream().map(Item::getName).collect(Collectors.toList());
     List<String> validationTransformationNames = l(a("validationTransformations", "")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
     List<String> validationTerrainNames = l(a("validationTerrains", "flat")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
@@ -114,8 +130,8 @@ public class LocomotionEvolution extends Worker {
     //prepare file listeners
     String statsFileName = a("statsFile", null) == null ? null : a("dir", ".") + File.separator + a("statsFile", null);
     String serializedFileName = a("serializedFile", null) == null ? null : a("dir", ".") + File.separator + a("serializedFile", null);
-    ListenerFactory<Object, Robot<?>, Double> statsListenerFactory = new FileListenerFactory<>(statsFileName);
-    ListenerFactory<Object, Robot<?>, Double> serializedListenerFactory = new FileListenerFactory<>(serializedFileName);
+    ListenerFactory<Object, Robot<?>, Outcome> statsListenerFactory = new FileListenerFactory<>(statsFileName);
+    ListenerFactory<Object, Robot<?>, Outcome> serializedListenerFactory = new FileListenerFactory<>(serializedFileName);
     CSVPrinter validationPrinter;
     List<String> validationKeyHeaders = List.of("experiment.name", "seed", "terrain", "shape", "sensor.config", "robot.mapper", "transformation", "evolver");
     try {
@@ -167,50 +183,19 @@ public class LocomotionEvolution extends Worker {
                       null,
                       buildSensorizingFunction(targetSensorConfigName).apply(buildShape(targetShapeName))
                   );
-                  //build training task
-                  Function<Robot<?>, Outcome> trainingTask = it.units.erallab.hmsrobots.util.Utils.buildRobotTransformation(
-                      transformationName.replace("rnd", Integer.toString(random.nextInt(10000)))
-                  ).andThen(new Locomotion(
-                      episodeTime,
-                      Locomotion.createTerrain(terrainName),
-                      physicsSettings
-                  ));
-                  if (CACHE_SIZE > 0) {
-                    trainingTask = Misc.cached(trainingTask, CACHE_SIZE);
-                  }
                   //build main data collectors for listener
-                  List<DataCollector<?, ? super Robot<SensingVoxel>, ? super Double>> collectors = new ArrayList<DataCollector<?, ? super Robot<SensingVoxel>, ? super Double>>(List.of(
-                      new Static(keys),
-                      new Basic(),
-                      new Population(),
-                      new Diversity(),
-                      new FitnessHistogram(),
-                      new BestInfo("%5.3f"),
-                      new FunctionOfOneBest<>(
-                          ((Function<Individual<?, ? extends Robot<SensingVoxel>, ? extends Double>, Robot<SensingVoxel>>) Individual::getSolution)
-                              .andThen(SerializationUtils::clone)
-                              .andThen(trainingTask)
-                              .andThen(outcomeTransformer)
-                      )
-                  ));
-                  Listener<? super Object, ? super Robot<?>, ? super Double> listener;
+                  Listener<? super Object, ? super Robot<?>, ? super Outcome> listener;
                   if (statsFileName == null) {
-                    listener = listener(collectors.toArray(DataCollector[]::new));
+                    listener = listener(dataCollectors);
                   } else {
-                    listener = statsListenerFactory.build(collectors.toArray(DataCollector[]::new));
+                    listener = statsListenerFactory.build(Utils.concat(List.of(new Static(keys)), dataCollectors));
                   }
                   if (serializedFileName != null) {
-                    listener = serializedListenerFactory.build(
-                        new Static(keys),
-                        new Basic(),
-                        new FunctionOfOneBest<>(i -> List.of(
-                            new Item("serialized.robot", SerializationUtils.serialize(i.getSolution(), SerializationUtils.Mode.GZIPPED_JSON), "%s")
-                        ))
-                    ).then(listener);
+                    listener = serializedListenerFactory.build(Utils.concat(List.of(new Static(keys)), serializedCollectors)).then(listener);
                   }
-                  Evolver<?, Robot<?>, Double> evolver;
+                  Evolver<?, Robot<?>, Outcome> evolver;
                   try {
-                    evolver = buildEvolver(evolverName, robotMapperName, target);
+                    evolver = buildEvolver(evolverName, robotMapperName, target, fitnessFunction);
                   } catch (ClassCastException | IllegalArgumentException e) {
                     L.warning(String.format(
                         "Cannot instantiate %s for %s: %s",
@@ -225,7 +210,7 @@ public class LocomotionEvolution extends Worker {
                   L.info(String.format("Starting %s", keys));
                   try {
                     Collection<Robot<?>> solutions = evolver.solve(
-                        trainingTask.andThen(fitnessFunction),
+                        buildTaskFromName(transformationName, terrainName, episodeTime, random),
                         new Births(nBirths),
                         random,
                         executorService,
@@ -250,7 +235,7 @@ public class LocomotionEvolution extends Worker {
                               Locomotion.createTerrain(validationTerrainName),
                               physicsSettings
                           );
-                          validationTask = it.units.erallab.hmsrobots.util.Utils.buildRobotTransformation(validationTransformationName)
+                          validationTask = buildRobotTransformation(validationTransformationName, new Random(0))
                               .andThen(SerializationUtils::clone)
                               .andThen(validationTask);
                           Outcome validationOutcome = validationTask.apply(bestSolution);
@@ -348,6 +333,7 @@ public class LocomotionEvolution extends Worker {
     throw new IllegalArgumentException(String.format("Unknown evolver builder name: %s", name));
   }
 
+  @SuppressWarnings({"unchecked", "rawtypes"})
   private static PrototypedFunctionBuilder<?, ?> getMapperBuilderFromName(String name) {
     String fixedCentralized = "fixedCentralized";
     String fixedHomoDistributed = "fixedHomoDist-(?<nSignals>\\d+)";
@@ -402,7 +388,7 @@ public class LocomotionEvolution extends Worker {
   }
 
   @SuppressWarnings({"unchecked", "rawtypes"})
-  private static Evolver<?, Robot<?>, Double> buildEvolver(String evolverName, String robotMapperName, Robot<?> target) {
+  private static Evolver<?, Robot<?>, Outcome> buildEvolver(String evolverName, String robotMapperName, Robot<?> target, Function<Outcome, Double> outcomeMeasure) {
     PrototypedFunctionBuilder<?, ?> mapperBuilder = null;
     for (String piece : robotMapperName.split("<")) {
       if (mapperBuilder == null) {
@@ -413,8 +399,44 @@ public class LocomotionEvolution extends Worker {
     }
     return getEvolverBuilderFromName(evolverName).build(
         (PrototypedFunctionBuilder) mapperBuilder,
-        target
+        target,
+        PartialComparator.from(Double.class).comparing(outcomeMeasure).reversed()
     );
+  }
+
+  private static Function<Robot<?>, Outcome> buildTaskFromName(String transformationSequenceName, String terrainSequenceName, double episodeT, Random random) {
+    //for sequence, assume format '99:name;99:name'
+    //transformations
+    Function<Robot<?>, Robot<?>> transformation;
+    if (transformationSequenceName.contains(";")) {
+      transformation = new SequentialFunction<>(Arrays.stream(transformationSequenceName.split(";"))
+          .collect(Collectors.toMap(
+              p -> Long.parseLong(p.split(":")[0]),
+              p -> buildRobotTransformation(p.split(":")[1], random)
+          )));
+    } else {
+      transformation = buildRobotTransformation(transformationSequenceName, random);
+    }
+    //terrains
+    Function<Robot<?>, Outcome> task;
+    if (terrainSequenceName.contains(";")) {
+      task = new SequentialFunction<>(Arrays.stream(terrainSequenceName.split(";"))
+          .collect(Collectors.toMap(
+              p -> Long.parseLong(p.split(":")[0]),
+              p -> Misc.cached(new Locomotion(
+                  episodeT,
+                  Locomotion.createTerrain(p.split(":")[1]),
+                  new Settings()
+              ), CACHE_SIZE)
+          )));
+    } else {
+      task = Misc.cached(new Locomotion(
+          episodeT,
+          Locomotion.createTerrain(terrainSequenceName),
+          new Settings()
+      ), CACHE_SIZE);
+    }
+    return task.compose(transformation);
   }
 
 }

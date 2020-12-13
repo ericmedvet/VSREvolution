@@ -1,7 +1,7 @@
-package it.units.erallab.mapper.phenotype;
+package it.units.erallab.builder.phenotype;
 
 import it.units.erallab.RealFunction;
-import it.units.erallab.mapper.PrototypedFunctionBuilder;
+import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.malelab.jgea.representation.graph.Graph;
 import it.units.malelab.jgea.representation.graph.Node;
 import it.units.malelab.jgea.representation.graph.numeric.functiongraph.FunctionGraph;

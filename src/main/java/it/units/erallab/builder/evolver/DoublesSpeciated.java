@@ -1,7 +1,7 @@
-package it.units.erallab.mapper.evolver;
+package it.units.erallab.builder.evolver;
 
 import com.google.common.collect.Range;
-import it.units.erallab.mapper.PrototypedFunctionBuilder;
+import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.malelab.jgea.core.Individual;
 import it.units.malelab.jgea.core.evolver.Evolver;
 import it.units.malelab.jgea.core.evolver.SpeciatedEvolver;
@@ -40,13 +40,13 @@ public class DoublesSpeciated extends DoublesStandard {
   }
 
   @Override
-  public <T> Evolver<List<Double>, T, Double> build(PrototypedFunctionBuilder<List<Double>, T> builder, T target) {
+  public <T, F> Evolver<List<Double>, T, F> build(PrototypedFunctionBuilder<List<Double>, T> builder, T target, PartialComparator<F> comparator) {
     int length = builder.exampleFor(target).size();
     EuclideanDistance d = new EuclideanDistance();
     return new SpeciatedEvolver<>(
         builder.buildFor(target),
         new FixedLengthListFactory<>(length, new UniformDoubleFactory(-1d, 1d)),
-        PartialComparator.from(Double.class).reversed().comparing(Individual::getFitness),
+        comparator.comparing(Individual::getFitness),
         nPop,
         Map.of(
             new GaussianMutation(1d), 1d - xOverProb,
@@ -55,16 +55,7 @@ public class DoublesSpeciated extends DoublesStandard {
         nPop / 10,
         (i1, i2) -> d.apply(i1.getGenotype(), i2.getGenotype()),
         dThreshold,
-        individuals -> {
-          double[] fitnesses = individuals.stream().mapToDouble(Individual::getFitness).toArray();
-          Individual<List<Double>, T, Double> r = Misc.first(individuals);
-          return new Individual<>(
-              r.getGenotype(),
-              r.getSolution(),
-              Misc.median(fitnesses),
-              r.getBirthIteration()
-          );
-        },
+        Misc::first,
         0.75d
     );
   }

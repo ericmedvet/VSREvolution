@@ -1,4 +1,4 @@
-package it.units.erallab.mapper.robot;
+package it.units.erallab.builder.robot;
 
 import it.units.erallab.RealFunction;
 import it.units.erallab.hmsrobots.core.controllers.DistributedSensing;
@@ -6,7 +6,7 @@ import it.units.erallab.hmsrobots.core.objects.Robot;
 import it.units.erallab.hmsrobots.core.objects.SensingVoxel;
 import it.units.erallab.hmsrobots.util.Grid;
 import it.units.erallab.hmsrobots.util.SerializationUtils;
-import it.units.erallab.mapper.PrototypedFunctionBuilder;
+import it.units.erallab.builder.PrototypedFunctionBuilder;
 
 import java.util.List;
 import java.util.Objects;
