@@ -252,7 +252,7 @@ public class LocomotionEvolution extends Worker {
                             List<Item> validationItems = outcomeTransformer.apply(validationOutcome);
                             values.addAll(validationOutcomeHeaders.stream()
                                 .map(n -> validationItems.stream()
-                                    .filter(i -> i.getName().equals(n))
+                                    .filter(i -> i.getName().equals(n) && i.getValue() != null)
                                     .map(Item::getValue)
                                     .findFirst()
                                     .orElse(null))
