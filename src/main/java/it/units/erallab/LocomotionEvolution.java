@@ -260,8 +260,9 @@ public class LocomotionEvolution extends Worker {
                             );
                             validationPrinter.printRecord(values);
                             validationPrinter.flush();
-                          } catch (IOException e) {
+                          } catch (Throwable e) {
                             L.severe(String.format("Cannot save validation results due to %s", e));
+                            e.printStackTrace(); // TODO possibly to be removed
                           }
                         }
                       }
@@ -273,7 +274,7 @@ public class LocomotionEvolution extends Worker {
                         keys,
                         e
                     ));
-                    e.printStackTrace();
+                    e.printStackTrace(); // TODO possibly to be removed
                   }
                 }
               }
