@@ -93,8 +93,8 @@ public class LocomotionEvolution extends Worker {
     List<String> targetShapeNames = l(a("shape", "biped-4x2"));
     List<String> targetSensorConfigNames = l(a("sensorConfig", "uniform-f"));
     List<String> transformationNames = l(a("transformation", "3:identity;1000:broken-0.5-0"));
-    List<String> evolverMapperNames = l(a("evolver", "CMAES"));
-    List<String> robotMapperNames = l(a("robotMapper", "fixedPhases-1,fixedHomoDist-1<MLP-1"));
+    List<String> evolverNames = l(a("evolver", "CMAES"));
+    List<String> mapperNames = l(a("mapper", "fixedPhases-1,fixedHomoDist-1<MLP-1"));
     Function<Outcome, Double> fitnessFunction = Outcome::getVelocity;
     //collectors
     Function<Outcome, List<Item>> outcomeTransformer = new OutcomeItemizer(
@@ -119,8 +119,8 @@ public class LocomotionEvolution extends Worker {
     );
     //validation
     List<String> validationOutcomeHeaders = outcomeTransformer.apply(prototypeOutcome()).stream().map(Item::getName).collect(Collectors.toList());
-    List<String> validationTransformationNames = l(a("validationTransformations", "")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
-    List<String> validationTerrainNames = l(a("validationTerrains", "flat")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
+    List<String> validationTransformationNames = l(a("validationTransformation", "")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
+    List<String> validationTerrainNames = l(a("validationTerrain", "flat")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
     if (!validationTerrainNames.isEmpty() && validationTransformationNames.isEmpty()) {
       validationTransformationNames.add("identity");
     }
@@ -133,7 +133,7 @@ public class LocomotionEvolution extends Worker {
     ListenerFactory<Object, Robot<?>, Outcome> statsListenerFactory = new FileListenerFactory<>(statsFileName);
     ListenerFactory<Object, Robot<?>, Outcome> serializedListenerFactory = new FileListenerFactory<>(serializedFileName);
     CSVPrinter validationPrinter;
-    List<String> validationKeyHeaders = List.of("experiment.name", "seed", "terrain", "shape", "sensor.config", "robot.mapper", "transformation", "evolver");
+    List<String> validationKeyHeaders = List.of("experiment.name", "seed", "terrain", "shape", "sensor.config", "mapper", "transformation", "evolver");
     try {
       if (a("validationFile", null) != null) {
         validationPrinter = new CSVPrinter(new FileWriter(
@@ -153,8 +153,8 @@ public class LocomotionEvolution extends Worker {
     }
     //summarize params
     L.info("Experiment name: " + experimentName);
-    L.info("Evolvers: " + evolverMapperNames);
-    L.info("Robot mappers: " + robotMapperNames);
+    L.info("Evolvers: " + evolverNames);
+    L.info("Mappers: " + mapperNames);
     L.info("Shapes: " + targetShapeNames);
     L.info("Sensor configs: " + targetSensorConfigNames);
     L.info("Terrains: " + terrainNames);
@@ -165,9 +165,9 @@ public class LocomotionEvolution extends Worker {
       for (String terrainName : terrainNames) {
         for (String targetShapeName : targetShapeNames) {
           for (String targetSensorConfigName : targetSensorConfigNames) {
-            for (String robotMapperName : robotMapperNames) {
+            for (String mapperName : mapperNames) {
               for (String transformationName : transformationNames) {
-                for (String evolverName : evolverMapperNames) {
+                for (String evolverName : evolverNames) {
                   final Random random = new Random(seed);
                   Map<String, String> keys = new TreeMap<>(Map.of(
                       "experiment.name", experimentName,
@@ -175,7 +175,7 @@ public class LocomotionEvolution extends Worker {
                       "terrain", terrainName,
                       "shape", targetShapeName,
                       "sensor.config", targetSensorConfigName,
-                      "robot.mapper", robotMapperName,
+                      "mapper", mapperName,
                       "transformation", transformationName,
                       "evolver", evolverName
                   ));
@@ -195,12 +195,12 @@ public class LocomotionEvolution extends Worker {
                   }
                   Evolver<?, Robot<?>, Outcome> evolver;
                   try {
-                    evolver = buildEvolver(evolverName, robotMapperName, target, fitnessFunction);
+                    evolver = buildEvolver(evolverName, mapperName, target, fitnessFunction);
                   } catch (ClassCastException | IllegalArgumentException e) {
                     L.warning(String.format(
                         "Cannot instantiate %s for %s: %s",
                         evolverName,
-                        robotMapperName,
+                        mapperName,
                         e.toString()
                     ));
                     continue;
