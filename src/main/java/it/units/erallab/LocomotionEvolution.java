@@ -69,6 +69,9 @@ import static it.units.malelab.jgea.core.util.Args.*;
 public class LocomotionEvolution extends Worker {
 
   public static final int CACHE_SIZE = 1000;
+  public static final String MAPPER_PIPE_CHAR = "<";
+  public static final String SEQUENCE_SEPARATOR_CHAR = ">";
+  public static final String SEQUENCE_ITERATION_CHAR = ":";
 
   public LocomotionEvolution(String[] args) {
     super(args);
@@ -391,7 +394,7 @@ public class LocomotionEvolution extends Worker {
   @SuppressWarnings({"unchecked", "rawtypes"})
   private static Evolver<?, Robot<?>, Outcome> buildEvolver(String evolverName, String robotMapperName, Robot<?> target, Function<Outcome, Double> outcomeMeasure) {
     PrototypedFunctionBuilder<?, ?> mapperBuilder = null;
-    for (String piece : robotMapperName.split("<")) {
+    for (String piece : robotMapperName.split(MAPPER_PIPE_CHAR)) {
       if (mapperBuilder == null) {
         mapperBuilder = getMapperBuilderFromName(piece);
       } else {
@@ -406,38 +409,45 @@ public class LocomotionEvolution extends Worker {
   }
 
   private static Function<Robot<?>, Outcome> buildTaskFromName(String transformationSequenceName, String terrainSequenceName, double episodeT, Random random) {
-    //for sequence, assume format '99:name;99:name'
+    //for sequence, assume format '99:name>99:name'
     //transformations
     Function<Robot<?>, Robot<?>> transformation;
-    if (transformationSequenceName.contains(";")) {
-      transformation = new SequentialFunction<>(Arrays.stream(transformationSequenceName.split(";"))
+    if (transformationSequenceName.contains(SEQUENCE_SEPARATOR_CHAR)) {
+      transformation = new SequentialFunction<>(Arrays.stream(transformationSequenceName.split(SEQUENCE_SEPARATOR_CHAR))
           .collect(Collectors.toMap(
-              p -> Long.parseLong(p.split(":")[0]),
-              p -> buildRobotTransformation(p.split(":")[1], random)
+              p -> Long.parseLong(p.split(SEQUENCE_ITERATION_CHAR)[0]),
+              p -> buildRobotTransformation(p.split(SEQUENCE_ITERATION_CHAR)[1], random)
           )));
     } else {
       transformation = buildRobotTransformation(transformationSequenceName, random);
     }
     //terrains
     Function<Robot<?>, Outcome> task;
-    if (terrainSequenceName.contains(";")) {
-      task = new SequentialFunction<>(Arrays.stream(terrainSequenceName.split(";"))
+    if (terrainSequenceName.contains(SEQUENCE_SEPARATOR_CHAR)) {
+      task = new SequentialFunction<>(Arrays.stream(terrainSequenceName.split(SEQUENCE_SEPARATOR_CHAR))
           .collect(Collectors.toMap(
-              p -> Long.parseLong(p.split(":")[0]),
-              p -> Misc.cached(new Locomotion(
-                  episodeT,
-                  Locomotion.createTerrain(p.split(":")[1]),
-                  new Settings()
-              ), CACHE_SIZE)
+              p -> Long.parseLong(p.split(SEQUENCE_ITERATION_CHAR)[0]),
+              p -> buildLocomotionTask(p.split(SEQUENCE_ITERATION_CHAR)[1], episodeT, random)
           )));
     } else {
-      task = Misc.cached(new Locomotion(
+      task = buildLocomotionTask(terrainSequenceName, episodeT, random);
+    }
+    return task.compose(transformation);
+  }
+
+  private static Function<Robot<?>, Outcome> buildLocomotionTask(String terrainName, double episodeT, Random random) {
+    if (!terrainName.contains("-rnd")) {
+      return Misc.cached(new Locomotion(
           episodeT,
-          Locomotion.createTerrain(terrainSequenceName),
+          Locomotion.createTerrain(terrainName),
           new Settings()
       ), CACHE_SIZE);
     }
-    return task.compose(transformation);
+    return r -> new Locomotion(
+        episodeT,
+        Locomotion.createTerrain(terrainName.replace("-rnd", Integer.toString(random.nextInt(10000)))),
+        new Settings()
+    ).apply(r);
   }
 
 }
