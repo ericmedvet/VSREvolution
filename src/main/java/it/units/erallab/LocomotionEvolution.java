@@ -92,7 +92,7 @@ public class LocomotionEvolution extends Worker {
     int nBirths = i(a("nBirths", "500"));
     int[] seeds = ri(a("seed", "0:1"));
     String experimentName = a("expName", "short");
-    List<String> terrainNames = l(a("terrain", "300>flat;1000:hilly-1-10-0"));
+    List<String> terrainNames = l(a("terrain", "300:flat>1000:hilly-1-10-0"));
     List<String> targetShapeNames = l(a("shape", "biped-4x2"));
     List<String> targetSensorConfigNames = l(a("sensorConfig", "uniform-f"));
     List<String> transformationNames = l(a("transformation", "100:identity>1000:broken-0.5-0"));
