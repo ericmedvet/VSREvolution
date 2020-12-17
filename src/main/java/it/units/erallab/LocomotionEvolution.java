@@ -45,6 +45,7 @@ import it.units.malelab.jgea.core.listener.collector.*;
 import it.units.malelab.jgea.core.order.PartialComparator;
 import it.units.malelab.jgea.core.util.Misc;
 import it.units.malelab.jgea.core.util.SequentialFunction;
+import it.units.malelab.jgea.core.util.TextPlotter;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
 import org.dyn4j.dynamics.Settings;
@@ -92,7 +93,7 @@ public class LocomotionEvolution extends Worker {
     int nBirths = i(a("nBirths", "500"));
     int[] seeds = ri(a("seed", "0:1"));
     String experimentName = a("expName", "short");
-    List<String> terrainNames = l(a("terrain", "300:flat>1000:hilly-1-10-0"));
+    List<String> terrainNames = l(a("terrain", "300:flatWithStart-rnd>1000:hilly-1-10-0"));
     List<String> targetShapeNames = l(a("shape", "biped-4x2"));
     List<String> targetSensorConfigNames = l(a("sensorConfig", "uniform-f"));
     List<String> transformationNames = l(a("transformation", "100:identity>1000:broken-0.5-0"));
@@ -164,6 +165,8 @@ public class LocomotionEvolution extends Worker {
     L.info("Transformations: " + transformationNames);
     L.info("Validations: " + Lists.cartesianProduct(validationTerrainNames, validationTransformationNames));
     //start iterations
+    int nOfRuns = seeds.length * terrainNames.size() * targetShapeNames.size() * targetSensorConfigNames.size() * mapperNames.size() * transformationNames.size() * evolverNames.size();
+    int counter = 0;
     for (int seed : seeds) {
       for (String terrainName : terrainNames) {
         for (String targetShapeName : targetShapeNames) {
@@ -171,6 +174,7 @@ public class LocomotionEvolution extends Worker {
             for (String mapperName : mapperNames) {
               for (String transformationName : transformationNames) {
                 for (String evolverName : evolverNames) {
+                  counter = counter + 1;
                   final Random random = new Random(seed);
                   Map<String, String> keys = new TreeMap<>(Map.of(
                       "experiment.name", experimentName,
@@ -200,8 +204,7 @@ public class LocomotionEvolution extends Worker {
                   try {
                     evolver = buildEvolver(evolverName, mapperName, target, fitnessFunction);
                   } catch (ClassCastException | IllegalArgumentException e) {
-                    L.warning(String.format(
-                        "Cannot instantiate %s for %s: %s",
+                    L.warning(String.format("Cannot instantiate %s for %s: %s",
                         evolverName,
                         mapperName,
                         e.toString()
@@ -210,7 +213,11 @@ public class LocomotionEvolution extends Worker {
                   }
                   //optimize
                   Stopwatch stopwatch = Stopwatch.createStarted();
-                  L.info(String.format("Starting %s", keys));
+                  L.info(String.format("Progress %s (%d/%d); Starting %s",
+                      TextPlotter.horizontalBar(counter - 1, 0, nOfRuns, 8),
+                      counter, nOfRuns,
+                      keys
+                  ));
                   try {
                     Collection<Robot<?>> solutions = evolver.solve(
                         buildTaskFromName(transformationName, terrainName, episodeTime, random),
@@ -222,8 +229,9 @@ public class LocomotionEvolution extends Worker {
                             executorService
                         )
                     );
-                    L.info(String.format("Done %s: %d solutions in %4ds",
-                        keys,
+                    L.info(String.format("Progress %s (%d/%d); Done: %d solutions in %4ds",
+                        TextPlotter.horizontalBar(counter, 0, nOfRuns, 8),
+                        counter, nOfRuns,
                         solutions.size(),
                         stopwatch.elapsed(TimeUnit.SECONDS)
                     ));
@@ -242,8 +250,7 @@ public class LocomotionEvolution extends Worker {
                               .andThen(SerializationUtils::clone)
                               .andThen(validationTask);
                           Outcome validationOutcome = validationTask.apply(bestSolution);
-                          L.info(String.format(
-                              "Validation %s/%s of \"first\" best done in %ss",
+                          L.info(String.format("Validation %s/%s of \"first\" best done in %ss",
                               validationTransformationName,
                               validationTerrainName,
                               validationOutcome.getComputationTime()
@@ -445,7 +452,10 @@ public class LocomotionEvolution extends Worker {
     }
     return r -> new Locomotion(
         episodeT,
-        Locomotion.createTerrain(terrainName.replace("-rnd", Integer.toString(random.nextInt(10000)))),
+        Locomotion.createTerrain(terrainName.replace(
+            "-rnd",
+            "-" + Integer.toString(random.nextInt(10000))
+        )),
         new Settings()
     ).apply(r);
   }
