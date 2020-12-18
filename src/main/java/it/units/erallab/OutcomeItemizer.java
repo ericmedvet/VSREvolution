@@ -4,7 +4,7 @@ import it.units.erallab.hmsrobots.tasks.locomotion.Footprint;
 import it.units.erallab.hmsrobots.tasks.locomotion.Outcome;
 import it.units.erallab.hmsrobots.util.Grid;
 import it.units.malelab.jgea.core.listener.collector.Item;
-import it.units.malelab.jgea.core.util.Misc;
+import it.units.malelab.jgea.core.util.TextPlotter;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -51,7 +51,7 @@ public class OutcomeItemizer implements Function<Outcome, List<Item>> {
         ));
     List<Outcome.Mode> xModes = o.getCenterPowerSpectrum(startT, endT, Outcome.Component.X, spectrumMinFreq, spectrumMaxFreq, spectrumSize);
     List<Outcome.Mode> yModes = o.getCenterPowerSpectrum(startT, endT, Outcome.Component.X, spectrumMinFreq, spectrumMaxFreq, spectrumSize);
-    items.add(new Item("spectrum.y", Misc.barplot(yModes.stream().mapToDouble(Outcome.Mode::getStrength).toArray(), 8), "%8s"));
+    items.add(new Item("spectrum.y", TextPlotter.barplot(yModes.stream().mapToDouble(Outcome.Mode::getStrength).toArray(), 8), "%8s"));
     Outcome.Gait g = o.getMainGait(startT, endT);
     items.addAll(List.of(
         new Item("gait.average.touch.area", g == null ? null : g.getAvgTouchArea(), "%5.3f"),

@@ -94,7 +94,7 @@ public class LocomotionEvolution extends Worker {
     String experimentName = a("expName", "short");
     List<String> terrainNames = l(a("terrain", "300:flat>1000:hilly-1-10-0"));
     List<String> targetShapeNames = l(a("shape", "biped-4x2"));
-    List<String> targetSensorConfigNames = l(a("sensorConfig", "uniform-f"));
+    List<String> targetSensorConfigNames = l(a("sensorConfig", "uniform-ax+ay-0"));
     List<String> transformationNames = l(a("transformation", "100:identity>1000:broken-0.5-0"));
     List<String> evolverNames = l(a("evolver", "CMAES"));
     List<String> mapperNames = l(a("mapper", "fixedPhases-1,fixedHomoDist-1<MLP-1"));
