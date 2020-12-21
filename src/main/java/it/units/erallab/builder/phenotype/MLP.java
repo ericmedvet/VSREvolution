@@ -15,10 +15,16 @@ public class MLP implements PrototypedFunctionBuilder<List<Double>, RealFunction
 
   private final double innerLayerRatio;
   private final int nOfInnerLayers;
+  private final MultiLayerPerceptron.ActivationFunction activationFunction;
 
   public MLP(double innerLayerRatio, int nOfInnerLayers) {
+    this(innerLayerRatio, nOfInnerLayers, MultiLayerPerceptron.ActivationFunction.TANH);
+  }
+
+  public MLP(double innerLayerRatio, int nOfInnerLayers, MultiLayerPerceptron.ActivationFunction activationFunction) {
     this.innerLayerRatio = innerLayerRatio;
     this.nOfInnerLayers = nOfInnerLayers;
+    this.activationFunction = activationFunction;
   }
 
   private int[] innerNeurons(int nOfInputs, int nOfOutputs) {
@@ -49,7 +55,7 @@ public class MLP implements PrototypedFunctionBuilder<List<Double>, RealFunction
           nOfInputs,
           nOfOutputs,
           new MultiLayerPerceptron(
-              MultiLayerPerceptron.ActivationFunction.TANH,
+              activationFunction,
               nOfInputs,
               innerNeurons,
               nOfOutputs,

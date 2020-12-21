@@ -2,7 +2,9 @@ package it.units.erallab.builder.robot;
 
 import it.units.erallab.RealFunction;
 import it.units.erallab.builder.PrototypedFunctionBuilder;
+import it.units.erallab.builder.phenotype.MLP;
 import it.units.erallab.hmsrobots.core.controllers.DistributedSensing;
+import it.units.erallab.hmsrobots.core.controllers.MultiLayerPerceptron;
 import it.units.erallab.hmsrobots.core.objects.Robot;
 import it.units.erallab.hmsrobots.core.objects.SensingVoxel;
 import it.units.erallab.hmsrobots.util.Grid;
@@ -12,16 +14,19 @@ import org.apache.commons.math3.stat.descriptive.rank.Percentile;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Random;
 import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  * @author eric
  */
-public class FunctionBasedBodyHomoDistributed implements PrototypedFunctionBuilder<List<RealFunction>, Robot<? extends SensingVoxel>> {
+public class BodyAndHomoDistributed implements PrototypedFunctionBuilder<List<RealFunction>, Robot<? extends SensingVoxel>> {
   private final int signals;
   private final double percentile;
 
-  public FunctionBasedBodyHomoDistributed(int signals, double percentile) {
+  public BodyAndHomoDistributed(int signals, double percentile) {
     this.signals = signals;
     this.percentile = percentile;
   }
@@ -102,5 +107,29 @@ public class FunctionBasedBodyHomoDistributed implements PrototypedFunctionBuild
             d -> d
         )
     );
+  }
+
+  public static void main(String[] args) {
+    List<PrototypedFunctionBuilder<List<Double>, Robot<? extends SensingVoxel>>> builders = List.of(50d).stream()
+        .map(p -> new BodyAndHomoDistributed(1, p)
+            .compose(PrototypedFunctionBuilder.of(List.of(
+                new MLP(2d, 3, MultiLayerPerceptron.ActivationFunction.SIN),
+                new MLP(0.65d, 1)
+            )))
+            .compose(PrototypedFunctionBuilder.merger()))
+        .collect(Collectors.toList());
+    Robot<? extends SensingVoxel> robot5 = new Robot<>(null, Utils.buildSensorizingFunction("uniform-t+ay-0").apply(Utils.buildShape("box-5x5")));
+    Random r = new Random();
+    for (int i = 0; i < 30; i++) {
+      List<Double> genotype = IntStream.range(0, builders.get(0).exampleFor(robot5).size())
+          .mapToObj(j -> r.nextDouble() * 2d - 1d)
+          .collect(Collectors.toList());
+      System.out.println(genotype.size());
+      builders.forEach(builder -> System.out.printf(
+          "%s%n%n",
+          Grid.toString(builder.buildFor(robot5).apply(genotype).getVoxels(), Objects::nonNull)
+      ));
+      System.out.println("==========");
+    }
   }
 }
