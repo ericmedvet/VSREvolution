@@ -358,6 +358,7 @@ public class LocomotionEvolution extends Worker {
     String fixedPhasesFunction = "fixedPhasesFunct-(?<f>\\d+)";
     String fixedPhases = "fixedPhases-(?<f>\\d+)";
     String bodyAndHomoDistributed = "bodyAndHomoDist-(?<fullness>\\d+(\\.\\d+)?)-(?<nSignals>\\d+)";
+    String sensorAndBodyAndHomoDistributed = "sensorAndBodyAndHomoDist-(?<fullness>\\d+(\\.\\d+)?)-(?<nSignals>\\d+)";
     String mlp = "MLP-(?<nLayers>\\d+)(-(?<actFun>(sin|tanh|sigmoid|relu)))?";
     String fgraph = "fGraph";
     String functionGrid = "fGrid-(?<innerMapper>.*)";
@@ -384,6 +385,14 @@ public class LocomotionEvolution extends Worker {
     }
     if ((params = params(bodyAndHomoDistributed, name)) != null) {
       return new BodyAndHomoDistributed(1, Double.parseDouble(params.get("fullness")))
+          .compose(PrototypedFunctionBuilder.of(List.of(
+              new MLP(2d, 3, MultiLayerPerceptron.ActivationFunction.SIN),
+              new MLP(0.65d, 1)
+          )))
+          .compose(PrototypedFunctionBuilder.merger());
+    }
+    if ((params = params(sensorAndBodyAndHomoDistributed, name)) != null) {
+      return new SensorAndBodyAndHomoDistributed(1, Double.parseDouble(params.get("fullness")))
           .compose(PrototypedFunctionBuilder.of(List.of(
               new MLP(2d, 3, MultiLayerPerceptron.ActivationFunction.SIN),
               new MLP(0.65d, 1)

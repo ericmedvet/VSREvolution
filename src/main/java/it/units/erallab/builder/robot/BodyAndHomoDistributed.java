@@ -109,27 +109,4 @@ public class BodyAndHomoDistributed implements PrototypedFunctionBuilder<List<Re
     );
   }
 
-  public static void main(String[] args) {
-    List<PrototypedFunctionBuilder<List<Double>, Robot<? extends SensingVoxel>>> builders = List.of(50d).stream()
-        .map(p -> new BodyAndHomoDistributed(1, p)
-            .compose(PrototypedFunctionBuilder.of(List.of(
-                new MLP(2d, 3, MultiLayerPerceptron.ActivationFunction.SIN),
-                new MLP(0.65d, 1)
-            )))
-            .compose(PrototypedFunctionBuilder.merger()))
-        .collect(Collectors.toList());
-    Robot<? extends SensingVoxel> robot5 = new Robot<>(null, Utils.buildSensorizingFunction("uniform-t+ay-0").apply(Utils.buildShape("box-5x5")));
-    Random r = new Random();
-    for (int i = 0; i < 30; i++) {
-      List<Double> genotype = IntStream.range(0, builders.get(0).exampleFor(robot5).size())
-          .mapToObj(j -> r.nextDouble() * 2d - 1d)
-          .collect(Collectors.toList());
-      System.out.println(genotype.size());
-      builders.forEach(builder -> System.out.printf(
-          "%s%n%n",
-          Grid.toString(builder.buildFor(robot5).apply(genotype).getVoxels(), Objects::nonNull)
-      ));
-      System.out.println("==========");
-    }
-  }
 }
