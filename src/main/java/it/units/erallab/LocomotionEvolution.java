@@ -131,6 +131,7 @@ public class LocomotionEvolution extends Worker {
             i.getSolution().getVoxels().values().stream().filter(Objects::nonNull).count(),
             "%2d"
         ))),
+        new Histogram<>(i -> i.getSolution().getVoxels().values().stream().filter(Objects::nonNull).count(), "shape.num.voxel", 8),
         new FunctionOfOneBest<>(i -> List.of(new Item(
             "average.posture.minimap",
             TextPlotter.binaryMap(i.getFitness().getAveragePosture().toArray(b -> b), 2),
