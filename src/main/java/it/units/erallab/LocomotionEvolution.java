@@ -91,15 +91,15 @@ public class LocomotionEvolution extends Worker {
     Settings physicsSettings = new Settings();
     double episodeTime = d(a("episodeTime", "10"));
     double episodeTransientTime = d(a("episodeTransientTime", "5"));
-    int nBirths = i(a("nBirths", "500"));
+    int nBirths = i(a("nBirths", "5000"));
     int[] seeds = ri(a("seed", "0:1"));
     String experimentName = a("expName", "short");
-    List<String> terrainNames = l(a("terrain", "300:flat>1000:hilly-1-10-0"));
-    List<String> targetShapeNames = l(a("shape", "biped-4x4"));
-    List<String> targetSensorConfigNames = l(a("sensorConfig", "uniform-ax+ay+t-0"));
-    List<String> transformationNames = l(a("transformation", "100:identity>1000:broken-0.5-0"));
+    List<String> terrainNames = l(a("terrain", "hilly-1-10-0"));
+    List<String> targetShapeNames = l(a("shape", "box-4x4"));
+    List<String> targetSensorConfigNames = l(a("sensorConfig", "uniform-t-0"));
+    List<String> transformationNames = l(a("transformation", "identity"));
     List<String> evolverNames = l(a("evolver", "CMAES"));
-    List<String> mapperNames = l(a("mapper", "fixedHomoDist-1<MLP-1,bodyAndHomoDist-0.5-1"));
+    List<String> mapperNames = l(a("mapper", "bodyAndHomoDist-0.5-1"));
     Function<Outcome, Double> fitnessFunction = Outcome::getVelocity;
     //collectors
     Function<Outcome, List<Item>> outcomeTransformer = new OutcomeItemizer(
@@ -114,7 +114,7 @@ public class LocomotionEvolution extends Worker {
         new FunctionOfOneBest<>(i -> List.of(new Item("fitness", fitnessFunction.apply(i.getFitness()), "%5.3f"))),
         new Histogram<>(fitnessFunction.compose(Individual::getFitness), "fitness", 8),
         new FunctionOfOneBest<>(i -> List.of(new Item(
-            "static.posture.minimap",
+            "shape.minimap",
             TextPlotter.binaryMap(
                 i.getSolution().getVoxels().toArray(Objects::nonNull),
                 (int) Math.min(Math.ceil((float) i.getSolution().getVoxels().getW() / (float) i.getSolution().getVoxels().getH() * 2f), 4)
@@ -122,7 +122,17 @@ public class LocomotionEvolution extends Worker {
             "%4s"
         ))),
         new FunctionOfOneBest<>(i -> List.of(new Item(
-            "dynamic.posture.minimap",
+            "shape.size",
+            i.getSolution().getVoxels().getW() + "x" + i.getSolution().getVoxels().getH(),
+            "%3s"
+        ))),
+        new FunctionOfOneBest<>(i -> List.of(new Item(
+            "shape.num.voxel",
+            i.getSolution().getVoxels().values().stream().filter(Objects::nonNull).count(),
+            "%2d"
+        ))),
+        new FunctionOfOneBest<>(i -> List.of(new Item(
+            "average.posture.minimap",
             TextPlotter.binaryMap(i.getFitness().getAveragePosture().toArray(b -> b), 2),
             "%2s"
         ))),
@@ -254,14 +264,14 @@ public class LocomotionEvolution extends Worker {
                           validationTask = buildRobotTransformation(validationTransformationName, new Random(0))
                               .andThen(SerializationUtils::clone)
                               .andThen(validationTask);
-                          Outcome validationOutcome = validationTask.apply(bestSolution);
-                          L.info(String.format(
-                              "Validation %s/%s of \"first\" best done in %ss",
-                              validationTransformationName,
-                              validationTerrainName,
-                              validationOutcome.getComputationTime()
-                          ));
                           try {
+                            Outcome validationOutcome = validationTask.apply(bestSolution);
+                            L.info(String.format(
+                                "Validation %s/%s of \"first\" best done in %ss",
+                                validationTransformationName,
+                                validationTerrainName,
+                                validationOutcome.getComputationTime()
+                            ));
                             List<Object> values = new ArrayList<>();
                             values.addAll(validationKeyHeaders.stream().map(keys::get).collect(Collectors.toList()));
                             values.addAll(List.of(validationTransformationName, validationTerrainName));
@@ -277,7 +287,7 @@ public class LocomotionEvolution extends Worker {
                             validationPrinter.printRecord(values);
                             validationPrinter.flush();
                           } catch (Throwable e) {
-                            L.severe(String.format("Cannot save validation results due to %s", e));
+                            L.severe(String.format("Cannot do or save validation results due to %s", e));
                             e.printStackTrace(); // TODO possibly to be removed
                           }
                         }
