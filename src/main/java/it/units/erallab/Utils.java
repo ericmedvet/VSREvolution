@@ -18,35 +18,19 @@ package it.units.erallab;
 
 import com.google.common.collect.Range;
 import it.units.erallab.hmsrobots.util.Grid;
+import it.units.erallab.hmsrobots.util.SerializationUtils;
+import it.units.malelab.jgea.core.util.TextPlotter;
 
 import java.util.*;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.logging.Logger;
+import java.util.stream.IntStream;
 
 /**
  * @author eric
  */
 public class Utils {
-  private final static Map<String, Character> GRID_MAP = Map.ofEntries(
-      Map.entry("0000", ' '),
-      Map.entry("0010", '▖'),
-      Map.entry("0001", '▗'),
-      Map.entry("1000", '▘'),
-      Map.entry("0100", '▝'),
-      Map.entry("1001", '▚'),
-      Map.entry("0110", '▞'),
-      Map.entry("1010", '▌'),
-      Map.entry("0101", '▐'),
-      Map.entry("0011", '▄'),
-      Map.entry("1100", '▀'),
-      Map.entry("1011", '▙'),
-      Map.entry("0111", '▟'),
-      Map.entry("1110", '▛'),
-      Map.entry("1101", '▜'),
-      Map.entry("1111", '█')
-  );
-
 
   private static final Logger L = Logger.getLogger(Utils.class.getName());
 
@@ -74,49 +58,8 @@ public class Utils {
     return map;
   }
 
-  public static String grid(Grid<Boolean> grid, int l) {
-    StringBuilder sb = new StringBuilder();
-    for (int i = 0; i < l; i++) {
-      Range<Integer> rx0 = Range.closedOpen(
-          (int) Math.round((double) grid.getW() * (double) i / (double) l),
-          (int) Math.round((double) grid.getW() * ((double) i + 1d / 2d) / (double) l)
-      );
-      Range<Integer> rx1 = Range.closedOpen(
-          (int) Math.round((double) grid.getW() * ((double) i + 1d / 2d) / (double) l),
-          (int) Math.round((double) grid.getW() * ((double) i + 1d) / (double) l)
-      );
-      Range<Integer> ry0 = Range.closedOpen(
-          0,
-          grid.getH() / 2
-      );
-      Range<Integer> ry1 = Range.closedOpen(
-          grid.getH() / 2,
-          grid.getH()
-      );
-      System.out.println(rx0);
-      System.out.println(rx1);
-      String binary = "" +
-          (trueRatio(grid, rx0, ry1) >= 0.5d ? '1' : '0') +
-          (trueRatio(grid, rx1, ry1) >= 0.5d ? '1' : '0') +
-          (trueRatio(grid, rx0, ry0) >= 0.5d ? '1' : '0') +
-          (trueRatio(grid, rx1, ry0) >= 0.5d ? '1' : '0');
-      System.out.println(binary);
-      sb.append(GRID_MAP.get(binary));
-    }
-    return sb.toString();
-  }
-
-  private static double trueRatio(Grid<Boolean> grid, Range<Integer> rangeX, Range<Integer> rangeY) {
-    double nOfTrue = grid.stream().filter(e -> rangeX.contains(e.getX()) && rangeY.contains(e.getY()) && e.getValue()).count();
-    double all = grid.stream().filter(e -> rangeX.contains(e.getX()) && rangeY.contains(e.getY())).count();
-    return nOfTrue / all;
-  }
-
   public static void main(String[] args) {
-    Grid<Boolean> body = it.units.erallab.hmsrobots.util.Utils.buildShape("biped-4x4");
-    System.out.println(Grid.toString(body, (Predicate<Boolean>) b -> b));
-    System.out.println(grid(body, 2) + " " + grid(body, 4) + " " + grid(body, 8));
-    body = it.units.erallab.hmsrobots.util.Utils.buildShape("tripod-7x3");
-    System.out.println(grid(body, 2) + " " + grid(body, 4) + " " + grid(body, 8));
+    Grid<Boolean> body = it.units.erallab.hmsrobots.util.Utils.buildShape("tripod-7x3");
+    IntStream.range(2, 5).forEach(i -> System.out.println(TextPlotter.binaryMap(body.toArray(b->b), i)));
   }
 }

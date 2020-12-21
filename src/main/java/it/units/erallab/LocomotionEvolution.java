@@ -46,6 +46,7 @@ import it.units.malelab.jgea.core.listener.collector.*;
 import it.units.malelab.jgea.core.order.PartialComparator;
 import it.units.malelab.jgea.core.util.Misc;
 import it.units.malelab.jgea.core.util.SequentialFunction;
+import it.units.malelab.jgea.core.util.TextPlotter;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
 import org.dyn4j.dynamics.Settings;
@@ -94,7 +95,7 @@ public class LocomotionEvolution extends Worker {
     int[] seeds = ri(a("seed", "0:1"));
     String experimentName = a("expName", "short");
     List<String> terrainNames = l(a("terrain", "300:flat>1000:hilly-1-10-0"));
-    List<String> targetShapeNames = l(a("shape", "biped-5x5"));
+    List<String> targetShapeNames = l(a("shape", "biped-4x4"));
     List<String> targetSensorConfigNames = l(a("sensorConfig", "uniform-ax+ay+t-0"));
     List<String> transformationNames = l(a("transformation", "100:identity>1000:broken-0.5-0"));
     List<String> evolverNames = l(a("evolver", "CMAES"));
@@ -113,14 +114,17 @@ public class LocomotionEvolution extends Worker {
         new FunctionOfOneBest<>(i -> List.of(new Item("fitness", fitnessFunction.apply(i.getFitness()), "%5.3f"))),
         new Histogram<>(fitnessFunction.compose(Individual::getFitness), "fitness", 8),
         new FunctionOfOneBest<>(i -> List.of(new Item(
-            "static.posture",
-            Utils.grid(Grid.create(i.getSolution().getVoxels(), Objects::nonNull), 4),
-            "%s"
+            "static.posture.minimap",
+            TextPlotter.binaryMap(
+                i.getSolution().getVoxels().toArray(Objects::nonNull),
+                (int) Math.min(Math.ceil((float) i.getSolution().getVoxels().getW() / (float) i.getSolution().getVoxels().getH() * 2f), 4)
+            ),
+            "%4s"
         ))),
         new FunctionOfOneBest<>(i -> List.of(new Item(
-            "dynamic.posture",
-            Utils.grid(i.getFitness().getAveragePosture(), 4),
-            "%s"
+            "dynamic.posture.minimap",
+            TextPlotter.binaryMap(i.getFitness().getAveragePosture().toArray(b -> b), 2),
+            "%2s"
         ))),
         new FunctionOfOneBest<>(outcomeTransformer.compose(Individual::getFitness))
     );
