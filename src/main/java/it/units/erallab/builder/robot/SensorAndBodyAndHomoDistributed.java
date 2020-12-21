@@ -147,38 +147,4 @@ public class SensorAndBodyAndHomoDistributed implements PrototypedFunctionBuilde
     return sensors;
   }
 
-
-  public static void main(String[] args) {
-    List<PrototypedFunctionBuilder<List<Double>, Robot<? extends SensingVoxel>>> builders = List.of(50d).stream()
-        .map(p -> new SensorAndBodyAndHomoDistributed(1, p)
-            .compose(PrototypedFunctionBuilder.of(List.of(
-                new MLP(2d, 3, MultiLayerPerceptron.ActivationFunction.SIN),
-                new MLP(0.65d, 1)
-            )))
-            .compose(PrototypedFunctionBuilder.merger()))
-        .collect(Collectors.toList());
-    Robot<? extends SensingVoxel> robot5 = new Robot<>(null, Utils.buildSensorizingFunction("uniform-t+ay+ax+a-0").apply(Utils.buildShape("box-5x5")));
-    Random r = new Random();
-    for (int i = 0; i < 30; i++) {
-      List<Double> genotype = IntStream.range(0, builders.get(0).exampleFor(robot5).size())
-          .mapToObj(j -> r.nextDouble() * 2d - 1d)
-          .collect(Collectors.toList());
-      System.out.println(genotype.size());
-      builders.stream()
-          .map(builder -> builder.buildFor(robot5).apply(genotype))
-          .forEach(robot -> System.out.printf(
-              "%s%n%s%n%s%n",
-              Grid.toString(robot.getVoxels(), Objects::nonNull),
-              Grid.create(robot.getVoxels(), v -> v == null ? null : v.getSensors().size()).stream()
-                  .map(e -> String.format("(%d, %d) -> %d", e.getX(), e.getY(), e.getValue()))
-                  .collect(Collectors.joining("; "))
-              ,
-              robot.getVoxels().values().stream()
-                  .filter(Objects::nonNull)
-                  .map(v -> v.getSensors().get(0).toString())
-                  .collect(Collectors.joining("\n"))
-          ));
-      System.out.println("==========");
-    }
-  }
 }
