@@ -27,6 +27,7 @@ import it.units.erallab.builder.phenotype.FGraph;
 import it.units.erallab.builder.phenotype.FunctionGrid;
 import it.units.erallab.builder.phenotype.MLP;
 import it.units.erallab.builder.robot.*;
+import it.units.erallab.hmsrobots.core.controllers.MultiLayerPerceptron;
 import it.units.erallab.hmsrobots.core.objects.Robot;
 import it.units.erallab.hmsrobots.tasks.locomotion.Footprint;
 import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
@@ -90,20 +91,18 @@ public class LocomotionEvolution extends Worker {
     Settings physicsSettings = new Settings();
     double episodeTime = d(a("episodeTime", "10"));
     double episodeTransientTime = d(a("episodeTransientTime", "5"));
-    int nBirths = i(a("nBirths", "500"));
+    int nBirths = i(a("nBirths", "5000"));
     int[] seeds = ri(a("seed", "0:1"));
     String experimentName = a("expName", "short");
-    List<String> terrainNames = l(a("terrain", "300:flatWithStart-rnd>1000:hilly-1-10-0"));
-    List<String> targetShapeNames = l(a("shape", "biped-4x2"));
-    List<String> targetSensorConfigNames = l(a("sensorConfig", "uniform-f"));
-    List<String> transformationNames = l(a("transformation", "100:identity>1000:broken-0.5-0"));
+    List<String> terrainNames = l(a("terrain", "hilly-1-10-0"));
+    List<String> targetShapeNames = l(a("shape", "box-4x4"));
+    List<String> targetSensorConfigNames = l(a("sensorConfig", "uniform-t-0"));
+    List<String> transformationNames = l(a("transformation", "identity"));
     List<String> evolverNames = l(a("evolver", "CMAES"));
-    List<String> mapperNames = l(a("mapper", "fixedPhases-1,fixedHomoDist-1<MLP-1"));
+    List<String> mapperNames = l(a("mapper", "bodyAndHomoDist-0.5-1"));
     Function<Outcome, Double> fitnessFunction = Outcome::getVelocity;
     //collectors
     Function<Outcome, List<Item>> outcomeTransformer = new OutcomeItemizer(
-        episodeTransientTime,
-        episodeTime,
         spectrumMinFreq,
         spectrumMaxFreq,
         spectrumSize
@@ -114,6 +113,30 @@ public class LocomotionEvolution extends Worker {
         new Diversity(),
         new FunctionOfOneBest<>(i -> List.of(new Item("fitness", fitnessFunction.apply(i.getFitness()), "%5.3f"))),
         new Histogram<>(fitnessFunction.compose(Individual::getFitness), "fitness", 8),
+        new FunctionOfOneBest<>(i -> List.of(new Item(
+            "shape.minimap",
+            TextPlotter.binaryMap(
+                i.getSolution().getVoxels().toArray(Objects::nonNull),
+                (int) Math.min(Math.ceil((float) i.getSolution().getVoxels().getW() / (float) i.getSolution().getVoxels().getH() * 2f), 4)
+            ),
+            "%4s"
+        ))),
+        new FunctionOfOneBest<>(i -> List.of(new Item(
+            "shape.size",
+            i.getSolution().getVoxels().getW() + "x" + i.getSolution().getVoxels().getH(),
+            "%3s"
+        ))),
+        new FunctionOfOneBest<>(i -> List.of(new Item(
+            "shape.num.voxel",
+            i.getSolution().getVoxels().values().stream().filter(Objects::nonNull).count(),
+            "%2d"
+        ))),
+        new Histogram<>(i -> i.getSolution().getVoxels().values().stream().filter(Objects::nonNull).count(), "shape.num.voxel", 8),
+        new FunctionOfOneBest<>(i -> List.of(new Item(
+            "average.posture.minimap",
+            TextPlotter.binaryMap(i.getFitness().getAveragePosture().toArray(b -> b), 2),
+            "%2s"
+        ))),
         new FunctionOfOneBest<>(outcomeTransformer.compose(Individual::getFitness))
     );
     List<DataCollector<? super Object, ? super Robot<?>, ? super Outcome>> serializedCollectors = List.of(
@@ -165,8 +188,6 @@ public class LocomotionEvolution extends Worker {
     L.info("Transformations: " + transformationNames);
     L.info("Validations: " + Lists.cartesianProduct(validationTerrainNames, validationTransformationNames));
     //start iterations
-    int nOfRuns = seeds.length * terrainNames.size() * targetShapeNames.size() * targetSensorConfigNames.size() * mapperNames.size() * transformationNames.size() * evolverNames.size();
-    int counter = 0;
     for (int seed : seeds) {
       for (String terrainName : terrainNames) {
         for (String targetShapeName : targetShapeNames) {
@@ -174,7 +195,6 @@ public class LocomotionEvolution extends Worker {
             for (String mapperName : mapperNames) {
               for (String transformationName : transformationNames) {
                 for (String evolverName : evolverNames) {
-                  counter = counter + 1;
                   final Random random = new Random(seed);
                   Map<String, String> keys = new TreeMap<>(Map.of(
                       "experiment.name", experimentName,
@@ -204,7 +224,8 @@ public class LocomotionEvolution extends Worker {
                   try {
                     evolver = buildEvolver(evolverName, mapperName, target, fitnessFunction);
                   } catch (ClassCastException | IllegalArgumentException e) {
-                    L.warning(String.format("Cannot instantiate %s for %s: %s",
+                    L.warning(String.format(
+                        "Cannot instantiate %s for %s: %s",
                         evolverName,
                         mapperName,
                         e.toString()
@@ -213,14 +234,10 @@ public class LocomotionEvolution extends Worker {
                   }
                   //optimize
                   Stopwatch stopwatch = Stopwatch.createStarted();
-                  L.info(String.format("Progress %s (%d/%d); Starting %s",
-                      TextPlotter.horizontalBar(counter - 1, 0, nOfRuns, 8),
-                      counter, nOfRuns,
-                      keys
-                  ));
+                  L.info(String.format("Starting %s", keys));
                   try {
                     Collection<Robot<?>> solutions = evolver.solve(
-                        buildTaskFromName(transformationName, terrainName, episodeTime, random),
+                        buildTaskFromName(transformationName, terrainName, episodeTime, random).andThen(o -> o.subOutcome(episodeTransientTime, episodeTime)),
                         new Births(nBirths),
                         random,
                         executorService,
@@ -229,9 +246,8 @@ public class LocomotionEvolution extends Worker {
                             executorService
                         )
                     );
-                    L.info(String.format("Progress %s (%d/%d); Done: %d solutions in %4ds",
-                        TextPlotter.horizontalBar(counter, 0, nOfRuns, 8),
-                        counter, nOfRuns,
+                    L.info(String.format("Done %s: %d solutions in %4ds",
+                        keys,
                         solutions.size(),
                         stopwatch.elapsed(TimeUnit.SECONDS)
                     ));
@@ -249,13 +265,14 @@ public class LocomotionEvolution extends Worker {
                           validationTask = buildRobotTransformation(validationTransformationName, new Random(0))
                               .andThen(SerializationUtils::clone)
                               .andThen(validationTask);
-                          Outcome validationOutcome = validationTask.apply(bestSolution);
-                          L.info(String.format("Validation %s/%s of \"first\" best done in %ss",
-                              validationTransformationName,
-                              validationTerrainName,
-                              validationOutcome.getComputationTime()
-                          ));
                           try {
+                            Outcome validationOutcome = validationTask.apply(bestSolution);
+                            L.info(String.format(
+                                "Validation %s/%s of \"first\" best done in %ss",
+                                validationTransformationName,
+                                validationTerrainName,
+                                validationOutcome.getComputationTime()
+                            ));
                             List<Object> values = new ArrayList<>();
                             values.addAll(validationKeyHeaders.stream().map(keys::get).collect(Collectors.toList()));
                             values.addAll(List.of(validationTransformationName, validationTerrainName));
@@ -271,7 +288,7 @@ public class LocomotionEvolution extends Worker {
                             validationPrinter.printRecord(values);
                             validationPrinter.flush();
                           } catch (Throwable e) {
-                            L.severe(String.format("Cannot save validation results due to %s", e));
+                            L.severe(String.format("Cannot do or save validation results due to %s", e));
                             e.printStackTrace(); // TODO possibly to be removed
                           }
                         }
@@ -304,17 +321,17 @@ public class LocomotionEvolution extends Worker {
 
   private static Outcome prototypeOutcome() {
     double dT = new Settings().getStepFrequency();
-    return new Outcome(
-        0d, 0d, 10d, 0, 0d, 0d,
-        new TreeMap<>(IntStream.range(0, (int) Math.round(10d / dT)).boxed().collect(Collectors.toMap(
-            i -> (double) i * dT,
-            i -> Point2.build(Math.sin((double) i / dT), Math.sin((double) i * dT / 5d))
-        ))),
-        new TreeMap<>(IntStream.range(0, (int) Math.round(10d / dT)).boxed().collect(Collectors.toMap(
-            i -> (double) i * dT,
-            i -> new Footprint(new boolean[]{true, false, true}))
-        )),
-        new TreeMap<>(Map.of(0d, Grid.create(1, 1, true)))
+    return new Outcome(IntStream.range(0, 1000)
+        .mapToObj(i -> new Outcome.Observation(
+            (double) i * dT,
+            Point2.build(Math.sin((double) i / dT), Math.sin((double) i * dT / 5d)),
+            new Footprint(new boolean[]{true, false, true}),
+            Grid.create(1, 1, true),
+            0.1,
+            0.1,
+            (double) i * dT / 10d
+        ))
+        .collect(Collectors.toList())
     );
   }
 
@@ -351,7 +368,9 @@ public class LocomotionEvolution extends Worker {
     String fixedHeteroDistributed = "fixedHeteroDist-(?<nSignals>\\d+)";
     String fixedPhasesFunction = "fixedPhasesFunct-(?<f>\\d+)";
     String fixedPhases = "fixedPhases-(?<f>\\d+)";
-    String mlp = "MLP-(?<nLayers>\\d+)";
+    String bodyAndHomoDistributed = "bodyAndHomoDist-(?<fullness>\\d+(\\.\\d+)?)-(?<nSignals>\\d+)";
+    String sensorAndBodyAndHomoDistributed = "sensorAndBodyAndHomoDist-(?<fullness>\\d+(\\.\\d+)?)-(?<nSignals>\\d+)";
+    String mlp = "MLP-(?<nLayers>\\d+)(-(?<actFun>(sin|tanh|sigmoid|relu)))?";
     String fgraph = "fGraph";
     String functionGrid = "fGrid-(?<innerMapper>.*)";
     Map<String, String> params;
@@ -375,17 +394,33 @@ public class LocomotionEvolution extends Worker {
           1d
       );
     }
-    if ((params = params(fixedPhases, name)) != null) {
-      return new FixedPhaseValues(
-          Double.parseDouble(params.get("f")),
-          1d
+    if ((params = params(bodyAndHomoDistributed, name)) != null) {
+      return new BodyAndHomoDistributed(1, Double.parseDouble(params.get("fullness")))
+          .compose(PrototypedFunctionBuilder.of(List.of(
+              new MLP(2d, 3, MultiLayerPerceptron.ActivationFunction.SIN),
+              new MLP(0.65d, 1)
+          )))
+          .compose(PrototypedFunctionBuilder.merger());
+    }
+    if ((params = params(sensorAndBodyAndHomoDistributed, name)) != null) {
+      return new SensorAndBodyAndHomoDistributed(1, Double.parseDouble(params.get("fullness")))
+          .compose(PrototypedFunctionBuilder.of(List.of(
+              new MLP(2d, 3, MultiLayerPerceptron.ActivationFunction.SIN),
+              new MLP(0.65d, 1)
+          )))
+          .compose(PrototypedFunctionBuilder.merger());
+    }
+    if ((params = params(fixedHomoDistributed, name)) != null) {
+      return new FixedHomoDistributed(
+          Integer.parseInt(params.get("nSignals"))
       );
     }
     //function mappers
     if ((params = params(mlp, name)) != null) {
       return new MLP(
-          0.65d,
-          Integer.parseInt(params.get("nLayers"))
+          1d,
+          Integer.parseInt(params.get("nLayers")),
+          params.containsKey("actFun") ? MultiLayerPerceptron.ActivationFunction.valueOf(params.get("actFun").toUpperCase()) : MultiLayerPerceptron.ActivationFunction.TANH
       );
     }
     if ((params = params(fgraph, name)) != null) {
@@ -452,10 +487,7 @@ public class LocomotionEvolution extends Worker {
     }
     return r -> new Locomotion(
         episodeT,
-        Locomotion.createTerrain(terrainName.replace(
-            "-rnd",
-            "-" + Integer.toString(random.nextInt(10000))
-        )),
+        Locomotion.createTerrain(terrainName.replace("-rnd", Integer.toString(random.nextInt(10000)))),
         new Settings()
     ).apply(r);
   }

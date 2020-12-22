@@ -1,12 +1,12 @@
 package it.units.erallab.builder.robot;
 
 import it.units.erallab.RealFunction;
+import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.erallab.hmsrobots.core.controllers.DistributedSensing;
 import it.units.erallab.hmsrobots.core.objects.Robot;
 import it.units.erallab.hmsrobots.core.objects.SensingVoxel;
 import it.units.erallab.hmsrobots.util.Grid;
 import it.units.erallab.hmsrobots.util.SerializationUtils;
-import it.units.erallab.builder.PrototypedFunctionBuilder;
 
 import java.util.List;
 import java.util.Objects;
@@ -65,8 +65,12 @@ public class FixedHomoDistributed implements PrototypedFunctionBuilder<RealFunct
 
   private int[] getIODim(Robot<? extends SensingVoxel> robot) {
     Grid<? extends SensingVoxel> body = robot.getVoxels();
-    int nOfInputs = DistributedSensing.nOfInputs(body.values().stream().filter(Objects::nonNull).findFirst().get(), signals);
-    int nOfOutputs = DistributedSensing.nOfOutputs(body.values().stream().filter(Objects::nonNull).findFirst().get(), signals);
+    SensingVoxel voxel = body.values().stream().filter(Objects::nonNull).findFirst().orElse(null);
+    if (voxel == null) {
+      throw new IllegalArgumentException("Target robot has no voxels");
+    }
+    int nOfInputs = DistributedSensing.nOfInputs(voxel, signals);
+    int nOfOutputs = DistributedSensing.nOfOutputs(voxel, signals);
     List<Grid.Entry<? extends SensingVoxel>> wrongVoxels = body.stream()
         .filter(e -> e.getValue() != null)
         .filter(e -> DistributedSensing.nOfInputs(e.getValue(), signals) != nOfInputs)

@@ -17,15 +17,11 @@ import java.util.stream.Collectors;
  */
 public class OutcomeItemizer implements Function<Outcome, List<Item>> {
 
-  private final double startT;
-  private final double endT;
   private final double spectrumMinFreq;
   private final double spectrumMaxFreq;
   private final int spectrumSize;
 
-  public OutcomeItemizer(double startT, double endT, double spectrumMinFreq, double spectrumMaxFreq, int spectrumSize) {
-    this.startT = startT;
-    this.endT = endT;
+  public OutcomeItemizer(double spectrumMinFreq, double spectrumMaxFreq, int spectrumSize) {
     this.spectrumMinFreq = spectrumMinFreq;
     this.spectrumMaxFreq = spectrumMaxFreq;
     this.spectrumSize = spectrumSize;
@@ -45,14 +41,14 @@ public class OutcomeItemizer implements Function<Outcome, List<Item>> {
             new Item("velocity", o.getVelocity(), "%6.3f"),
             new Item(
                 "average.posture",
-                Grid.toString(o.getAveragePosture(startT, endT), (Predicate<Boolean>) b -> b, "|"),
+                Grid.toString(o.getAveragePosture(), (Predicate<Boolean>) b -> b, "|"),
                 "%10.10s"
             )
         ));
-    List<Outcome.Mode> xModes = o.getCenterPowerSpectrum(startT, endT, Outcome.Component.X, spectrumMinFreq, spectrumMaxFreq, spectrumSize);
-    List<Outcome.Mode> yModes = o.getCenterPowerSpectrum(startT, endT, Outcome.Component.X, spectrumMinFreq, spectrumMaxFreq, spectrumSize);
+    List<Outcome.Mode> xModes = o.getCenterPowerSpectrum(Outcome.Component.X, spectrumMinFreq, spectrumMaxFreq, spectrumSize);
+    List<Outcome.Mode> yModes = o.getCenterPowerSpectrum(Outcome.Component.X, spectrumMinFreq, spectrumMaxFreq, spectrumSize);
     items.add(new Item("spectrum.y", TextPlotter.barplot(yModes.stream().mapToDouble(Outcome.Mode::getStrength).toArray(), 8), "%8s"));
-    Outcome.Gait g = o.getMainGait(startT, endT);
+    Outcome.Gait g = o.getMainGait();
     items.addAll(List.of(
         new Item("gait.average.touch.area", g == null ? null : g.getAvgTouchArea(), "%5.3f"),
         new Item("gait.coverage", g == null ? null : g.getCoverage(), "%4.2f"),

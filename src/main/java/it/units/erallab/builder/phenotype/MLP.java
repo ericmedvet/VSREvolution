@@ -1,8 +1,8 @@
 package it.units.erallab.builder.phenotype;
 
 import it.units.erallab.RealFunction;
-import it.units.erallab.hmsrobots.core.controllers.MultiLayerPerceptron;
 import it.units.erallab.builder.PrototypedFunctionBuilder;
+import it.units.erallab.hmsrobots.core.controllers.MultiLayerPerceptron;
 
 import java.util.Collections;
 import java.util.List;
@@ -15,10 +15,16 @@ public class MLP implements PrototypedFunctionBuilder<List<Double>, RealFunction
 
   private final double innerLayerRatio;
   private final int nOfInnerLayers;
+  private final MultiLayerPerceptron.ActivationFunction activationFunction;
 
   public MLP(double innerLayerRatio, int nOfInnerLayers) {
+    this(innerLayerRatio, nOfInnerLayers, MultiLayerPerceptron.ActivationFunction.TANH);
+  }
+
+  public MLP(double innerLayerRatio, int nOfInnerLayers, MultiLayerPerceptron.ActivationFunction activationFunction) {
     this.innerLayerRatio = innerLayerRatio;
     this.nOfInnerLayers = nOfInnerLayers;
+    this.activationFunction = activationFunction;
   }
 
   private int[] innerNeurons(int nOfInputs, int nOfOutputs) {
@@ -33,16 +39,29 @@ public class MLP implements PrototypedFunctionBuilder<List<Double>, RealFunction
 
   @Override
   public Function<List<Double>, RealFunction> buildFor(RealFunction function) {
-    return values -> RealFunction.from(
-        function.getNOfInputs(),
-        function.getNOfOutputs(),
-        new MultiLayerPerceptron(
-            MultiLayerPerceptron.ActivationFunction.TANH,
-            function.getNOfInputs(),
-            innerNeurons(function.getNOfInputs(), function.getNOfOutputs()),
-            function.getNOfOutputs(),
-            values.stream().mapToDouble(d -> d).toArray()
+    return values -> {
+      int nOfInputs = function.getNOfInputs();
+      int nOfOutputs = function.getNOfOutputs();
+      int[] innerNeurons = innerNeurons(nOfInputs, nOfOutputs);
+      int nOfWeights = MultiLayerPerceptron.countWeights(nOfInputs, innerNeurons, nOfOutputs);
+      if (nOfWeights != values.size()) {
+        throw new IllegalArgumentException(String.format(
+            "Wrong number of values for weights: %d expected, %d found",
+            nOfWeights,
+            values.size()
         ));
+      }
+      return RealFunction.from(
+          nOfInputs,
+          nOfOutputs,
+          new MultiLayerPerceptron(
+              activationFunction,
+              nOfInputs,
+              innerNeurons,
+              nOfOutputs,
+              values.stream().mapToDouble(d -> d).toArray()
+          ));
+    };
   }
 
   @Override
