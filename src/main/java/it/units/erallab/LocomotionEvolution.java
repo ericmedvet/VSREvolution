@@ -99,7 +99,7 @@ public class LocomotionEvolution extends Worker {
     List<String> targetSensorConfigNames = l(a("sensorConfig", "uniform-t-0"));
     List<String> transformationNames = l(a("transformation", "identity"));
     List<String> evolverNames = l(a("evolver", "CMAES"));
-    List<String> mapperNames = l(a("mapper", "bodyAndHomoDist-0.5-1"));
+    List<String> mapperNames = l(a("mapper", "bodyAndHomoDist-50-1"));
     Function<Outcome, Double> fitnessFunction = Outcome::getVelocity;
     //collectors
     Function<Outcome, List<Item>> outcomeTransformer = new OutcomeItemizer(
