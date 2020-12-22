@@ -16,16 +16,13 @@
 
 package it.units.erallab;
 
-import com.google.common.collect.Range;
-import it.units.erallab.hmsrobots.util.Grid;
-import it.units.erallab.hmsrobots.util.SerializationUtils;
-import it.units.malelab.jgea.core.util.TextPlotter;
-
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.logging.Logger;
-import java.util.stream.IntStream;
 
 /**
  * @author eric
@@ -58,8 +55,4 @@ public class Utils {
     return map;
   }
 
-  public static void main(String[] args) {
-    Grid<Boolean> body = it.units.erallab.hmsrobots.util.Utils.buildShape("tripod-7x3");
-    IntStream.range(2, 5).forEach(i -> System.out.println(TextPlotter.binaryMap(body.toArray(b->b), i)));
-  }
 }

@@ -34,6 +34,7 @@ import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
 import it.units.erallab.hmsrobots.tasks.locomotion.Outcome;
 import it.units.erallab.hmsrobots.util.Grid;
 import it.units.erallab.hmsrobots.util.Point2;
+import it.units.erallab.hmsrobots.util.RobotUtils;
 import it.units.erallab.hmsrobots.util.SerializationUtils;
 import it.units.malelab.jgea.Worker;
 import it.units.malelab.jgea.core.Individual;
@@ -62,7 +63,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static it.units.erallab.hmsrobots.util.Utils.*;
+import static it.units.erallab.hmsrobots.util.Utils.params;
 import static it.units.malelab.jgea.core.util.Args.*;
 
 /**
@@ -211,7 +212,7 @@ public class LocomotionEvolution extends Worker {
                   ));
                   Robot<?> target = new Robot<>(
                       null,
-                      buildSensorizingFunction(targetSensorConfigName).apply(buildShape(targetShapeName))
+                      RobotUtils.buildSensorizingFunction(targetSensorConfigName).apply(RobotUtils.buildShape(targetShapeName))
                   );
                   //build main data collectors for listener
                   Listener<? super Object, ? super Robot<?>, ? super Outcome> listener;
@@ -270,7 +271,7 @@ public class LocomotionEvolution extends Worker {
                               Locomotion.createTerrain(validationTerrainName),
                               physicsSettings
                           );
-                          validationTask = buildRobotTransformation(validationTransformationName, new Random(0))
+                          validationTask = RobotUtils.buildRobotTransformation(validationTransformationName, new Random(0))
                               .andThen(SerializationUtils::clone)
                               .andThen(validationTask);
                           try {
@@ -466,10 +467,10 @@ public class LocomotionEvolution extends Worker {
       transformation = new SequentialFunction<>(Arrays.stream(transformationSequenceName.split(SEQUENCE_SEPARATOR_CHAR))
           .collect(Collectors.toMap(
               p -> Long.parseLong(p.split(SEQUENCE_ITERATION_CHAR)[0]),
-              p -> buildRobotTransformation(p.split(SEQUENCE_ITERATION_CHAR)[1], random)
+              p -> RobotUtils.buildRobotTransformation(p.split(SEQUENCE_ITERATION_CHAR)[1], random)
           )));
     } else {
-      transformation = buildRobotTransformation(transformationSequenceName, random);
+      transformation = RobotUtils.buildRobotTransformation(transformationSequenceName, random);
     }
     //terrains
     Function<Robot<?>, Outcome> task;

@@ -19,6 +19,7 @@ package it.units.erallab;
 import it.units.erallab.hmsrobots.core.objects.Robot;
 import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
 import it.units.erallab.hmsrobots.util.Grid;
+import it.units.erallab.hmsrobots.util.RobotUtils;
 import it.units.erallab.hmsrobots.util.SerializationUtils;
 import it.units.erallab.hmsrobots.viewers.*;
 import it.units.erallab.hmsrobots.viewers.drawers.Ground;
@@ -129,7 +130,7 @@ public class VideoMaker {
         rawGrid.getH(),
         (x, y) -> rawGrid.get(x, y).isEmpty() ? null : Pair.of(
             xValues.get(x) + " " + yValues.get(y),
-            it.units.erallab.hmsrobots.util.Utils.buildRobotTransformation(transformationName, new Random(0))
+            RobotUtils.buildRobotTransformation(transformationName, new Random(0))
                 .apply(SerializationUtils.deserialize(rawGrid.get(x, y).get(0), Robot.class, mode))
         )
     );
