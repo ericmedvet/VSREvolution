@@ -18,7 +18,7 @@
         <dependency>
             <groupId>it.units.erallab</groupId>
             <artifactId>TwoDimHighlyModularSoftRobots</artifactId>
-            <version>1.6.7</version>
+            <version>1.6.8</version>
         </dependency>
         <dependency>
             <groupId>it.units.malelab</groupId>
