@@ -91,7 +91,7 @@ public class LocomotionEvolution extends Worker {
     Settings physicsSettings = new Settings();
     double episodeTime = d(a("episodeTime", "10"));
     double episodeTransientTime = d(a("episodeTransientTime", "5"));
-    int nBirths = i(a("nBirths", "5000"));
+    int nBirths = i(a("nBirths", "500"));
     int[] seeds = ri(a("seed", "0:1"));
     String experimentName = a("expName", "short");
     List<String> terrainNames = l(a("terrain", "hilly-1-10-0"));
@@ -188,6 +188,8 @@ public class LocomotionEvolution extends Worker {
     L.info("Transformations: " + transformationNames);
     L.info("Validations: " + Lists.cartesianProduct(validationTerrainNames, validationTransformationNames));
     //start iterations
+    int nOfRuns = seeds.length * terrainNames.size() * targetShapeNames.size() * targetSensorConfigNames.size() * mapperNames.size() * transformationNames.size() * evolverNames.size();
+    int counter = 0;
     for (int seed : seeds) {
       for (String terrainName : terrainNames) {
         for (String targetShapeName : targetShapeNames) {
@@ -195,6 +197,7 @@ public class LocomotionEvolution extends Worker {
             for (String mapperName : mapperNames) {
               for (String transformationName : transformationNames) {
                 for (String evolverName : evolverNames) {
+                  counter = counter + 1;
                   final Random random = new Random(seed);
                   Map<String, String> keys = new TreeMap<>(Map.of(
                       "experiment.name", experimentName,
@@ -234,7 +237,11 @@ public class LocomotionEvolution extends Worker {
                   }
                   //optimize
                   Stopwatch stopwatch = Stopwatch.createStarted();
-                  L.info(String.format("Starting %s", keys));
+                  L.info(String.format("Progress %s (%d/%d); Starting %s",
+                      TextPlotter.horizontalBar(counter - 1, 0, nOfRuns, 8),
+                      counter, nOfRuns,
+                      keys
+                  ));
                   try {
                     Collection<Robot<?>> solutions = evolver.solve(
                         buildTaskFromName(transformationName, terrainName, episodeTime, random).andThen(o -> o.subOutcome(episodeTransientTime, episodeTime)),
@@ -246,8 +253,9 @@ public class LocomotionEvolution extends Worker {
                             executorService
                         )
                     );
-                    L.info(String.format("Done %s: %d solutions in %4ds",
-                        keys,
+                    L.info(String.format("Progress %s (%d/%d); Done: %d solutions in %4ds",
+                        TextPlotter.horizontalBar(counter, 0, nOfRuns, 8),
+                        counter, nOfRuns,
                         solutions.size(),
                         stopwatch.elapsed(TimeUnit.SECONDS)
                     ));
