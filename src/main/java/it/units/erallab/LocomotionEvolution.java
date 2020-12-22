@@ -496,7 +496,7 @@ public class LocomotionEvolution extends Worker {
     }
     return r -> new Locomotion(
         episodeT,
-        Locomotion.createTerrain(terrainName.replace("-rnd", Integer.toString(random.nextInt(10000)))),
+        Locomotion.createTerrain(terrainName.replace("-rnd", "-" + random.nextInt(10000))),
         new Settings()
     ).apply(r);
   }
