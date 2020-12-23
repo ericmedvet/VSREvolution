@@ -2,9 +2,7 @@ package it.units.erallab.builder.robot;
 
 import it.units.erallab.RealFunction;
 import it.units.erallab.builder.PrototypedFunctionBuilder;
-import it.units.erallab.builder.phenotype.MLP;
 import it.units.erallab.hmsrobots.core.controllers.DistributedSensing;
-import it.units.erallab.hmsrobots.core.controllers.MultiLayerPerceptron;
 import it.units.erallab.hmsrobots.core.objects.Robot;
 import it.units.erallab.hmsrobots.core.objects.SensingVoxel;
 import it.units.erallab.hmsrobots.util.Grid;
@@ -14,10 +12,7 @@ import org.apache.commons.math3.stat.descriptive.rank.Percentile;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Random;
 import java.util.function.Function;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 /**
  * @author eric
@@ -76,12 +71,13 @@ public class BodyAndHomoDistributed implements PrototypedFunctionBuilder<List<Re
       //build body
       Grid<Double> values = Grid.create(w, h, (x, y) -> bodyFunction.apply(new double[]{(double) x / (double) w, (double) y / (double) h})[0]);
       double threshold = new Percentile().evaluate(values.values().stream().mapToDouble(v -> v).toArray(), percentile);
-      Grid<SensingVoxel> body = Grid.create(values, v -> (v >= threshold) ? SerializationUtils.clone(voxelPrototype) : null);
+      values = Grid.create(values, v -> v >= threshold ? v : null);
+      values = Utils.gridLargestConnected(values, Objects::nonNull);
+      values = Utils.cropGrid(values, Objects::nonNull);
+      Grid<SensingVoxel> body = Grid.create(values, v -> (v != null) ? SerializationUtils.clone(voxelPrototype) : null);
       if (body.values().stream().noneMatch(Objects::nonNull)) {
         body = Grid.create(1, 1, SerializationUtils.clone(voxelPrototype));
       }
-      body = Utils.gridLargestConnected(body, Objects::nonNull);
-      body = Utils.cropGrid(body, Objects::nonNull);
       //build brain
       DistributedSensing controller = new DistributedSensing(body, signals);
       for (Grid.Entry<? extends SensingVoxel> entry : body) {

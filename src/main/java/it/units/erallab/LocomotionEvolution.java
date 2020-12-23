@@ -97,10 +97,12 @@ public class LocomotionEvolution extends Worker {
     String experimentName = a("expName", "short");
     List<String> terrainNames = l(a("terrain", "hilly-1-10-0"));
     List<String> targetShapeNames = l(a("shape", "box-4x4"));
-    List<String> targetSensorConfigNames = l(a("sensorConfig", "uniform-t-0"));
+    List<String> targetSensorConfigNames = l(a("sensorConfig", "uniform-t+ax+ay+r+l1+a-0"));
     List<String> transformationNames = l(a("transformation", "identity"));
     List<String> evolverNames = l(a("evolver", "CMAES"));
-    List<String> mapperNames = l(a("mapper", "bodyAndHomoDist-50-1"));
+    List<String> mapperNames = l(a("mapper", "sensorAndBodyAndHomoDist-50-4-t"));
+    String statsFileName = a("statsFile", null) == null ? null : a("dir", ".") + File.separator + a("statsFile", null);
+    boolean serialization = a("serialization", "false").startsWith("t");
     Function<Outcome, Double> fitnessFunction = Outcome::getVelocity;
     //collectors
     Function<Outcome, List<Item>> outcomeTransformer = new OutcomeItemizer(
@@ -138,12 +140,12 @@ public class LocomotionEvolution extends Worker {
             TextPlotter.binaryMap(i.getFitness().getAveragePosture().toArray(b -> b), 2),
             "%2s"
         ))),
-        new FunctionOfOneBest<>(outcomeTransformer.compose(Individual::getFitness))
-    );
-    List<DataCollector<? super Object, ? super Robot<?>, ? super Outcome>> serializedCollectors = List.of(
-        new Basic(),
-        new FunctionOfOneBest<>(i -> List.of(new Item("fitness", fitnessFunction.apply(i.getFitness()), "%5.3f"))),
-        new FunctionOfOneBest<>(i -> List.of(new Item("serialized.robot", SerializationUtils.serialize(i.getSolution(), SerializationUtils.Mode.GZIPPED_JSON), "%s")))
+        new FunctionOfOneBest<>(outcomeTransformer.compose(Individual::getFitness)),
+        new FunctionOfOneBest<>(i -> List.of(new Item(
+            "serialized.robot",
+            serialization ? SerializationUtils.serialize(i.getSolution(), SerializationUtils.Mode.GZIPPED_JSON) : "",
+            "%s"
+        )))
     );
     //validation
     List<String> validationOutcomeHeaders = outcomeTransformer.apply(prototypeOutcome()).stream().map(Item::getName).collect(Collectors.toList());
@@ -156,10 +158,7 @@ public class LocomotionEvolution extends Worker {
       validationTerrainNames.add(terrainNames.get(0));
     }
     //prepare file listeners
-    String statsFileName = a("statsFile", null) == null ? null : a("dir", ".") + File.separator + a("statsFile", null);
-    String serializedFileName = a("serializedFile", null) == null ? null : a("dir", ".") + File.separator + a("serializedFile", null);
     ListenerFactory<Object, Robot<?>, Outcome> statsListenerFactory = new FileListenerFactory<>(statsFileName);
-    ListenerFactory<Object, Robot<?>, Outcome> serializedListenerFactory = new FileListenerFactory<>(serializedFileName);
     CSVPrinter validationPrinter;
     List<String> validationKeyHeaders = List.of("experiment.name", "seed", "terrain", "shape", "sensor.config", "mapper", "transformation", "evolver");
     try {
@@ -220,9 +219,6 @@ public class LocomotionEvolution extends Worker {
                     listener = listener(dataCollectors);
                   } else {
                     listener = statsListenerFactory.build(Utils.concat(List.of(new Static(keys)), dataCollectors));
-                  }
-                  if (serializedFileName != null) {
-                    listener = serializedListenerFactory.build(Utils.concat(List.of(new Static(keys)), serializedCollectors)).then(listener);
                   }
                   Evolver<?, Robot<?>, Outcome> evolver;
                   try {
@@ -378,7 +374,7 @@ public class LocomotionEvolution extends Worker {
     String fixedPhasesFunction = "fixedPhasesFunct-(?<f>\\d+)";
     String fixedPhases = "fixedPhases-(?<f>\\d+)";
     String bodyAndHomoDistributed = "bodyAndHomoDist-(?<fullness>\\d+(\\.\\d+)?)-(?<nSignals>\\d+)";
-    String sensorAndBodyAndHomoDistributed = "sensorAndBodyAndHomoDist-(?<fullness>\\d+(\\.\\d+)?)-(?<nSignals>\\d+)";
+    String sensorAndBodyAndHomoDistributed = "sensorAndBodyAndHomoDist-(?<fullness>\\d+(\\.\\d+)?)-(?<nSignals>\\d+)-(?<position>(t|f))";
     String mlp = "MLP-(?<nLayers>\\d+)(-(?<actFun>(sin|tanh|sigmoid|relu)))?";
     String fgraph = "fGraph";
     String functionGrid = "fGrid-(?<innerMapper>.*)";
@@ -404,7 +400,10 @@ public class LocomotionEvolution extends Worker {
       );
     }
     if ((params = params(bodyAndHomoDistributed, name)) != null) {
-      return new BodyAndHomoDistributed(1, Double.parseDouble(params.get("fullness")))
+      return new BodyAndHomoDistributed(
+          Integer.parseInt(params.get("nSignals")),
+          Double.parseDouble(params.get("fullness"))
+      )
           .compose(PrototypedFunctionBuilder.of(List.of(
               new MLP(2d, 3, MultiLayerPerceptron.ActivationFunction.SIN),
               new MLP(0.65d, 1)
@@ -412,7 +411,11 @@ public class LocomotionEvolution extends Worker {
           .compose(PrototypedFunctionBuilder.merger());
     }
     if ((params = params(sensorAndBodyAndHomoDistributed, name)) != null) {
-      return new SensorAndBodyAndHomoDistributed(1, Double.parseDouble(params.get("fullness")))
+      return new SensorAndBodyAndHomoDistributed(
+          Integer.parseInt(params.get("nSignals")),
+          Double.parseDouble(params.get("fullness")),
+          params.get("position").equals("t")
+      )
           .compose(PrototypedFunctionBuilder.of(List.of(
               new MLP(2d, 3, MultiLayerPerceptron.ActivationFunction.SIN),
               new MLP(0.65d, 1)

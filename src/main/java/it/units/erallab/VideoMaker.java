@@ -23,6 +23,7 @@ import it.units.erallab.hmsrobots.util.RobotUtils;
 import it.units.erallab.hmsrobots.util.SerializationUtils;
 import it.units.erallab.hmsrobots.viewers.*;
 import it.units.erallab.hmsrobots.viewers.drawers.Ground;
+import it.units.erallab.hmsrobots.viewers.drawers.Lidar;
 import it.units.erallab.hmsrobots.viewers.drawers.SensorReading;
 import it.units.erallab.hmsrobots.viewers.drawers.Voxel;
 import org.apache.commons.csv.CSVFormat;
@@ -161,7 +162,8 @@ public class VideoMaker {
                 it.units.erallab.hmsrobots.viewers.drawers.Robot.build(),
                 Voxel.build(),
                 Ground.build(),
-                SensorReading.build()
+                SensorReading.build(),
+                Lidar.build()
             )).setConfigurable("generalRenderingModes", Set.of(
                 GraphicsDrawer.GeneralRenderingMode.TIME_INFO,
                 GraphicsDrawer.GeneralRenderingMode.VOXEL_COMPOUND_CENTERS_INFO
