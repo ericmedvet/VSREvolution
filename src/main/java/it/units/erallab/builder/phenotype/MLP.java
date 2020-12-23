@@ -29,10 +29,16 @@ public class MLP implements PrototypedFunctionBuilder<List<Double>, RealFunction
 
   private int[] innerNeurons(int nOfInputs, int nOfOutputs) {
     int[] innerNeurons = new int[nOfInnerLayers];
-    int previousSize = nOfInputs;
-    for (int i = 0; i < innerNeurons.length; i++) {
-      innerNeurons[i] = (int) Math.max(Math.round((double) previousSize * innerLayerRatio), 2);
-      previousSize = innerNeurons[i];
+    int centerSize = (int) Math.max(2, Math.round(nOfInputs * innerLayerRatio));
+    if (nOfInnerLayers > 1) {
+      for (int i = 0; i < nOfInnerLayers / 2; i++) {
+        innerNeurons[i] = nOfInputs + (centerSize - nOfInputs) / (nOfInnerLayers / 2 + 1) * (i + 1);
+      }
+      for (int i = nOfInnerLayers / 2; i < nOfInnerLayers; i++) {
+        innerNeurons[i] = centerSize + (nOfOutputs - centerSize) / (nOfInnerLayers / 2 + 1) * (i - nOfInnerLayers / 2);
+      }
+    } else if (nOfInnerLayers > 0) {
+      innerNeurons[0] = centerSize;
     }
     return innerNeurons;
   }
@@ -76,4 +82,5 @@ public class MLP implements PrototypedFunctionBuilder<List<Double>, RealFunction
         0d
     );
   }
+
 }

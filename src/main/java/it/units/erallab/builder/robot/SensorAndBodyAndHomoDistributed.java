@@ -35,8 +35,8 @@ public class SensorAndBodyAndHomoDistributed implements PrototypedFunctionBuilde
     int w = robot.getVoxels().getW();
     int h = robot.getVoxels().getH();
     List<Sensor> sensors = getPrototypeSensors(robot);
-    int nOfInputs = DistributedSensing.nOfInputs(new SensingVoxel(sensors), signals) + (withPositionSensors ? 2 : 0);
-    int nOfOutputs = DistributedSensing.nOfOutputs(new SensingVoxel(sensors), signals);
+    int nOfInputs = DistributedSensing.nOfInputs(new SensingVoxel(sensors.subList(0, 1)), signals) + (withPositionSensors ? 2 : 0);
+    int nOfOutputs = DistributedSensing.nOfOutputs(new SensingVoxel(sensors.subList(0, 1)), signals);
     //build body
     return pair -> {
       if (pair.size() != 2) {
@@ -129,8 +129,8 @@ public class SensorAndBodyAndHomoDistributed implements PrototypedFunctionBuilde
     return List.of(
         RealFunction.from(2, sensors.size(), d -> d),
         RealFunction.from(
-            DistributedSensing.nOfInputs(new SensingVoxel(sensors), signals) + (withPositionSensors ? 2 : 0),
-            DistributedSensing.nOfOutputs(new SensingVoxel(sensors), signals),
+            DistributedSensing.nOfInputs(new SensingVoxel(sensors.subList(0, 1)), signals) + (withPositionSensors ? 2 : 0),
+            DistributedSensing.nOfOutputs(new SensingVoxel(sensors.subList(0, 1)), signals),
             d -> d
         )
     );
@@ -150,9 +150,7 @@ public class SensorAndBodyAndHomoDistributed implements PrototypedFunctionBuilde
           voxelPrototype.getSensors().stream().mapToInt(s -> s.domains().length).distinct()
       ));
     }
-    return List.of(
-        voxelPrototype.getSensors().get(0)
-    );
+    return voxelPrototype.getSensors();
   }
 
 }

@@ -100,7 +100,7 @@ public class LocomotionEvolution extends Worker {
     List<String> targetSensorConfigNames = l(a("sensorConfig", "uniform-t+ax+ay+r+l1+a-0"));
     List<String> transformationNames = l(a("transformation", "identity"));
     List<String> evolverNames = l(a("evolver", "CMAES"));
-    List<String> mapperNames = l(a("mapper", "sensorAndBodyAndHomoDist-50-4-t"));
+    List<String> mapperNames = l(a("mapper", "sensorAndBodyAndHomoDist-50-3-3-t"));
     String statsFileName = a("statsFile", null) == null ? null : a("dir", ".") + File.separator + a("statsFile", null);
     boolean serialization = a("serialization", "false").startsWith("t");
     Function<Outcome, Double> fitnessFunction = Outcome::getVelocity;
@@ -134,7 +134,7 @@ public class LocomotionEvolution extends Worker {
             i.getSolution().getVoxels().values().stream().filter(Objects::nonNull).count(),
             "%2d"
         ))),
-        new Histogram<>(i -> i.getSolution().getVoxels().values().stream().filter(Objects::nonNull).count(), "shape.num.voxel", 8),
+        new Histogram<>(i -> i.getSolution().getVoxels().values().stream().filter(Objects::nonNull).count(), "shape.num.voxel", 4),
         new FunctionOfOneBest<>(i -> List.of(new Item(
             "average.posture.minimap",
             TextPlotter.binaryMap(i.getFitness().getAveragePosture().toArray(b -> b), 2),
@@ -373,8 +373,8 @@ public class LocomotionEvolution extends Worker {
     String fixedHeteroDistributed = "fixedHeteroDist-(?<nSignals>\\d+)";
     String fixedPhasesFunction = "fixedPhasesFunct-(?<f>\\d+)";
     String fixedPhases = "fixedPhases-(?<f>\\d+)";
-    String bodyAndHomoDistributed = "bodyAndHomoDist-(?<fullness>\\d+(\\.\\d+)?)-(?<nSignals>\\d+)";
-    String sensorAndBodyAndHomoDistributed = "sensorAndBodyAndHomoDist-(?<fullness>\\d+(\\.\\d+)?)-(?<nSignals>\\d+)-(?<position>(t|f))";
+    String bodyAndHomoDistributed = "bodyAndHomoDist-(?<fullness>\\d+(\\.\\d+)?)-(?<nSignals>\\d+)-(?<nLayers>\\d+)";
+    String sensorAndBodyAndHomoDistributed = "sensorAndBodyAndHomoDist-(?<fullness>\\d+(\\.\\d+)?)-(?<nSignals>\\d+)-(?<nLayers>\\d+)-(?<position>(t|f))";
     String mlp = "MLP-(?<nLayers>\\d+)(-(?<actFun>(sin|tanh|sigmoid|relu)))?";
     String fgraph = "fGraph";
     String functionGrid = "fGrid-(?<innerMapper>.*)";
@@ -406,7 +406,7 @@ public class LocomotionEvolution extends Worker {
       )
           .compose(PrototypedFunctionBuilder.of(List.of(
               new MLP(2d, 3, MultiLayerPerceptron.ActivationFunction.SIN),
-              new MLP(0.65d, 1)
+              new MLP(0.65d, Integer.parseInt(params.get("nLayers")))
           )))
           .compose(PrototypedFunctionBuilder.merger());
     }
@@ -418,7 +418,7 @@ public class LocomotionEvolution extends Worker {
       )
           .compose(PrototypedFunctionBuilder.of(List.of(
               new MLP(2d, 3, MultiLayerPerceptron.ActivationFunction.SIN),
-              new MLP(0.65d, 1)
+              new MLP(1.5d, Integer.parseInt(params.get("nLayers")))
           )))
           .compose(PrototypedFunctionBuilder.merger());
     }
