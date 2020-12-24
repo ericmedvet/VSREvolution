@@ -34,9 +34,9 @@ public class SensorAndBodyAndHomoDistributed implements PrototypedFunctionBuilde
   public Function<List<RealFunction>, Robot<? extends SensingVoxel>> buildFor(Robot<? extends SensingVoxel> robot) {
     int w = robot.getVoxels().getW();
     int h = robot.getVoxels().getH();
-    List<Sensor> sensors = getPrototypeSensors(robot);
-    int nOfInputs = DistributedSensing.nOfInputs(new SensingVoxel(sensors.subList(0, 1)), signals) + (withPositionSensors ? 2 : 0);
-    int nOfOutputs = DistributedSensing.nOfOutputs(new SensingVoxel(sensors.subList(0, 1)), signals);
+    List<Sensor> prototypeSensors = getPrototypeSensors(robot);
+    int nOfInputs = DistributedSensing.nOfInputs(new SensingVoxel(prototypeSensors.subList(0, 1)), signals) + (withPositionSensors ? 2 : 0);
+    int nOfOutputs = DistributedSensing.nOfOutputs(new SensingVoxel(prototypeSensors.subList(0, 1)), signals);
     //build body
     return pair -> {
       if (pair.size() != 2) {
@@ -48,10 +48,10 @@ public class SensorAndBodyAndHomoDistributed implements PrototypedFunctionBuilde
       RealFunction bodyFunction = pair.get(0);
       RealFunction brainFunction = pair.get(1);
       //check function sizes
-      if (bodyFunction.getNOfInputs() != 2 || bodyFunction.getNOfOutputs() != sensors.size()) {
+      if (bodyFunction.getNOfInputs() != 2 || bodyFunction.getNOfOutputs() != prototypeSensors.size()) {
         throw new IllegalArgumentException(String.format(
             "Wrong number of body function args: 2->%d expected, %d->%d found",
-            sensors.size(),
+            prototypeSensors.size(),
             bodyFunction.getNOfInputs(),
             bodyFunction.getNOfOutputs()
         ));
@@ -79,20 +79,27 @@ public class SensorAndBodyAndHomoDistributed implements PrototypedFunctionBuilde
       values = Grid.create(values, vs -> max(vs) >= threshold ? vs : null);
       values = Utils.gridLargestConnected(values, Objects::nonNull);
       values = Utils.cropGrid(values, Objects::nonNull);
-      final Grid<double[]> vs = values;
-      Grid<SensingVoxel> body;
-      if (withPositionSensors) {
-        body = Grid.create(vs.getW(), vs.getH(), (x, y) -> (vs.get(x, y) == null) ? null : new SensingVoxel(List.of(
-            SerializationUtils.clone(sensors.get(indexOfMax(vs.get(x, y)))),
-            new Constant((double) x / (double) vs.getW(), (double) y / (double) vs.getH())
-        )));
-      } else {
-        body = Grid.create(vs.getW(), vs.getH(), (x, y) -> (vs.get(x, y) == null) ? null : new SensingVoxel(List.of(
-            SerializationUtils.clone(sensors.get(indexOfMax(vs.get(x, y))))
-        )));
+      Grid<SensingVoxel> body = new Grid<>(values.getW(), values.getH(), null);
+      for (int x = 0; x < body.getW(); x++) {
+        for (int y = 0; y < body.getH(); y++) {
+          int rx = (int) Math.floor((double) x / (double) body.getW() * (double) w);
+          int ry = (int) Math.floor((double) y / (double) body.getH() * (double) h);
+          if (values.get(x, y) != null) {
+            List<Sensor> availableSensors = robot.getVoxels().get(rx, ry) != null ? robot.getVoxels().get(rx, ry).getSensors() : prototypeSensors;
+            body.set(x, y, new SensingVoxel(withPositionSensors ?
+                List.of(
+                    SerializationUtils.clone(availableSensors.get(indexOfMax(values.get(x, y)))),
+                    new Constant((double) x / (double) body.getW(), (double) y / (double) body.getH())
+                ) :
+                List.of(
+                    SerializationUtils.clone(availableSensors.get(indexOfMax(values.get(x, y))))
+                )
+            ));
+          }
+        }
       }
       if (body.values().stream().noneMatch(Objects::nonNull)) {
-        body = Grid.create(1, 1, new SensingVoxel(List.of(SerializationUtils.clone(sensors.get(indexOfMax(values.get(0, 0)))))));
+        body = Grid.create(1, 1, new SensingVoxel(List.of(SerializationUtils.clone(prototypeSensors.get(indexOfMax(values.get(0, 0)))))));
       }
       //build brain
       DistributedSensing controller = new DistributedSensing(body, signals);
