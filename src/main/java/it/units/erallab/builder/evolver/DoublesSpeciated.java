@@ -4,10 +4,11 @@ import com.google.common.collect.Range;
 import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.malelab.jgea.core.Individual;
 import it.units.malelab.jgea.core.evolver.Evolver;
-import it.units.malelab.jgea.core.evolver.SpeciatedEvolver;
+import it.units.malelab.jgea.core.evolver.speciation.KMeansSpeciator;
+import it.units.malelab.jgea.core.evolver.speciation.SpeciatedEvolver;
 import it.units.malelab.jgea.core.order.PartialComparator;
-import it.units.malelab.jgea.core.util.Misc;
 import it.units.malelab.jgea.distance.Distance;
+import it.units.malelab.jgea.distance.LNorm;
 import it.units.malelab.jgea.representation.sequence.FixedLengthListFactory;
 import it.units.malelab.jgea.representation.sequence.numeric.GaussianMutation;
 import it.units.malelab.jgea.representation.sequence.numeric.GeometricCrossover;
@@ -53,9 +54,12 @@ public class DoublesSpeciated extends DoublesStandard {
             new GeometricCrossover(Range.closed(-.5d, 1.5d)), xOverProb
         ),
         nPop / 10,
-        (i1, i2) -> d.apply(i1.getGenotype(), i2.getGenotype()),
-        dThreshold,
-        Misc::first,
+        new KMeansSpeciator<>(
+            10,
+            -1,
+            new LNorm(2),
+            i -> i.getGenotype().stream().mapToDouble(Double::doubleValue).toArray()
+        ),
         0.75d
     );
   }
