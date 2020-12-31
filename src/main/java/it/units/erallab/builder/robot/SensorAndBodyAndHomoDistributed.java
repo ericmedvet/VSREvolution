@@ -2,30 +2,19 @@ package it.units.erallab.builder.robot;
 
 import it.units.erallab.RealFunction;
 import it.units.erallab.builder.PrototypedFunctionBuilder;
-import it.units.erallab.builder.phenotype.MLP;
 import it.units.erallab.hmsrobots.core.controllers.DistributedSensing;
-import it.units.erallab.hmsrobots.core.controllers.MultiLayerPerceptron;
 import it.units.erallab.hmsrobots.core.objects.Robot;
 import it.units.erallab.hmsrobots.core.objects.SensingVoxel;
 import it.units.erallab.hmsrobots.core.sensors.Constant;
 import it.units.erallab.hmsrobots.core.sensors.Sensor;
-import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
 import it.units.erallab.hmsrobots.util.Grid;
-import it.units.erallab.hmsrobots.util.RobotUtils;
 import it.units.erallab.hmsrobots.util.SerializationUtils;
 import it.units.erallab.hmsrobots.util.Utils;
-import it.units.erallab.hmsrobots.viewers.GridOnlineViewer;
-import it.units.malelab.jgea.core.Factory;
-import it.units.malelab.jgea.representation.sequence.FixedLengthListFactory;
-import it.units.malelab.jgea.representation.sequence.numeric.UniformDoubleFactory;
 import org.apache.commons.math3.stat.descriptive.rank.Percentile;
-import org.dyn4j.dynamics.Settings;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Random;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /**
  * @author eric
@@ -171,24 +160,4 @@ public class SensorAndBodyAndHomoDistributed implements PrototypedFunctionBuilde
     return voxelPrototype.getSensors();
   }
 
-  public static void main(String[] args) {
-    Robot<? extends SensingVoxel> target = new Robot<>(
-        null,
-        RobotUtils.buildSensorizingFunction("uniform-t+l1-0").apply(RobotUtils.buildShape("box-5x5"))
-    );
-    PrototypedFunctionBuilder<List<Double>, Robot<? extends SensingVoxel>> builder = new SensorAndBodyAndHomoDistributed(2, 50, true)
-        .compose(PrototypedFunctionBuilder.of(List.of(
-            new MLP(2d, 3, MultiLayerPerceptron.ActivationFunction.SIN),
-            new MLP(1.5d, 2)
-        )))
-        .compose(PrototypedFunctionBuilder.merger());
-    Factory<List<Double>> factory = new FixedLengthListFactory<>(builder.exampleFor(target).size(), new UniformDoubleFactory(-1d, 1d));
-    Random random = new Random();
-    Robot<? extends SensingVoxel> robot = builder.buildFor(target).apply(factory.independent().build(random));
-    Locomotion locomotion = new Locomotion(30, Locomotion.createTerrain("flat"), new Settings());
-    GridOnlineViewer.run(
-        locomotion,
-        factory.build(16, random).stream().map(vs -> builder.buildFor(target).apply(vs)).collect(Collectors.toList())
-    );
-  }
 }
