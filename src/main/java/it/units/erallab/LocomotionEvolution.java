@@ -102,7 +102,7 @@ public class LocomotionEvolution extends Worker {
     List<String> targetSensorConfigNames = l(a("sensorConfig", "uniform-t+ax+ay+r+l1+a-0"));
     List<String> transformationNames = l(a("transformation", "identity"));
     List<String> evolverNames = l(a("evolver", "CMAES"));
-    List<String> mapperNames = l(a("mapper", "bodySin-50-0.1-1<directNumGrid"));//""sensorAndBodyAndHomoDist-50-3-3-t"));
+    List<String> mapperNames = l(a("mapper", "bodySin-50-0.1-1<functionNumGrid<MLP-4-4"));//""sensorAndBodyAndHomoDist-50-3-3-t"));
     String statsFileName = a("statsFile", null) == null ? null : a("dir", ".") + File.separator + a("statsFile", null);
     boolean serialization = a("serialization", "false").startsWith("t");
     Function<Outcome, Double> fitnessFunction = Outcome::getVelocity;
@@ -378,7 +378,7 @@ public class LocomotionEvolution extends Worker {
     String bodySin = "bodySin-(?<fullness>\\d+(\\.\\d+)?)-(?<minF>\\d+(\\.\\d+)?)-(?<maxF>\\d+(\\.\\d+)?)";
     String bodyAndHomoDistributed = "bodyAndHomoDist-(?<fullness>\\d+(\\.\\d+)?)-(?<nSignals>\\d+)-(?<nLayers>\\d+)";
     String sensorAndBodyAndHomoDistributed = "sensorAndBodyAndHomoDist-(?<fullness>\\d+(\\.\\d+)?)-(?<nSignals>\\d+)-(?<nLayers>\\d+)-(?<position>(t|f))";
-    String mlp = "MLP-(?<nLayers>\\d+)(-(?<actFun>(sin|tanh|sigmoid|relu)))?";
+    String mlp = "MLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)(-(?<actFun>(sin|tanh|sigmoid|relu)))?";
     String directNumGrid = "directNumGrid";
     String functionNumGrid = "functionNumGrid";
     String fgraph = "fGraph";
@@ -443,7 +443,7 @@ public class LocomotionEvolution extends Worker {
     //function mappers
     if ((params = params(mlp, name)) != null) {
       return new MLP(
-          1d,
+          Double.parseDouble(params.get("ratio")),
           Integer.parseInt(params.get("nLayers")),
           params.containsKey("actFun") ? MultiLayerPerceptron.ActivationFunction.valueOf(params.get("actFun").toUpperCase()) : MultiLayerPerceptron.ActivationFunction.TANH
       );
