@@ -1,6 +1,6 @@
 package it.units.erallab.builder.robot;
 
-import it.units.erallab.RealFunction;
+import it.units.erallab.builder.FunctionNumbersGrid;
 import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.erallab.builder.phenotype.MLP;
 import it.units.erallab.hmsrobots.core.controllers.MultiLayerPerceptron;
@@ -23,64 +23,101 @@ import org.dyn4j.dynamics.Settings;
 import java.util.List;
 import java.util.Objects;
 import java.util.Random;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
  * @author eric
  */
-public class BodyAndSinusoidal implements PrototypedFunctionBuilder<RealFunction, Robot<?>> {
+public class BodyAndSinusoidal implements PrototypedFunctionBuilder<Grid<double[]>, Robot<?>> {
+
+  public enum Component {FREQUENCY, AMPLITUDE, PHASE}
+
+  ;
 
   private final double minF;
   private final double maxF;
   private final double percentile;
+  private final Set<Component> components;
 
-  public BodyAndSinusoidal(double minF, double maxF, double percentile) {
+  public BodyAndSinusoidal(double minF, double maxF, double percentile, Set<Component> components) {
     this.minF = minF;
     this.maxF = maxF;
     this.percentile = percentile;
+    this.components = components;
   }
 
   @Override
-  public Function<RealFunction, Robot<?>> buildFor(Robot<?> robot) {
-    int w = robot.getVoxels().getW();
-    int h = robot.getVoxels().getH();
+  public Function<Grid<double[]>, Robot<?>> buildFor(Robot<?> robot) {
     ControllableVoxel voxelPrototype = robot.getVoxels().values().stream().filter(Objects::nonNull).findFirst().orElse(null);
     if (voxelPrototype == null) {
       throw new IllegalArgumentException("Target robot has no valid voxels");
     }
     //build body
-    return function -> {
-      //check function sizes
-      if (function.getNOfInputs() != 2 || function.getNOfOutputs() != 4) {
+    return grid -> {
+      //check grid sizes
+      if (grid.getW() != robot.getVoxels().getW() || grid.getH() != robot.getVoxels().getH()) {
         throw new IllegalArgumentException(String.format(
-            "Wrong number of body function args: 2->4 expected, %d->%d found",
-            function.getNOfInputs(),
-            function.getNOfOutputs()
+            "Wrong grid size: %dx%d expected, %dx%d found",
+            robot.getVoxels().getW(), robot.getVoxels().getH(),
+            grid.getW(), grid.getH()
+        ));
+      }
+      //check grid element size
+      if (grid.values().stream().anyMatch(v -> v.length != 1 + components.size())) {
+        Grid.Entry<double[]> firstWrong = grid.stream().filter(e -> e.getValue().length != 1 + components.size()).findFirst().orElse(null);
+        if (firstWrong == null) {
+          throw new NullPointerException("Unexpected empty wrong grid item");
+        }
+        throw new IllegalArgumentException(String.format(
+            "Wrong number of values in grid at %d,%d size: %d expected, %d found",
+            firstWrong.getX(), firstWrong.getY(),
+            1 + components.size(),
+            firstWrong.getValue().length
         ));
       }
       //build body
-      Grid<Double> values = Grid.create(w, h, (x, y) -> function.apply(new double[]{(double) x / (double) w, (double) y / (double) h})[0]);
-      double threshold = new Percentile().evaluate(values.values().stream().mapToDouble(v -> v).toArray(), percentile);
-      values = Grid.create(values, v -> v >= threshold ? v : null);
-      values = Utils.gridLargestConnected(values, Objects::nonNull);
-      values = Utils.cropGrid(values, Objects::nonNull);
-      Grid<ControllableVoxel> body = Grid.create(values, v -> (v != null) ? SerializationUtils.clone(voxelPrototype) : null);
+      double threshold = percentile > 0 ? new Percentile().evaluate(grid.values().stream().mapToDouble(v -> v[0]).toArray(), percentile) : 0d;
+      Grid<double[]> cropped = Utils.cropGrid(Utils.gridLargestConnected(
+          Grid.create(grid, v -> v[0] >= threshold ? v : null),
+          Objects::nonNull
+      ), Objects::nonNull);
+      Grid<ControllableVoxel> body = Grid.create(cropped, v -> (v != null) ? SerializationUtils.clone(voxelPrototype) : null);
       if (body.values().stream().noneMatch(Objects::nonNull)) {
         body = Grid.create(1, 1, SerializationUtils.clone(voxelPrototype));
       }
       //build controller
-      int bodyW = body.getW();
-      int bodyH = body.getH();
       TimeFunctions controller = new TimeFunctions(Grid.create(
           body.getW(),
           body.getH(),
           (x, y) -> {
-            double[] vs = function.apply(new double[]{(double) x / (double) bodyW, (double) y / (double) bodyH});
-            double freq = minF + (maxF - minF) * (clip(vs[1]) + 1d) / 2d;
-            double phase = Math.PI * (clip(vs[2]) + 1d) / 2d;
-            double amplitude = (clip(vs[2]) + 1d) / 2d;
-            System.out.printf("%d,%d -> f=%.3f p=%.3f a=%.3f%n", x, y, freq, phase, amplitude);
+            int c = 1;
+            double freq;
+            double phase;
+            double amplitude;
+            double[] vs = cropped.get(x, y);
+            if (vs == null) {
+              vs = new double[1 + Component.values().length];
+            }
+            if (components.contains(Component.FREQUENCY)) {
+              freq = minF + (maxF - minF) * (clip(vs[c]) + 1d) / 2d;
+              c = c + 1;
+            } else {
+              freq = (minF + maxF) / 2d;
+            }
+            if (components.contains(Component.PHASE)) {
+              phase = Math.PI * (clip(vs[c]) + 1d) / 2d;
+              c = c + 1;
+            } else {
+              phase = 0d;
+            }
+            if (components.contains(Component.AMPLITUDE)) {
+              amplitude = (clip(vs[c]) + 1d) / 2d;
+              c = c + 1;
+            } else {
+              amplitude = 1d;
+            }
             return t -> amplitude * Math.sin(2 * Math.PI * freq * t + phase);
           }
       ));
@@ -93,21 +130,22 @@ public class BodyAndSinusoidal implements PrototypedFunctionBuilder<RealFunction
   }
 
   @Override
-  public RealFunction exampleFor(Robot<?> robot) {
+  public Grid<double[]> exampleFor(Robot<?> robot) {
     ControllableVoxel prototypeVoxel = robot.getVoxels().values().stream().filter(Objects::nonNull).findFirst().orElse(null);
     if (prototypeVoxel == null) {
       throw new IllegalArgumentException("Target robot has no valid voxels");
     }
-    return RealFunction.from(2, 4, d -> d);
+    return Grid.create(robot.getVoxels().getW(), robot.getVoxels().getH(), new double[1 + components.size()]);
   }
 
   public static void main(String[] args) {
     Robot<? extends SensingVoxel> target = new Robot<>(
         null,
-        RobotUtils.buildSensorizingFunction("uniform-t-0").apply(RobotUtils.buildShape("box-5x5"))
+        RobotUtils.buildSensorizingFunction("uniform-t-0").apply(RobotUtils.buildShape("box-8x8"))
     );
-    PrototypedFunctionBuilder<List<Double>, Robot<?>> builder = new BodyAndSinusoidal(0.1, 1, 50)
-        .compose(new MLP(2d, 3, MultiLayerPerceptron.ActivationFunction.SIN));
+    PrototypedFunctionBuilder<List<Double>, Robot<?>> builder = new BodyAndSinusoidal(0.1, 1, 50, Set.of(Component.FREQUENCY))
+        .compose(new FunctionNumbersGrid())
+        .compose(new MLP(4d, 5, MultiLayerPerceptron.ActivationFunction.SIN));
     Factory<List<Double>> factory = new FixedLengthListFactory<>(builder.exampleFor(target).size(), new UniformDoubleFactory(-1d, 1d));
     Random random = new Random();
     Locomotion locomotion = new Locomotion(30, Locomotion.createTerrain("flat"), new Settings());

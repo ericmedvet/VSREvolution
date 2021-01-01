@@ -18,6 +18,8 @@ package it.units.erallab;
 
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.Lists;
+import it.units.erallab.builder.DirectNumbersGrid;
+import it.units.erallab.builder.FunctionNumbersGrid;
 import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.erallab.builder.evolver.CMAES;
 import it.units.erallab.builder.evolver.DoublesSpeciated;
@@ -100,7 +102,7 @@ public class LocomotionEvolution extends Worker {
     List<String> targetSensorConfigNames = l(a("sensorConfig", "uniform-t+ax+ay+r+l1+a-0"));
     List<String> transformationNames = l(a("transformation", "identity"));
     List<String> evolverNames = l(a("evolver", "CMAES"));
-    List<String> mapperNames = l(a("mapper", "sensorAndBodyAndHomoDist-50-3-3-t"));
+    List<String> mapperNames = l(a("mapper", "bodySin-50-0.1-1<directNumGrid"));//""sensorAndBodyAndHomoDist-50-3-3-t"));
     String statsFileName = a("statsFile", null) == null ? null : a("dir", ".") + File.separator + a("statsFile", null);
     boolean serialization = a("serialization", "false").startsWith("t");
     Function<Outcome, Double> fitnessFunction = Outcome::getVelocity;
@@ -373,9 +375,12 @@ public class LocomotionEvolution extends Worker {
     String fixedHeteroDistributed = "fixedHeteroDist-(?<nSignals>\\d+)";
     String fixedPhasesFunction = "fixedPhasesFunct-(?<f>\\d+)";
     String fixedPhases = "fixedPhases-(?<f>\\d+)";
+    String bodySin = "bodySin-(?<fullness>\\d+(\\.\\d+)?)-(?<minF>\\d+(\\.\\d+)?)-(?<maxF>\\d+(\\.\\d+)?)";
     String bodyAndHomoDistributed = "bodyAndHomoDist-(?<fullness>\\d+(\\.\\d+)?)-(?<nSignals>\\d+)-(?<nLayers>\\d+)";
     String sensorAndBodyAndHomoDistributed = "sensorAndBodyAndHomoDist-(?<fullness>\\d+(\\.\\d+)?)-(?<nSignals>\\d+)-(?<nLayers>\\d+)-(?<position>(t|f))";
     String mlp = "MLP-(?<nLayers>\\d+)(-(?<actFun>(sin|tanh|sigmoid|relu)))?";
+    String directNumGrid = "directNumGrid";
+    String functionNumGrid = "functionNumGrid";
     String fgraph = "fGraph";
     String functionGrid = "fGrid-(?<innerMapper>.*)";
     Map<String, String> params;
@@ -422,6 +427,14 @@ public class LocomotionEvolution extends Worker {
           )))
           .compose(PrototypedFunctionBuilder.merger());
     }
+    if ((params = params(bodySin, name)) != null) {
+      return new BodyAndSinusoidal(
+          Double.parseDouble(params.get("minF")),
+          Double.parseDouble(params.get("maxF")),
+          Double.parseDouble(params.get("fullness")),
+          Set.of(BodyAndSinusoidal.Component.FREQUENCY, BodyAndSinusoidal.Component.PHASE, BodyAndSinusoidal.Component.AMPLITUDE)
+      );
+    }
     if ((params = params(fixedHomoDistributed, name)) != null) {
       return new FixedHomoDistributed(
           Integer.parseInt(params.get("nSignals"))
@@ -441,6 +454,12 @@ public class LocomotionEvolution extends Worker {
     //misc
     if ((params = params(functionGrid, name)) != null) {
       return new FunctionGrid((PrototypedFunctionBuilder) getMapperBuilderFromName(params.get("innerMapper")));
+    }
+    if ((params = params(directNumGrid, name)) != null) {
+      return new DirectNumbersGrid();
+    }
+    if ((params = params(functionNumGrid, name)) != null) {
+      return new FunctionNumbersGrid();
     }
     throw new IllegalArgumentException(String.format("Unknown mapper name: %s", name));
   }
