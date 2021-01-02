@@ -105,6 +105,8 @@ public class LocomotionEvolution extends Worker {
     List<String> mapperNames = l(a("mapper", "bodySin-50-0.1-1<functionNumGrid<MLP-4-4"));//""sensorAndBodyAndHomoDist-50-3-3-t"));
     String statsFileName = a("statsFile", null) == null ? null : a("dir", ".") + File.separator + a("statsFile", null);
     boolean serialization = a("serialization", "false").startsWith("t");
+    List<String> validationTransformationNames = l(a("validationTransformation", "")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
+    List<String> validationTerrainNames = l(a("validationTerrain", "flat")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
     Function<Outcome, Double> fitnessFunction = Outcome::getVelocity;
     //collectors
     Function<Outcome, List<Item>> outcomeTransformer = new OutcomeItemizer(
@@ -151,8 +153,6 @@ public class LocomotionEvolution extends Worker {
     );
     //validation
     List<String> validationOutcomeHeaders = outcomeTransformer.apply(prototypeOutcome()).stream().map(Item::getName).collect(Collectors.toList());
-    List<String> validationTransformationNames = l(a("validationTransformation", "")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
-    List<String> validationTerrainNames = l(a("validationTerrain", "flat")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
     if (!validationTerrainNames.isEmpty() && validationTransformationNames.isEmpty()) {
       validationTransformationNames.add("identity");
     }
