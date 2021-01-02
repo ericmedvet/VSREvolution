@@ -1,8 +1,7 @@
-package it.units.erallab.builder.phenotype;
+package it.units.erallab.builder;
 
 import it.units.erallab.RealFunction;
 import it.units.erallab.hmsrobots.util.Grid;
-import it.units.erallab.builder.PrototypedFunctionBuilder;
 
 import java.util.Collections;
 import java.util.List;

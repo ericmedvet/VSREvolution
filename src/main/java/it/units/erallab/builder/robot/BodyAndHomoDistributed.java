@@ -69,7 +69,10 @@ public class BodyAndHomoDistributed implements PrototypedFunctionBuilder<List<Re
         ));
       }
       //build body
-      Grid<Double> values = Grid.create(w, h, (x, y) -> bodyFunction.apply(new double[]{(double) x / (double) w, (double) y / (double) h})[0]);
+      Grid<Double> values = Grid.create(
+          w, h,
+          (x, y) -> bodyFunction.apply(new double[]{(double) x / ((double) w - 1d), (double) y / ((double) h - 1d)})[0]
+      );
       double threshold = new Percentile().evaluate(values.values().stream().mapToDouble(v -> v).toArray(), percentile);
       values = Grid.create(values, v -> v >= threshold ? v : null);
       values = Utils.gridLargestConnected(values, Objects::nonNull);

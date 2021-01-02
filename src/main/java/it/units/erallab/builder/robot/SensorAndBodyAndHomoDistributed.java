@@ -71,9 +71,12 @@ public class SensorAndBodyAndHomoDistributed implements PrototypedFunctionBuilde
         ));
       }
       //build body
-      Grid<double[]> values = Grid.create(w, h, (x, y) -> bodyFunction.apply(new double[]{(double) x / (double) w, (double) y / (double) h}));
+      Grid<double[]> values = Grid.create(
+          w, h,
+          (x, y) -> bodyFunction.apply(new double[]{(double) x / ((double) w - 1d), (double) y / ((double) h - 1d)})
+      );
       double threshold = new Percentile().evaluate(
-          values.values().stream().mapToDouble(this::max).toArray(),
+          values.values().stream().mapToDouble(SensorAndBodyAndHomoDistributed::max).toArray(),
           percentile
       );
       values = Grid.create(values, vs -> max(vs) >= threshold ? vs : null);
@@ -112,7 +115,7 @@ public class SensorAndBodyAndHomoDistributed implements PrototypedFunctionBuilde
     };
   }
 
-  private double max(double[] vs) {
+  static double max(double[] vs) {
     double max = vs[0];
     for (int i = 1; i < vs.length; i++) {
       max = Math.max(max, vs[i]);
@@ -120,7 +123,7 @@ public class SensorAndBodyAndHomoDistributed implements PrototypedFunctionBuilde
     return max;
   }
 
-  private int indexOfMax(double[] vs) {
+  static int indexOfMax(double[] vs) {
     int indexOfMax = 0;
     for (int i = 1; i < vs.length; i++) {
       if (vs[i] > vs[indexOfMax]) {
@@ -143,7 +146,7 @@ public class SensorAndBodyAndHomoDistributed implements PrototypedFunctionBuilde
     );
   }
 
-  private List<Sensor> getPrototypeSensors(Robot<? extends SensingVoxel> robot) {
+  static List<Sensor> getPrototypeSensors(Robot<? extends SensingVoxel> robot) {
     SensingVoxel voxelPrototype = robot.getVoxels().values().stream().filter(Objects::nonNull).findFirst().orElse(null);
     if (voxelPrototype == null) {
       throw new IllegalArgumentException("Target robot has no voxels");

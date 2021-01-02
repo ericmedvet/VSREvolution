@@ -26,7 +26,7 @@ import it.units.erallab.builder.evolver.DoublesSpeciated;
 import it.units.erallab.builder.evolver.DoublesStandard;
 import it.units.erallab.builder.evolver.EvolverBuilder;
 import it.units.erallab.builder.phenotype.FGraph;
-import it.units.erallab.builder.phenotype.FunctionGrid;
+import it.units.erallab.builder.FunctionGrid;
 import it.units.erallab.builder.phenotype.MLP;
 import it.units.erallab.builder.robot.*;
 import it.units.erallab.hmsrobots.core.controllers.MultiLayerPerceptron;

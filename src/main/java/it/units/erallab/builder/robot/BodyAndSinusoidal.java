@@ -1,31 +1,17 @@
 package it.units.erallab.builder.robot;
 
-import it.units.erallab.builder.FunctionNumbersGrid;
 import it.units.erallab.builder.PrototypedFunctionBuilder;
-import it.units.erallab.builder.phenotype.MLP;
-import it.units.erallab.hmsrobots.core.controllers.MultiLayerPerceptron;
 import it.units.erallab.hmsrobots.core.controllers.TimeFunctions;
 import it.units.erallab.hmsrobots.core.objects.ControllableVoxel;
 import it.units.erallab.hmsrobots.core.objects.Robot;
-import it.units.erallab.hmsrobots.core.objects.SensingVoxel;
-import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
 import it.units.erallab.hmsrobots.util.Grid;
-import it.units.erallab.hmsrobots.util.RobotUtils;
 import it.units.erallab.hmsrobots.util.SerializationUtils;
 import it.units.erallab.hmsrobots.util.Utils;
-import it.units.erallab.hmsrobots.viewers.GridOnlineViewer;
-import it.units.malelab.jgea.core.Factory;
-import it.units.malelab.jgea.representation.sequence.FixedLengthListFactory;
-import it.units.malelab.jgea.representation.sequence.numeric.UniformDoubleFactory;
 import org.apache.commons.math3.stat.descriptive.rank.Percentile;
-import org.dyn4j.dynamics.Settings;
 
-import java.util.List;
 import java.util.Objects;
-import java.util.Random;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /**
  * @author eric
@@ -33,8 +19,6 @@ import java.util.stream.Collectors;
 public class BodyAndSinusoidal implements PrototypedFunctionBuilder<Grid<double[]>, Robot<?>> {
 
   public enum Component {FREQUENCY, AMPLITUDE, PHASE}
-
-  ;
 
   private final double minF;
   private final double maxF;
@@ -138,20 +122,4 @@ public class BodyAndSinusoidal implements PrototypedFunctionBuilder<Grid<double[
     return Grid.create(robot.getVoxels().getW(), robot.getVoxels().getH(), new double[1 + components.size()]);
   }
 
-  public static void main(String[] args) {
-    Robot<? extends SensingVoxel> target = new Robot<>(
-        null,
-        RobotUtils.buildSensorizingFunction("uniform-t-0").apply(RobotUtils.buildShape("box-8x8"))
-    );
-    PrototypedFunctionBuilder<List<Double>, Robot<?>> builder = new BodyAndSinusoidal(0.1, 1, 50, Set.of(Component.FREQUENCY))
-        .compose(new FunctionNumbersGrid())
-        .compose(new MLP(4d, 5, MultiLayerPerceptron.ActivationFunction.SIN));
-    Factory<List<Double>> factory = new FixedLengthListFactory<>(builder.exampleFor(target).size(), new UniformDoubleFactory(-1d, 1d));
-    Random random = new Random();
-    Locomotion locomotion = new Locomotion(30, Locomotion.createTerrain("flat"), new Settings());
-    GridOnlineViewer.run(
-        locomotion,
-        factory.build(9, random).stream().map(vs -> builder.buildFor(target).apply(vs)).collect(Collectors.toList())
-    );
-  }
 }
