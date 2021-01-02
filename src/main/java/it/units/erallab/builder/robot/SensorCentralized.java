@@ -2,27 +2,16 @@ package it.units.erallab.builder.robot;
 
 import it.units.erallab.RealFunction;
 import it.units.erallab.builder.PrototypedFunctionBuilder;
-import it.units.erallab.builder.phenotype.MLP;
 import it.units.erallab.hmsrobots.core.controllers.CentralizedSensing;
-import it.units.erallab.hmsrobots.core.controllers.MultiLayerPerceptron;
 import it.units.erallab.hmsrobots.core.objects.Robot;
 import it.units.erallab.hmsrobots.core.objects.SensingVoxel;
 import it.units.erallab.hmsrobots.core.sensors.Sensor;
-import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
 import it.units.erallab.hmsrobots.util.Grid;
-import it.units.erallab.hmsrobots.util.RobotUtils;
 import it.units.erallab.hmsrobots.util.SerializationUtils;
-import it.units.erallab.hmsrobots.viewers.GridOnlineViewer;
-import it.units.malelab.jgea.core.Factory;
-import it.units.malelab.jgea.representation.sequence.FixedLengthListFactory;
-import it.units.malelab.jgea.representation.sequence.numeric.UniformDoubleFactory;
-import org.dyn4j.dynamics.Settings;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Random;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /**
  * @author eric on 2021/01/02 for VSREvolution
@@ -101,27 +90,6 @@ public class SensorCentralized implements PrototypedFunctionBuilder<List<RealFun
             nOfVoxels,
             v -> v
         )
-    );
-  }
-
-  public static void main(String[] args) {
-    Robot<? extends SensingVoxel> target = new Robot<>(
-        null,
-        RobotUtils.buildSensorizingFunction("uniform-t+ax+ay+l1-0").apply(RobotUtils.buildShape("biped-8x5"))
-    );
-    PrototypedFunctionBuilder<List<Double>, Robot<? extends SensingVoxel>> builder = new SensorCentralized()
-        .compose(PrototypedFunctionBuilder.of(List.of(
-            new MLP(4d, 5, MultiLayerPerceptron.ActivationFunction.SIN),
-            new MLP(2d, 1)
-        )))
-        .compose(PrototypedFunctionBuilder.merger());
-    System.out.printf("Size: %d%n", builder.exampleFor(target).size());
-    Factory<List<Double>> factory = new FixedLengthListFactory<>(builder.exampleFor(target).size(), new UniformDoubleFactory(-1d, 1d));
-    Random random = new Random();
-    Locomotion locomotion = new Locomotion(30, Locomotion.createTerrain("flat"), new Settings());
-    GridOnlineViewer.run(
-        locomotion,
-        factory.build(9, random).stream().map(vs -> builder.buildFor(target).apply(vs)).collect(Collectors.toList())
     );
   }
 

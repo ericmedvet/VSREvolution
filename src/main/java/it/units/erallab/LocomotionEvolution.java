@@ -19,6 +19,7 @@ package it.units.erallab;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.Lists;
 import it.units.erallab.builder.DirectNumbersGrid;
+import it.units.erallab.builder.FunctionGrid;
 import it.units.erallab.builder.FunctionNumbersGrid;
 import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.erallab.builder.evolver.CMAES;
@@ -26,7 +27,6 @@ import it.units.erallab.builder.evolver.DoublesSpeciated;
 import it.units.erallab.builder.evolver.DoublesStandard;
 import it.units.erallab.builder.evolver.EvolverBuilder;
 import it.units.erallab.builder.phenotype.FGraph;
-import it.units.erallab.builder.FunctionGrid;
 import it.units.erallab.builder.phenotype.MLP;
 import it.units.erallab.builder.robot.*;
 import it.units.erallab.hmsrobots.core.controllers.MultiLayerPerceptron;
@@ -263,16 +263,17 @@ public class LocomotionEvolution extends Worker {
                     if (bestSolution != null) {
                       for (String validationTransformationName : validationTransformationNames) {
                         for (String validationTerrainName : validationTerrainNames) {
-                          //build validation task
-                          Function<Robot<?>, Outcome> validationTask = new Locomotion(
-                              episodeTime,
-                              Locomotion.createTerrain(validationTerrainName),
-                              physicsSettings
-                          );
-                          validationTask = RobotUtils.buildRobotTransformation(validationTransformationName, new Random(0))
-                              .andThen(SerializationUtils::clone)
-                              .andThen(validationTask);
                           try {
+                            //build validation task
+                            Function<Robot<?>, Outcome> validationTask = new Locomotion(
+                                episodeTime,
+                                Locomotion.createTerrain(validationTerrainName),
+                                physicsSettings
+                            );
+                            validationTask = RobotUtils.buildRobotTransformation(validationTransformationName, new Random(0))
+                                .andThen(SerializationUtils::clone)
+                                .andThen(validationTask);
+                            //do task
                             Outcome validationOutcome = validationTask.apply(bestSolution);
                             L.info(String.format(
                                 "Validation %s/%s of \"first\" best done in %ss",
