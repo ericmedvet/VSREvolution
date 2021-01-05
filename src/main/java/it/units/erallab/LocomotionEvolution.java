@@ -38,26 +38,23 @@ import it.units.erallab.hmsrobots.util.Grid;
 import it.units.erallab.hmsrobots.util.Point2;
 import it.units.erallab.hmsrobots.util.RobotUtils;
 import it.units.erallab.hmsrobots.util.SerializationUtils;
+import it.units.erallab.hmsrobots.viewers.FramesImageBuilder;
 import it.units.malelab.jgea.Worker;
-import it.units.malelab.jgea.core.Individual;
+import it.units.malelab.jgea.core.consumer.*;
+import it.units.malelab.jgea.core.consumer.telegram.TelegramUpdater;
 import it.units.malelab.jgea.core.evolver.Evolver;
 import it.units.malelab.jgea.core.evolver.stopcondition.Births;
-import it.units.malelab.jgea.core.listener.FileListenerFactory;
-import it.units.malelab.jgea.core.listener.Listener;
-import it.units.malelab.jgea.core.listener.ListenerFactory;
-import it.units.malelab.jgea.core.listener.collector.*;
 import it.units.malelab.jgea.core.order.PartialComparator;
+import it.units.malelab.jgea.core.util.ImagePlotters;
 import it.units.malelab.jgea.core.util.Misc;
 import it.units.malelab.jgea.core.util.SequentialFunction;
 import it.units.malelab.jgea.core.util.TextPlotter;
-import org.apache.commons.csv.CSVFormat;
-import org.apache.commons.csv.CSVPrinter;
 import org.dyn4j.dynamics.Settings;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
-import java.io.PrintStream;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -66,6 +63,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static it.units.erallab.hmsrobots.util.Utils.params;
+import static it.units.malelab.jgea.core.consumer.NamedFunctions.*;
 import static it.units.malelab.jgea.core.util.Args.*;
 
 /**
@@ -94,6 +92,8 @@ public class LocomotionEvolution extends Worker {
     Settings physicsSettings = new Settings();
     double episodeTime = d(a("episodeTime", "10"));
     double episodeTransientTime = d(a("episodeTransientTime", "5"));
+    double framesEpisodeTime = d(a("framesEpisodeTime", "1"));
+    int nOfFrames = i(a("nOfFrames", "5"));
     int nBirths = i(a("nBirths", "500"));
     int[] seeds = ri(a("seed", "0:1"));
     String experimentName = a("expName", "short");
@@ -103,11 +103,144 @@ public class LocomotionEvolution extends Worker {
     List<String> transformationNames = l(a("transformation", "identity"));
     List<String> evolverNames = l(a("evolver", "CMAES"));
     List<String> mapperNames = l(a("mapper", "bodySin-50-0.1-1<functionNumGrid<MLP-4-4"));//""sensorAndBodyAndHomoDist-50-3-3-t"));
-    String statsFileName = a("statsFile", null) == null ? null : a("dir", ".") + File.separator + a("statsFile", null);
+    String statsFileName = a("statsFile", null);
+    String telegramBotId = a("telegramBotId", null);
+    long telegramChatId = Long.parseLong(a("telegramChatId", "0"));
     boolean serialization = a("serialization", "false").startsWith("t");
     List<String> validationTransformationNames = l(a("validationTransformation", "")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
     List<String> validationTerrainNames = l(a("validationTerrain", "flat")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
     Function<Outcome, Double> fitnessFunction = Outcome::getVelocity;
+    //consumers
+    Map<String, Object> keys = new HashMap<>();
+    List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> keysFunctions = List.of(
+        constant("experiment.name", "%10.10s", keys),
+        constant("seed", "%2d", keys),
+        constant("terrain", "%10.10s", keys),
+        constant("shape", "%10.10s", keys),
+        constant("sensor.config", "%10.10s", keys),
+        constant("mapper", "%10.10s", keys),
+        constant("transformation", "%10.10s", keys),
+        constant("evolver", "%10.10s", keys)
+    );
+    List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> basicFunctions = List.of(
+        iterations(),
+        births(),
+        elapsedSeconds(),
+        size().of(all()),
+        size().of(firsts()),
+        size().of(lasts()),
+        uniqueness().of(map(genotype())).of(all()),
+        uniqueness().of(map(solution())).of(all()),
+        uniqueness().of(map(fitness())).of(all()),
+        size().of(genotype()).of(best()),
+        birthIteration().of(best()),
+        f("fitness", "%5.1f", fitnessFunction).of(fitness()).of(best())
+    );
+    List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> visualFunctions = List.of(
+        hist(8)
+            .of(map(f("fitness", fitnessFunction).of(fitness())))
+            .of(all()),
+        hist(8)
+            .of(map(f("num.voxels", (Function<Grid<?>, Number>) g -> g.count(Objects::nonNull))
+                .of(f("shape", (Function<Robot<?>, Grid<?>>) Robot::getVoxels))
+                .of(solution())))
+            .of(all()),
+        f("size", "%3s", (Function<Grid<?>, String>) g -> g.getW() + "x" + g.getH())
+            .of(f("shape", (Function<Robot<?>, Grid<?>>) Robot::getVoxels))
+            .of(solution()).of(best()),
+        f("minimap", "%4s", (Function<Grid<?>, String>) g -> TextPlotter.binaryMap(
+            g.toArray(Objects::nonNull),
+            (int) Math.min(Math.ceil((float) g.getW() / (float) g.getH() * 2f), 4)))
+            .of(f("shape", (Function<Robot<?>, Grid<?>>) Robot::getVoxels))
+            .of(solution()).of(best()),
+        f("average.posture.minimap", "%2s", (Function<Outcome, String>) o -> TextPlotter.binaryMap(o.getAveragePosture().toArray(b -> b), 2))
+            .of(fitness()).of(best())
+    );
+    List<NamedFunction<Outcome, ?>> basicOutcomeFunctions = List.of(
+        NamedFunction.build("computation.time", "%4.2f", Outcome::getComputationTime),
+        NamedFunction.build("distance", "%5.1f", Outcome::getDistance),
+        NamedFunction.build("velocity", "%5.1f", Outcome::getVelocity),
+        NamedFunction.build("corrected.efficiency", "%5.2f", Outcome::getCorrectedEfficiency),
+        NamedFunction.build("area.ratio.power", "%5.1f", Outcome::getAreaRatioPower),
+        NamedFunction.build("control.power", "%5.1f", Outcome::getControlPower)
+    );
+    List<NamedFunction<Outcome, ?>> detailedOutcomeFunctions = Misc.concat(List.of(
+        NamedFunction.then(f("gait", Outcome::getMainGait), List.of(
+            NamedFunction.build("avg.touch.area", "%4.2f", g -> g == null ? null : g.getAvgTouchArea()),
+            NamedFunction.build("coverage", "%4.2f", g -> g == null ? null : g.getCoverage()),
+            NamedFunction.build("num.footprints", "%2d", g -> g == null ? null : g.getFootprints().size()),
+            NamedFunction.build("mode.interval", "%3.1f", g -> g == null ? null : g.getModeInterval()),
+            NamedFunction.build("purity", "%4.2f", g -> g == null ? null : g.getPurity()),
+            NamedFunction.build("num.unique.footprints", "%2d", g -> g == null ? null : g.getFootprints().stream().distinct().count()),
+            NamedFunction.build("footprints", "%s", g -> g == null ? null : g.getFootprints().stream().map(Objects::toString).collect(Collectors.joining(",")))
+        ))
+        // TODO add spectrum
+    ));
+    List<NamedFunction<Outcome, ?>> visualOutcomeFunctions = List.of(
+        NamedFunction.build("center.spectrum.x", "%8.8s", o -> TextPlotter.barplot(
+            o.getCenterPowerSpectrum(Outcome.Component.X, spectrumMinFreq, spectrumMaxFreq, 8).stream()
+                .mapToDouble(Outcome.Mode::getStrength)
+                .toArray())),
+        NamedFunction.build("center.spectrum.y", "%8.8s", o -> TextPlotter.barplot(
+            o.getCenterPowerSpectrum(Outcome.Component.Y, spectrumMinFreq, spectrumMaxFreq, 8).stream()
+                .mapToDouble(Outcome.Mode::getStrength)
+                .toArray()))
+    );
+    Function<Collection<? extends Robot<?>>, BufferedImage> bestPlotter = robots -> {
+      Robot<?> best = Misc.first(robots);
+      Locomotion locomotion = new Locomotion(episodeTransientTime + framesEpisodeTime, Locomotion.createTerrain(validationTerrainNames.get(0)), new Settings());
+      FramesImageBuilder builder = new FramesImageBuilder(
+          episodeTransientTime,
+          episodeTransientTime + framesEpisodeTime,
+          framesEpisodeTime / (double) nOfFrames,
+          400,
+          300,
+          FramesImageBuilder.Direction.VERTICAL
+      );
+      locomotion.apply(best, builder);
+      return builder.getImage();
+    };
+    List<Consumer.Factory<Object, Robot<?>, Outcome, Void>> factories = new ArrayList<>();
+    factories.add(new TabularPrinter<>(
+        Misc.concat(List.of(
+            basicFunctions,
+            visualFunctions,
+            NamedFunction.then(as(Outcome.class).of(fitness()).of(best()), basicOutcomeFunctions),
+            NamedFunction.then(as(Outcome.class).of(fitness()).of(best()), visualOutcomeFunctions)
+        )),
+        System.out, 10, true
+    ));
+    if (statsFileName != null) {
+      factories.add(new it.units.malelab.jgea.core.consumer.CSVPrinter<>(
+          Misc.concat(List.of(
+              keysFunctions,
+              basicFunctions,
+              NamedFunction.then(as(Outcome.class).of(fitness()).of(best()), basicOutcomeFunctions),
+              NamedFunction.then(as(Outcome.class).of(fitness()).of(best()), detailedOutcomeFunctions)
+          )),
+          new File(statsFileName)
+      ));
+    }
+    if (telegramBotId != null && telegramChatId != 0) {
+      factories.add(new TelegramUpdater<>(
+          telegramBotId, telegramChatId,
+          List.of(
+              new LastEventPrinter<>(Misc.concat(List.of(
+                  keysFunctions,
+                  basicFunctions,
+                  visualFunctions
+              ))),
+              new TableBuilder<Object, Robot<?>, Outcome, Number>(List.of(
+                  iterations(),
+                  f("fitness", fitnessFunction).of(fitness()).of(best()),
+                  min(Double::compare).of(map(f("fitness", fitnessFunction).of(fitness()))).of(all()),
+                  median(Double::compare).of(map(f("fitness", fitnessFunction).of(fitness()))).of(all())
+              )).then(ImagePlotters.xyLines(600, 400))
+          ),
+          List.of(bestPlotter)
+      ));
+    }
+    /*
     //collectors
     Function<Outcome, List<Item>> outcomeTransformer = new OutcomeItemizer(
         spectrumMinFreq,
@@ -151,15 +284,17 @@ public class LocomotionEvolution extends Worker {
             "%s"
         )))
     );
+    */
     //validation
-    List<String> validationOutcomeHeaders = outcomeTransformer.apply(prototypeOutcome()).stream().map(Item::getName).collect(Collectors.toList());
+    /*List<String> validationOutcomeHeaders = outcomeTransformer.apply(prototypeOutcome()).stream().map(Item::getName).collect(Collectors.toList());
     if (!validationTerrainNames.isEmpty() && validationTransformationNames.isEmpty()) {
       validationTransformationNames.add("identity");
     }
     if (validationTerrainNames.isEmpty() && !validationTransformationNames.isEmpty()) {
       validationTerrainNames.add(terrainNames.get(0));
-    }
+    }*/
     //prepare file listeners
+    /*
     ListenerFactory<Object, Robot<?>, Outcome> statsListenerFactory = new FileListenerFactory<>(statsFileName);
     CSVPrinter validationPrinter;
     List<String> validationKeyHeaders = List.of("experiment.name", "seed", "terrain", "shape", "sensor.config", "mapper", "transformation", "evolver");
@@ -180,6 +315,7 @@ public class LocomotionEvolution extends Worker {
       L.severe(String.format("Cannot create printer for validation results due to %s", e));
       return;
     }
+     */
     //summarize params
     L.info("Experiment name: " + experimentName);
     L.info("Evolvers: " + evolverNames);
@@ -201,9 +337,10 @@ public class LocomotionEvolution extends Worker {
                 for (String evolverName : evolverNames) {
                   counter = counter + 1;
                   final Random random = new Random(seed);
-                  Map<String, String> keys = new TreeMap<>(Map.of(
+                  //prepare consumers
+                  keys.putAll(Map.of(
                       "experiment.name", experimentName,
-                      "seed", Integer.toString(seed),
+                      "seed", seed,
                       "terrain", terrainName,
                       "shape", targetShapeName,
                       "sensor.config", targetSensorConfigName,
@@ -211,17 +348,15 @@ public class LocomotionEvolution extends Worker {
                       "transformation", transformationName,
                       "evolver", evolverName
                   ));
+                  Consumer<Object, Robot<?>, Outcome, ?> consumer = Consumer.of(factories.stream()
+                      .map(Consumer.Factory::build)
+                      .collect(Collectors.toList()))
+                      .deferred(executorService);
                   Robot<?> target = new Robot<>(
                       null,
                       RobotUtils.buildSensorizingFunction(targetSensorConfigName).apply(RobotUtils.buildShape(targetShapeName))
                   );
-                  //build main data collectors for listener
-                  Listener<? super Object, ? super Robot<?>, ? super Outcome> listener;
-                  if (statsFileName == null) {
-                    listener = listener(dataCollectors);
-                  } else {
-                    listener = statsListenerFactory.build(Utils.concat(List.of(new Static(keys)), dataCollectors));
-                  }
+                  //build evolver
                   Evolver<?, Robot<?>, Outcome> evolver;
                   try {
                     evolver = buildEvolver(evolverName, mapperName, target, fitnessFunction);
@@ -247,10 +382,7 @@ public class LocomotionEvolution extends Worker {
                         new Births(nBirths),
                         random,
                         executorService,
-                        Listener.onExecutor(
-                            listener,
-                            executorService
-                        )
+                        consumer
                     );
                     L.info(String.format("Progress %s (%d/%d); Done: %d solutions in %4ds",
                         TextPlotter.horizontalBar(counter, 0, nOfRuns, 8),
@@ -258,6 +390,7 @@ public class LocomotionEvolution extends Worker {
                         solutions.size(),
                         stopwatch.elapsed(TimeUnit.SECONDS)
                     ));
+                    consumer.consume(solutions);
                     //do validation
                     Robot<?> bestSolution = solutions.stream().findFirst().orElse(null);
                     if (bestSolution != null) {
@@ -281,6 +414,7 @@ public class LocomotionEvolution extends Worker {
                                 validationTerrainName,
                                 validationOutcome.getComputationTime()
                             ));
+                            /*
                             List<Object> values = new ArrayList<>();
                             values.addAll(validationKeyHeaders.stream().map(keys::get).collect(Collectors.toList()));
                             values.addAll(List.of(validationTransformationName, validationTerrainName));
@@ -295,6 +429,7 @@ public class LocomotionEvolution extends Worker {
                             );
                             validationPrinter.printRecord(values);
                             validationPrinter.flush();
+                            */
                           } catch (Throwable e) {
                             L.severe(String.format("Cannot do or save validation results due to %s", e));
                             e.printStackTrace(); // TODO possibly to be removed
@@ -318,13 +453,7 @@ public class LocomotionEvolution extends Worker {
         }
       }
     }
-    try {
-      validationPrinter.close(true);
-    } catch (
-        IOException e) {
-      L.severe(String.format("Cannot close printer for validation results due to %s", e));
-    }
-
+    factories.forEach(Consumer.Factory::shutdown);
   }
 
   private static Outcome prototypeOutcome() {
