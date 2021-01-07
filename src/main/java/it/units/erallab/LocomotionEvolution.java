@@ -51,10 +51,8 @@ import it.units.malelab.jgea.core.util.SequentialFunction;
 import it.units.malelab.jgea.core.util.TextPlotter;
 import org.dyn4j.dynamics.Settings;
 
-import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.File;
-import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -113,14 +111,14 @@ public class LocomotionEvolution extends Worker {
     //consumers
     Map<String, Object> keys = new HashMap<>();
     List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> keysFunctions = List.of(
-        constant("experiment.name", "%10.10s", keys),
+        constant("experiment.name", keys),
         constant("seed", "%2d", keys),
-        constant("terrain", "%10.10s", keys),
-        constant("shape", "%10.10s", keys),
-        constant("sensor.config", "%10.10s", keys),
-        constant("mapper", "%10.10s", keys),
-        constant("transformation", "%10.10s", keys),
-        constant("evolver", "%10.10s", keys)
+        constant("terrain", keys),
+        constant("shape", keys),
+        constant("sensor.config", keys),
+        constant("mapper", keys),
+        constant("transformation", keys),
+        constant("evolver", keys)
     );
     List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> basicFunctions = List.of(
         iterations(),
@@ -157,31 +155,31 @@ public class LocomotionEvolution extends Worker {
             .of(fitness()).of(best())
     );
     List<NamedFunction<Outcome, ?>> basicOutcomeFunctions = List.of(
-        NamedFunction.build("computation.time", "%4.2f", Outcome::getComputationTime),
-        NamedFunction.build("distance", "%5.1f", Outcome::getDistance),
-        NamedFunction.build("velocity", "%5.1f", Outcome::getVelocity),
-        NamedFunction.build("corrected.efficiency", "%5.2f", Outcome::getCorrectedEfficiency),
-        NamedFunction.build("area.ratio.power", "%5.1f", Outcome::getAreaRatioPower),
-        NamedFunction.build("control.power", "%5.1f", Outcome::getControlPower)
+        f("computation.time", "%4.2f", Outcome::getComputationTime),
+        f("distance", "%5.1f", Outcome::getDistance),
+        f("velocity", "%5.1f", Outcome::getVelocity),
+        f("corrected.efficiency", "%5.2f", Outcome::getCorrectedEfficiency),
+        f("area.ratio.power", "%5.1f", Outcome::getAreaRatioPower),
+        f("control.power", "%5.1f", Outcome::getControlPower)
     );
     List<NamedFunction<Outcome, ?>> detailedOutcomeFunctions = Misc.concat(List.of(
         NamedFunction.then(f("gait", Outcome::getMainGait), List.of(
-            NamedFunction.build("avg.touch.area", "%4.2f", g -> g == null ? null : g.getAvgTouchArea()),
-            NamedFunction.build("coverage", "%4.2f", g -> g == null ? null : g.getCoverage()),
-            NamedFunction.build("num.footprints", "%2d", g -> g == null ? null : g.getFootprints().size()),
-            NamedFunction.build("mode.interval", "%3.1f", g -> g == null ? null : g.getModeInterval()),
-            NamedFunction.build("purity", "%4.2f", g -> g == null ? null : g.getPurity()),
-            NamedFunction.build("num.unique.footprints", "%2d", g -> g == null ? null : g.getFootprints().stream().distinct().count()),
-            NamedFunction.build("footprints", "%s", g -> g == null ? null : g.getFootprints().stream().map(Objects::toString).collect(Collectors.joining(",")))
+            f("avg.touch.area", "%4.2f", g -> g == null ? null : g.getAvgTouchArea()),
+            f("coverage", "%4.2f", g -> g == null ? null : g.getCoverage()),
+            f("num.footprints", "%2d", g -> g == null ? null : g.getFootprints().size()),
+            f("mode.interval", "%3.1f", g -> g == null ? null : g.getModeInterval()),
+            f("purity", "%4.2f", g -> g == null ? null : g.getPurity()),
+            f("num.unique.footprints", "%2d", g -> g == null ? null : g.getFootprints().stream().distinct().count()),
+            f("footprints", g -> g == null ? null : g.getFootprints().stream().map(Objects::toString).collect(Collectors.joining(",")))
         ))
         // TODO add spectrum
     ));
     List<NamedFunction<Outcome, ?>> visualOutcomeFunctions = List.of(
-        NamedFunction.build("center.spectrum.x", "%8.8s", o -> TextPlotter.barplot(
+        f("center.spectrum.x", "%8.8s", o -> TextPlotter.barplot(
             o.getCenterPowerSpectrum(Outcome.Component.X, spectrumMinFreq, spectrumMaxFreq, 8).stream()
                 .mapToDouble(Outcome.Mode::getStrength)
                 .toArray())),
-        NamedFunction.build("center.spectrum.y", "%8.8s", o -> TextPlotter.barplot(
+        f("center.spectrum.y", "%8.8s", o -> TextPlotter.barplot(
             o.getCenterPowerSpectrum(Outcome.Component.Y, spectrumMinFreq, spectrumMaxFreq, 8).stream()
                 .mapToDouble(Outcome.Mode::getStrength)
                 .toArray()))
