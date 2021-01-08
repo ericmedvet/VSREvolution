@@ -101,8 +101,8 @@ public class LocomotionEvolution extends Worker {
     List<String> evolverNames = l(a("evolver", "CMAES"));
     List<String> mapperNames = l(a("mapper", "bodySin-50-0.1-1<functionNumGrid<MLP-4-4"));//""sensorAndBodyAndHomoDist-50-3-3-t"));
     String statsFileName = a("statsFile", null);
-    String telegramBotId = a("telegramBotId", "1462661025:AAFM8n2qRYI_ZylUHvwGUalrX0Bgh1nDEmY");
-    long telegramChatId = Long.parseLong(a("telegramChatId", "207490209"));
+    String telegramBotId = a("telegramBotId", null);
+    long telegramChatId = Long.parseLong(a("telegramChatId", "0"));
     boolean serialization = a("serialization", "false").startsWith("t");
     List<String> validationTransformationNames = l(a("validationTransformation", "")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
     List<String> validationTerrainNames = l(a("validationTerrain", "flat")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
