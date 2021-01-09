@@ -83,7 +83,7 @@ public class LocomotionEvolution extends Worker {
 
   @Override
   public void run() {
-    int spectrumSize = 20;
+    int spectrumSize = 10;
     double spectrumMinFreq = 0d;
     double spectrumMaxFreq = 5d;
     Settings physicsSettings = new Settings();
@@ -100,9 +100,9 @@ public class LocomotionEvolution extends Worker {
     List<String> transformationNames = l(a("transformation", "identity"));
     List<String> evolverNames = l(a("evolver", "CMAES"));
     List<String> mapperNames = l(a("mapper", "bodySin-50-0.1-1<functionNumGrid<MLP-4-4"));//""sensorAndBodyAndHomoDist-50-3-3-t"));
-    String statsFileName = a("statsFile", null);
+    String statsFileName = a("statsFile", "/home/eric/vsrs.csv");
     String telegramBotId = a("telegramBotId", null);
-    long telegramChatId = Long.parseLong(a("telegramChatId", "0"));
+    long telegramChatId = Long.parseLong(a("telegramChatId", "207490209"));
     boolean serialization = a("serialization", "false").startsWith("t");
     List<String> validationTransformationNames = l(a("validationTransformation", "")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
     List<String> validationTerrainNames = l(a("validationTerrain", "flat")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
@@ -170,15 +170,26 @@ public class LocomotionEvolution extends Worker {
             f("purity", "%4.2f", g -> g == null ? null : g.getPurity()),
             f("num.unique.footprints", "%2d", g -> g == null ? null : g.getFootprints().stream().distinct().count()),
             f("footprints", g -> g == null ? null : g.getFootprints().stream().map(Objects::toString).collect(Collectors.joining(",")))
-        ))
-        // TODO add spectrum
+        )),
+        NamedFunction.then(cachedF("center.spectrum.x",
+            o -> o.getCenterPowerSpectrum(Outcome.Component.X, spectrumMinFreq, spectrumMaxFreq, spectrumSize).stream()
+                .map(Outcome.Mode::getStrength)
+                .collect(Collectors.toList())),
+            IntStream.range(0, spectrumSize).mapToObj(NamedFunctions::nth).collect(Collectors.toList())
+        ),
+        NamedFunction.then(cachedF("center.spectrum.y",
+            o -> o.getCenterPowerSpectrum(Outcome.Component.Y, spectrumMinFreq, spectrumMaxFreq, spectrumSize).stream()
+                .map(Outcome.Mode::getStrength)
+                .collect(Collectors.toList())),
+            IntStream.range(0, spectrumSize).mapToObj(NamedFunctions::nth).collect(Collectors.toList())
+        )
     ));
     List<NamedFunction<Outcome, ?>> visualOutcomeFunctions = List.of(
-        f("center.spectrum.x", "%8.8s", o -> TextPlotter.barplot(
+        cachedF("center.spectrum.x", "%8.8s", o -> TextPlotter.barplot(
             o.getCenterPowerSpectrum(Outcome.Component.X, spectrumMinFreq, spectrumMaxFreq, 8).stream()
                 .mapToDouble(Outcome.Mode::getStrength)
                 .toArray())),
-        f("center.spectrum.y", "%8.8s", o -> TextPlotter.barplot(
+        cachedF("center.spectrum.y", "%8.8s", o -> TextPlotter.barplot(
             o.getCenterPowerSpectrum(Outcome.Component.Y, spectrumMinFreq, spectrumMaxFreq, 8).stream()
                 .mapToDouble(Outcome.Mode::getStrength)
                 .toArray()))
