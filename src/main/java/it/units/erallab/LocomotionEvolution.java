@@ -31,22 +31,23 @@ import it.units.erallab.builder.phenotype.MLP;
 import it.units.erallab.builder.robot.*;
 import it.units.erallab.hmsrobots.core.controllers.MultiLayerPerceptron;
 import it.units.erallab.hmsrobots.core.objects.Robot;
-import it.units.erallab.hmsrobots.tasks.locomotion.Footprint;
 import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
 import it.units.erallab.hmsrobots.tasks.locomotion.Outcome;
-import it.units.erallab.hmsrobots.util.Grid;
-import it.units.erallab.hmsrobots.util.Point2;
 import it.units.erallab.hmsrobots.util.RobotUtils;
 import it.units.erallab.hmsrobots.util.SerializationUtils;
 import it.units.malelab.jgea.Worker;
+import it.units.malelab.jgea.core.Individual;
 import it.units.malelab.jgea.core.evolver.Event;
 import it.units.malelab.jgea.core.evolver.Evolver;
 import it.units.malelab.jgea.core.evolver.stopcondition.Births;
-import it.units.malelab.jgea.core.listener.*;
+import it.units.malelab.jgea.core.listener.CSVPrinter;
+import it.units.malelab.jgea.core.listener.Listener;
+import it.units.malelab.jgea.core.listener.NamedFunction;
+import it.units.malelab.jgea.core.listener.TabularPrinter;
 import it.units.malelab.jgea.core.listener.telegram.TelegramUpdater;
 import it.units.malelab.jgea.core.order.PartialComparator;
-import it.units.malelab.jgea.core.util.ImagePlotters;
 import it.units.malelab.jgea.core.util.Misc;
+import it.units.malelab.jgea.core.util.Pair;
 import it.units.malelab.jgea.core.util.SequentialFunction;
 import it.units.malelab.jgea.core.util.TextPlotter;
 import org.dyn4j.dynamics.Settings;
@@ -57,7 +58,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 import static it.units.erallab.hmsrobots.util.Utils.params;
 import static it.units.malelab.jgea.core.listener.NamedFunctions.*;
@@ -67,6 +67,20 @@ import static it.units.malelab.jgea.core.util.Args.*;
  * @author eric
  */
 public class LocomotionEvolution extends Worker {
+
+  private final static Settings PHYSICS_SETTINGS = new Settings();
+
+  public static class ValidationOutcome {
+    private final Event<?, ? extends Robot<?>, ? extends Outcome> event;
+    private final Map<String, Object> keys;
+    private final Outcome outcome;
+
+    public ValidationOutcome(Event<?, ? extends Robot<?>, ? extends Outcome> event, Map<String, Object> keys, Outcome outcome) {
+      this.event = event;
+      this.keys = keys;
+      this.outcome = outcome;
+    }
+  }
 
   public static final int CACHE_SIZE = 1000;
   public static final String MAPPER_PIPE_CHAR = "<";
@@ -86,11 +100,9 @@ public class LocomotionEvolution extends Worker {
     int spectrumSize = 10;
     double spectrumMinFreq = 0d;
     double spectrumMaxFreq = 5d;
-    Settings physicsSettings = new Settings();
     double episodeTime = d(a("episodeTime", "10"));
     double episodeTransientTime = d(a("episodeTransientTime", "5"));
-    double framesEpisodeTime = d(a("framesEpisodeTime", "1"));
-    int nOfFrames = i(a("nOfFrames", "5"));
+    double videoEpisodeTime = d(a("videoEpisodeTime", "10"));
     int nBirths = i(a("nBirths", "100"));
     int[] seeds = ri(a("seed", "0:1"));
     String experimentName = a("expName", "short");
@@ -100,247 +112,101 @@ public class LocomotionEvolution extends Worker {
     List<String> transformationNames = l(a("transformation", "identity"));
     List<String> evolverNames = l(a("evolver", "CMAES"));
     List<String> mapperNames = l(a("mapper", "bodySin-50-0.1-1<functionNumGrid<MLP-4-4"));//""sensorAndBodyAndHomoDist-50-3-3-t"));
-    String statsFileName = a("statsFile", "/home/eric/vsrs.csv");
+    String bestFileName = a("bestFile", null);
+    String allFileName = a("allFile", null);
+    String validationFileName = a("validationFile", null);
     String telegramBotId = a("telegramBotId", null);
     long telegramChatId = Long.parseLong(a("telegramChatId", "207490209"));
     boolean serialization = a("serialization", "false").startsWith("t");
+    boolean output = a("output", "false").startsWith("t");
     List<String> validationTransformationNames = l(a("validationTransformation", "")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
-    List<String> validationTerrainNames = l(a("validationTerrain", "flat")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
+    List<String> validationTerrainNames = l(a("validationTerrain", "flat,downhill-30")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
     Function<Outcome, Double> fitnessFunction = Outcome::getVelocity;
     //consumers
     Map<String, Object> keys = new HashMap<>();
-    List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> keysFunctions = List.of(
-        namedConstant("experiment.name", keys),
-        namedConstant("seed", "%2d", keys),
-        namedConstant("terrain", keys),
-        namedConstant("shape", keys),
-        namedConstant("sensor.config", keys),
-        namedConstant("mapper", keys),
-        namedConstant("transformation", keys),
-        namedConstant("evolver", keys)
-    );
-    List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> basicFunctions = List.of(
-        iterations(),
-        births(),
-        elapsedSeconds(),
-        size().of(all()),
-        size().of(firsts()),
-        size().of(lasts()),
-        uniqueness().of(each(genotype())).of(all()),
-        uniqueness().of(each(solution())).of(all()),
-        uniqueness().of(each(fitness())).of(all()),
-        size().of(genotype()).of(best()),
-        birthIteration().of(best()),
-        f("fitness", "%5.1f", fitnessFunction).of(fitness()).of(best())
-    );
-    List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> visualFunctions = List.of(
-        hist(8)
-            .of(each(f("fitness", fitnessFunction).of(fitness())))
-            .of(all()),
-        hist(8)
-            .of(each(f("num.voxels", (Function<Grid<?>, Number>) g -> g.count(Objects::nonNull))
-                .of(f("shape", (Function<Robot<?>, Grid<?>>) Robot::getVoxels))
-                .of(solution())))
-            .of(all()),
-        f("size", "%3s", (Function<Grid<?>, String>) g -> g.getW() + "x" + g.getH())
-            .of(f("shape", (Function<Robot<?>, Grid<?>>) Robot::getVoxels))
-            .of(solution()).of(best()),
-        f("minimap", "%4s", (Function<Grid<?>, String>) g -> TextPlotter.binaryMap(
-            g.toArray(Objects::nonNull),
-            (int) Math.min(Math.ceil((float) g.getW() / (float) g.getH() * 2f), 4)))
-            .of(f("shape", (Function<Robot<?>, Grid<?>>) Robot::getVoxels))
-            .of(solution()).of(best()),
-        f("average.posture.minimap", "%2s", (Function<Outcome, String>) o -> TextPlotter.binaryMap(o.getAveragePosture().toArray(b -> b), 2))
-            .of(fitness()).of(best())
-    );
-    List<NamedFunction<Outcome, ?>> basicOutcomeFunctions = List.of(
-        f("computation.time", "%4.2f", Outcome::getComputationTime),
-        f("distance", "%5.1f", Outcome::getDistance),
-        f("velocity", "%5.1f", Outcome::getVelocity),
-        f("corrected.efficiency", "%5.2f", Outcome::getCorrectedEfficiency),
-        f("area.ratio.power", "%5.1f", Outcome::getAreaRatioPower),
-        f("control.power", "%5.1f", Outcome::getControlPower)
-    );
-    List<NamedFunction<Outcome, ?>> detailedOutcomeFunctions = Misc.concat(List.of(
-        NamedFunction.then(cachedF("gait", Outcome::getMainGait), List.of(
-            f("avg.touch.area", "%4.2f", g -> g == null ? null : g.getAvgTouchArea()),
-            f("coverage", "%4.2f", g -> g == null ? null : g.getCoverage()),
-            f("num.footprints", "%2d", g -> g == null ? null : g.getFootprints().size()),
-            f("mode.interval", "%3.1f", g -> g == null ? null : g.getModeInterval()),
-            f("purity", "%4.2f", g -> g == null ? null : g.getPurity()),
-            f("num.unique.footprints", "%2d", g -> g == null ? null : g.getFootprints().stream().distinct().count()),
-            f("footprints", g -> g == null ? null : g.getFootprints().stream().map(Objects::toString).collect(Collectors.joining(",")))
-        )),
-        NamedFunction.then(cachedF("center.spectrum.x",
-            o -> o.getCenterPowerSpectrum(Outcome.Component.X, spectrumMinFreq, spectrumMaxFreq, spectrumSize).stream()
-                .map(Outcome.Mode::getStrength)
-                .collect(Collectors.toList())),
-            IntStream.range(0, spectrumSize).mapToObj(NamedFunctions::nth).collect(Collectors.toList())
-        ),
-        NamedFunction.then(cachedF("center.spectrum.y",
-            o -> o.getCenterPowerSpectrum(Outcome.Component.Y, spectrumMinFreq, spectrumMaxFreq, spectrumSize).stream()
-                .map(Outcome.Mode::getStrength)
-                .collect(Collectors.toList())),
-            IntStream.range(0, spectrumSize).mapToObj(NamedFunctions::nth).collect(Collectors.toList())
-        )
-    ));
-    List<NamedFunction<Outcome, ?>> visualOutcomeFunctions = List.of(
-        cachedF("center.spectrum.x", "%8.8s", o -> TextPlotter.barplot(
-            o.getCenterPowerSpectrum(Outcome.Component.X, spectrumMinFreq, spectrumMaxFreq, 8).stream()
-                .mapToDouble(Outcome.Mode::getStrength)
-                .toArray())),
-        cachedF("center.spectrum.y", "%8.8s", o -> TextPlotter.barplot(
-            o.getCenterPowerSpectrum(Outcome.Component.Y, spectrumMinFreq, spectrumMaxFreq, 8).stream()
-                .mapToDouble(Outcome.Mode::getStrength)
-                .toArray()))
-    );
-    /*
-    Function<Collection<? extends Robot<?>>, BufferedImage> bestPlotter = robots -> {
-      Robot<?> best = Misc.first(robots);
-      Locomotion locomotion = new Locomotion(episodeTransientTime + framesEpisodeTime, Locomotion.createTerrain(validationTerrainNames.get(0)), new Settings());
-      FramesImageBuilder builder = new FramesImageBuilder(
-          episodeTransientTime,
-          episodeTransientTime + framesEpisodeTime,
-          framesEpisodeTime / (double) nOfFrames,
-          400,
-          300,
-          FramesImageBuilder.Direction.VERTICAL
-      );
-      locomotion.apply(best, builder);
-      return builder.getImage();
-    };*/
-    Listener.Factory<Event<?, ? extends Robot<?>, ? extends Outcome>> factory = new TabularPrinter<>(Misc.concat(List.of(
-        basicFunctions,
-        visualFunctions,
-        NamedFunction.then(as(Outcome.class).of(fitness()).of(best()), basicOutcomeFunctions),
-        NamedFunction.then(as(Outcome.class).of(fitness()).of(best()), visualOutcomeFunctions)
-    )));
-    if (statsFileName != null) {
-      factory = factory.and(new CSVPrinter<>(
-          Misc.concat(List.of(
-              keysFunctions,
-              basicFunctions,
-              NamedFunction.then(as(Outcome.class).of(fitness()).of(best()), basicOutcomeFunctions),
-              NamedFunction.then(as(Outcome.class).of(fitness()).of(best()), detailedOutcomeFunctions)
-          )),
-          new File(statsFileName)
+    List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> keysFunctions = Utils.keysFunctions(keys);
+    List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> basicFunctions = Utils.basicFunctions();
+    List<NamedFunction<Individual<?, ? extends Robot<?>, ? extends Outcome>, ?>> basicIndividualFunctions = Utils.individualFunctions(fitnessFunction);
+    List<NamedFunction<Individual<?, ? extends Robot<?>, ? extends Outcome>, ?>> detailedIndividualFunctions = serialization ? List.of(
+        f("serialized", r -> SerializationUtils.serialize(r, SerializationUtils.Mode.GZIPPED_JSON)).of(solution())
+    ) : List.of();
+    List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> populationFunctions = Utils.populationFunctions();
+    List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> visualFunctions = Utils.visualFunctions(fitnessFunction);
+    List<NamedFunction<Outcome, ?>> basicOutcomeFunctions = Utils.basicOutcomeFunctions();
+    List<NamedFunction<Outcome, ?>> detailedOutcomeFunctions = Utils.detailedOutcomeFunctions(spectrumMinFreq, spectrumMaxFreq, spectrumSize);
+    List<NamedFunction<Outcome, ?>> visualOutcomeFunctions = Utils.visualOutcomeFunctions(spectrumMinFreq, spectrumMaxFreq);
+    Listener.Factory<Event<?, ? extends Robot<?>, ? extends Outcome>> factory = Listener.Factory.deaf();
+    if (bestFileName==null || output) {
+      factory = factory.and(new TabularPrinter<>(Misc.concat(List.of(
+          basicFunctions,
+          populationFunctions,
+          visualFunctions,
+          NamedFunction.then(best(), basicIndividualFunctions),
+          NamedFunction.then(as(Outcome.class).of(fitness()).of(best()), basicOutcomeFunctions),
+          NamedFunction.then(as(Outcome.class).of(fitness()).of(best()), visualOutcomeFunctions)
+      ))));
+    }
+    if (bestFileName != null) {
+      factory = factory.and(new CSVPrinter<>(Misc.concat(List.of(
+          keysFunctions,
+          basicFunctions,
+          populationFunctions,
+          NamedFunction.then(best(), basicIndividualFunctions),
+          NamedFunction.then(best(), detailedIndividualFunctions),
+          NamedFunction.then(as(Outcome.class).of(fitness()).of(best()), basicOutcomeFunctions),
+          NamedFunction.then(as(Outcome.class).of(fitness()).of(best()), detailedOutcomeFunctions)
+      )), new File(bestFileName)
       ));
     }
-    // TODO put here validation as a new listener factory
+    if (validationFileName != null) {
+      if (!validationTerrainNames.isEmpty() && validationTransformationNames.isEmpty()) {
+        validationTransformationNames.add("identity");
+      }
+      if (validationTerrainNames.isEmpty() && !validationTransformationNames.isEmpty()) {
+        validationTerrainNames.add(terrainNames.get(0));
+      }
+      factory = factory.and(Listener.Factory.forEach(
+          Utils.validation(validationTerrainNames, validationTransformationNames, List.of(0), episodeTime),
+          new CSVPrinter<>(
+              Misc.concat(List.of(
+                  NamedFunction.then(f("event", (ValidationOutcome vo) -> vo.event), basicFunctions),
+                  NamedFunction.then(f("event", (ValidationOutcome vo) -> vo.event), keysFunctions),
+                  NamedFunction.then(f("keys", (ValidationOutcome vo) -> vo.keys), List.of(
+                      f("validation.terrain", (Map<String, Object> map) -> map.get("validation.terrain")),
+                      f("validation.transformation", (Map<String, Object> map) -> map.get("validation.transformation")),
+                      f("validation.seed", "%2d", (Map<String, Object> map) -> map.get("validation.seed"))
+                  )),
+                  NamedFunction.then(f("outcome", (ValidationOutcome vo) -> vo.outcome), basicOutcomeFunctions),
+                  NamedFunction.then(f("outcome", (ValidationOutcome vo) -> vo.outcome), detailedOutcomeFunctions)
+              )),
+              new File(validationFileName)
+          )
+      ));
+    }
+    if (allFileName != null) {
+      factory = factory.and(Listener.Factory.forEach(
+          event -> event.getOrderedPopulation().all().stream()
+              .map(i -> Pair.of(event, i))
+              .collect(Collectors.toList()),
+          new CSVPrinter<>(
+              Misc.concat(List.of(
+                  NamedFunction.then(f("event", Pair::first), keysFunctions),
+                  NamedFunction.then(f("event", Pair::first), basicFunctions),
+                  NamedFunction.then(f("individual", Pair::second), basicIndividualFunctions),
+                  NamedFunction.then(f("individual", Pair::second), detailedIndividualFunctions)
+              )),
+              new File(allFileName)
+          )
+      ));
+    }
     if (telegramBotId != null && telegramChatId != 0) {
       factory = factory.and(new TelegramUpdater<>(List.of(
-          Accumulator.Factory.<Event<?, ? extends Robot<?>, ? extends Outcome>>last().then(
-              e -> Misc.concat(List.of(
-                  keysFunctions,
-                  basicFunctions,
-                  NamedFunction.<Event<?, ? extends Robot<?>, ? extends Outcome>, Outcome, Object>then(as(Outcome.class).of(fitness()).of(best()), basicOutcomeFunctions)
-              )).stream()
-                  .map(f -> f.getName() + ": " + f.applyAndFormat(e))
-                  .collect(Collectors.joining("\n"))
-          ),
-          new TableBuilder<Event<?, ? extends Robot<?>, ? extends Outcome>, Number>(List.of(
-              iterations(),
-              f("fitness", fitnessFunction).of(fitness()).of(best()),
-              min(Double::compare).of(each(f("fitness", fitnessFunction).of(fitness()))).of(all()),
-              median(Double::compare).of(each(f("fitness", fitnessFunction).of(fitness()))).of(all())
-          )).then(ImagePlotters.xyLines(600, 400))
-          // TODO put here plotter of the robot, plotter of the center trajectory, videoer of the robot
+          Utils.lastEventToString(keys, fitnessFunction),
+          Utils.fitnessPlot(fitnessFunction),
+          Utils.centerPositionPlot(),
+          Utils.bestVideo(episodeTransientTime, videoEpisodeTime, validationTerrainNames.get(0))
       ), telegramBotId, telegramChatId));
     }
-
-
-          /*List.of(
-              new LastEventPrinter<>(Misc.concat(List.of(
-                  keysFunctions,
-                  basicFunctions,
-                  visualFunctions
-              ))),
-              new TableBuilder<Object, Robot<?>, Outcome, Number>(List.of(
-                  iterations(),
-                  f("fitness", fitnessFunction).of(fitness()).of(best()),
-                  min(Double::compare).of(map(f("fitness", fitnessFunction).of(fitness()))).of(all()),
-                  median(Double::compare).of(map(f("fitness", fitnessFunction).of(fitness()))).of(all())
-              )).then(ImagePlotters.xyLines(600, 400))
-          ),
-          List.of(bestPlotter)*
-      ));
-    }
-    /*
-    //collectors
-    Function<Outcome, List<Item>> outcomeTransformer = new OutcomeItemizer(
-        spectrumMinFreq,
-        spectrumMaxFreq,
-        spectrumSize
-    );
-    List<DataCollector<? super Object, ? super Robot<?>, ? super Outcome>> dataCollectors = List.of(
-        new Basic(),
-        new Population(),
-        new Diversity(),
-        new FunctionOfOneBest<>(i -> List.of(new Item("fitness", fitnessFunction.apply(i.getFitness()), "%5.3f"))),
-        new Histogram<>(fitnessFunction.compose(Individual::getFitness), "fitness", 8),
-        new FunctionOfOneBest<>(i -> List.of(new Item(
-            "shape.minimap",
-            TextPlotter.binaryMap(
-                i.getSolution().getVoxels().toArray(Objects::nonNull),
-                (int) Math.min(Math.ceil((float) i.getSolution().getVoxels().getW() / (float) i.getSolution().getVoxels().getH() * 2f), 4)
-            ),
-            "%4s"
-        ))),
-        new FunctionOfOneBest<>(i -> List.of(new Item(
-            "shape.size",
-            i.getSolution().getVoxels().getW() + "x" + i.getSolution().getVoxels().getH(),
-            "%3s"
-        ))),
-        new FunctionOfOneBest<>(i -> List.of(new Item(
-            "shape.num.voxel",
-            i.getSolution().getVoxels().values().stream().filter(Objects::nonNull).count(),
-            "%2d"
-        ))),
-        new Histogram<>(i -> i.getSolution().getVoxels().values().stream().filter(Objects::nonNull).count(), "shape.num.voxel", 4),
-        new FunctionOfOneBest<>(i -> List.of(new Item(
-            "average.posture.minimap",
-            TextPlotter.binaryMap(i.getFitness().getAveragePosture().toArray(b -> b), 2),
-            "%2s"
-        ))),
-        new FunctionOfOneBest<>(outcomeTransformer.compose(Individual::getFitness)),
-        new FunctionOfOneBest<>(i -> List.of(new Item(
-            "serialized.robot",
-            serialization ? SerializationUtils.serialize(i.getSolution(), SerializationUtils.Mode.GZIPPED_JSON) : "",
-            "%s"
-        )))
-    );
-    */
-    //validation
-    /*List<String> validationOutcomeHeaders = outcomeTransformer.apply(prototypeOutcome()).stream().map(Item::getName).collect(Collectors.toList());
-    if (!validationTerrainNames.isEmpty() && validationTransformationNames.isEmpty()) {
-      validationTransformationNames.add("identity");
-    }
-    if (validationTerrainNames.isEmpty() && !validationTransformationNames.isEmpty()) {
-      validationTerrainNames.add(terrainNames.get(0));
-    }*/
-    //prepare file listeners
-    /*
-    ListenerFactory<Object, Robot<?>, Outcome> statsListenerFactory = new FileListenerFactory<>(statsFileName);
-    CSVPrinter validationPrinter;
-    List<String> validationKeyHeaders = List.of("experiment.name", "seed", "terrain", "shape", "sensor.config", "mapper", "transformation", "evolver");
-    try {
-      if (a("validationFile", null) != null) {
-        validationPrinter = new CSVPrinter(new FileWriter(
-            a("dir", ".") + File.separator + a("validationFile", null)
-        ), CSVFormat.DEFAULT.withDelimiter(';'));
-      } else {
-        validationPrinter = new CSVPrinter(new PrintStream(PrintStream.nullOutputStream()), CSVFormat.DEFAULT.withDelimiter(';'));
-      }
-      List<String> headers = new ArrayList<>();
-      headers.addAll(validationKeyHeaders);
-      headers.addAll(List.of("validation.transformation", "validation.terrain"));
-      headers.addAll(validationOutcomeHeaders.stream().map(n -> "validation." + n).collect(Collectors.toList()));
-      validationPrinter.printRecord(headers);
-    } catch (IOException e) {
-      L.severe(String.format("Cannot create printer for validation results due to %s", e));
-      return;
-    }
-     */
     //summarize params
     L.info("Experiment name: " + experimentName);
     L.info("Evolvers: " + evolverNames);
@@ -411,54 +277,6 @@ public class LocomotionEvolution extends Worker {
                         solutions.size(),
                         stopwatch.elapsed(TimeUnit.SECONDS)
                     ));
-                    //do validation
-                    Robot<?> bestSolution = solutions.stream().findFirst().orElse(null);
-                    if (bestSolution != null) {
-                      for (String validationTransformationName : validationTransformationNames) {
-                        for (String validationTerrainName : validationTerrainNames) {
-                          try {
-                            //build validation task
-                            Function<Robot<?>, Outcome> validationTask = new Locomotion(
-                                episodeTime,
-                                Locomotion.createTerrain(validationTerrainName),
-                                physicsSettings
-                            );
-                            validationTask = RobotUtils.buildRobotTransformation(validationTransformationName, new Random(0))
-                                .andThen(SerializationUtils::clone)
-                                .andThen(validationTask);
-                            //do task
-                            Outcome validationOutcome = validationTask.apply(bestSolution);
-                            L.info(String.format(
-                                "Validation %s/%s of \"first\" best done in %ss",
-                                validationTransformationName,
-                                validationTerrainName,
-                                validationOutcome.getComputationTime()
-                            ));
-                            /*
-                            List<Object> values = new ArrayList<>();
-                            values.addAll(validationKeyHeaders.stream().map(keys::get).collect(Collectors.toList()));
-                            values.addAll(List.of(validationTransformationName, validationTerrainName));
-                            List<Item> validationItems = outcomeTransformer.apply(validationOutcome);
-                            values.addAll(validationOutcomeHeaders.stream()
-                                .map(n -> validationItems.stream()
-                                    .filter(i -> i.getName().equals(n) && i.getValue() != null)
-                                    .map(Item::getValue)
-                                    .findFirst()
-                                    .orElse(null))
-                                .collect(Collectors.toList())
-                            );
-                            validationPrinter.printRecord(values);
-                            validationPrinter.flush();
-                            */
-                          } catch (Throwable e) {
-                            L.severe(String.format("Cannot do or save validation results due to %s", e));
-                            e.printStackTrace(); // TODO possibly to be removed
-                          }
-                        }
-                      }
-                    } else {
-                      L.warning("No solution, cannot do validation");
-                    }
                   } catch (InterruptedException | ExecutionException e) {
                     L.severe(String.format("Cannot complete %s due to %s",
                         keys,
@@ -474,22 +292,6 @@ public class LocomotionEvolution extends Worker {
       }
     }
     factory.shutdown();
-  }
-
-  private static Outcome prototypeOutcome() {
-    double dT = new Settings().getStepFrequency();
-    return new Outcome(IntStream.range(0, 1000)
-        .mapToObj(i -> new Outcome.Observation(
-            (double) i * dT,
-            Point2.build(Math.sin((double) i / dT), Math.sin((double) i * dT / 5d)),
-            new Footprint(new boolean[]{true, false, true}),
-            Grid.create(1, 1, true),
-            0.1,
-            0.1,
-            (double) i * dT / 10d
-        ))
-        .collect(Collectors.toList())
-    );
   }
 
   private static EvolverBuilder<?> getEvolverBuilderFromName(String name) {
@@ -660,18 +462,18 @@ public class LocomotionEvolution extends Worker {
     return task.compose(transformation);
   }
 
-  private static Function<Robot<?>, Outcome> buildLocomotionTask(String terrainName, double episodeT, Random random) {
+  public static Function<Robot<?>, Outcome> buildLocomotionTask(String terrainName, double episodeT, Random random) {
     if (!terrainName.contains("-rnd")) {
       return Misc.cached(new Locomotion(
           episodeT,
           Locomotion.createTerrain(terrainName),
-          new Settings()
+          PHYSICS_SETTINGS
       ), CACHE_SIZE);
     }
     return r -> new Locomotion(
         episodeT,
         Locomotion.createTerrain(terrainName.replace("-rnd", "-" + random.nextInt(10000))),
-        new Settings()
+        PHYSICS_SETTINGS
     ).apply(r);
   }
 
