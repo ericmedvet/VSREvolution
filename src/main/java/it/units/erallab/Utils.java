@@ -219,7 +219,7 @@ public class Utils {
                 Locomotion.createTerrain(terrainName),
                 new Settings()
             );
-            GridFileWriter.save(locomotion, robot, 400, 300, episodeTransientTime, 25, VideoUtils.EncoderFacility.FFMPEG_SMALL, file);
+            GridFileWriter.save(locomotion, robot, 400, 300, episodeTransientTime, 25, VideoUtils.EncoderFacility.JCODEC, file);
             file.deleteOnExit();
           } catch (IOException ioException) {
             L.warning(String.format("Cannot save video of best: %s", ioException));
