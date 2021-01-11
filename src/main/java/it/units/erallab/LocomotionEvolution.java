@@ -277,7 +277,7 @@ public class LocomotionEvolution extends Worker {
                         solutions.size(),
                         stopwatch.elapsed(TimeUnit.SECONDS)
                     ));
-                  } catch (InterruptedException | ExecutionException e) {
+                  } catch (Exception e) {
                     L.severe(String.format("Cannot complete %s due to %s",
                         keys,
                         e
