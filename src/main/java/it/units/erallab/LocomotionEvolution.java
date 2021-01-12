@@ -54,7 +54,6 @@ import org.dyn4j.dynamics.Settings;
 
 import java.io.File;
 import java.util.*;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -165,6 +164,7 @@ public class LocomotionEvolution extends Worker {
       if (validationTerrainNames.isEmpty() && !validationTransformationNames.isEmpty()) {
         validationTerrainNames.add(terrainNames.get(0));
       }
+      // TODO ocio! this listener does the validation at each iteration; we want the validation at last iteration
       factory = factory.and(Listener.Factory.forEach(
           Utils.validation(validationTerrainNames, validationTransformationNames, List.of(0), episodeTime),
           new CSVPrinter<>(
