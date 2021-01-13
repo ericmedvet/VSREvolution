@@ -135,7 +135,7 @@ public class LocomotionEvolution extends Worker {
     List<NamedFunction<Outcome, ?>> detailedOutcomeFunctions = Utils.detailedOutcomeFunctions(spectrumMinFreq, spectrumMaxFreq, spectrumSize);
     List<NamedFunction<Outcome, ?>> visualOutcomeFunctions = Utils.visualOutcomeFunctions(spectrumMinFreq, spectrumMaxFreq);
     Listener.Factory<Event<?, ? extends Robot<?>, ? extends Outcome>> factory = Listener.Factory.deaf();
-    if (bestFileName==null || output) {
+    if (bestFileName == null || output) {
       factory = factory.and(new TabularPrinter<>(Misc.concat(List.of(
           basicFunctions,
           populationFunctions,
@@ -164,8 +164,7 @@ public class LocomotionEvolution extends Worker {
       if (validationTerrainNames.isEmpty() && !validationTransformationNames.isEmpty()) {
         validationTerrainNames.add(terrainNames.get(0));
       }
-      // TODO ocio! this listener does the validation at each iteration; we want the validation at last iteration
-      factory = factory.and(Listener.Factory.forEach(
+      Listener.Factory<Event<?, ? extends Robot<?>, ? extends Outcome>> validationFactory = Listener.Factory.forEach(
           Utils.validation(validationTerrainNames, validationTransformationNames, List.of(0), episodeTime),
           new CSVPrinter<>(
               Misc.concat(List.of(
@@ -181,7 +180,8 @@ public class LocomotionEvolution extends Worker {
               )),
               new File(validationFileName)
           )
-      ));
+      ).onLast();
+      factory = factory.and(validationFactory);
     }
     if (allFileName != null) {
       factory = factory.and(Listener.Factory.forEach(
