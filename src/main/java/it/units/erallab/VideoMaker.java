@@ -157,7 +157,6 @@ public class VideoMaker {
             w, h, startTime, frameRate, VideoUtils.EncoderFacility.valueOf(encoderName.toUpperCase()),
             new File(outputFileName),
             Grid.create(namedRobotGrid, p -> p == null ? null : p.getLeft()),
-            uiExecutor,
             GraphicsDrawer.build().setConfigurable("drawers", List.of(
                 it.units.erallab.hmsrobots.viewers.drawers.Robot.build(),
                 Voxel.build(),

@@ -6,7 +6,7 @@
 
     <groupId>it.units.erallab</groupId>
     <artifactId>VSREvolution</artifactId>
-    <version>0.9.0</version>
+    <version>0.9.1</version>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -18,7 +18,7 @@
         <dependency>
             <groupId>it.units.erallab</groupId>
             <artifactId>TwoDimHighlyModularSoftRobots</artifactId>
-            <version>1.6.12</version>
+            <version>1.6.13</version>
         </dependency>
         <dependency>
             <groupId>it.units.malelab</groupId>

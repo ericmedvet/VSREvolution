@@ -210,7 +210,7 @@ public class Utils {
   public static Accumulator.Factory<Event<?, ? extends Robot<?>, ? extends Outcome>, File> bestVideo(double episodeTransientTime, double videoEpisodeTime, String terrainName) {
     return Accumulator.Factory.<Event<?, ? extends Robot<?>, ? extends Outcome>>last().then(
         event -> {
-          Robot<?> robot = Misc.first(event.getOrderedPopulation().firsts()).getSolution();
+          Robot<?> robot = SerializationUtils.clone(Misc.first(event.getOrderedPopulation().firsts()).getSolution());
           File file;
           try {
             file = File.createTempFile("robot-video", ".mp4");
@@ -219,7 +219,7 @@ public class Utils {
                 Locomotion.createTerrain(terrainName),
                 new Settings()
             );
-            GridFileWriter.save(locomotion, robot, 400, 300, episodeTransientTime, 25, VideoUtils.EncoderFacility.JCODEC, file);
+            GridFileWriter.save(locomotion, robot, 300, 200, episodeTransientTime, 25, VideoUtils.EncoderFacility.JCODEC, file);
             file.deleteOnExit();
           } catch (IOException ioException) {
             L.warning(String.format("Cannot save video of best: %s", ioException));
