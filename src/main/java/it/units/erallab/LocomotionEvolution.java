@@ -106,11 +106,11 @@ public class LocomotionEvolution extends Worker {
     int[] seeds = ri(a("seed", "0:1"));
     String experimentName = a("expName", "short");
     List<String> terrainNames = l(a("terrain", "hilly-1-10-0"));
-    List<String> targetShapeNames = l(a("shape", "box-4x4"));
-    List<String> targetSensorConfigNames = l(a("sensorConfig", "uniform-t+ax+ay+r+l1+a-0"));
+    List<String> targetShapeNames = l(a("shape", "biped-7x4"));
+    List<String> targetSensorConfigNames = l(a("sensorConfig", "spinedTouch-t-f"));
     List<String> transformationNames = l(a("transformation", "identity"));
     List<String> evolverNames = l(a("evolver", "CMAES"));
-    List<String> mapperNames = l(a("mapper", "fixedPhases-1,bodySin-50-0.1-1<functionNumGrid<MLP-4-4"));//""sensorAndBodyAndHomoDist-50-3-3-t"));
+    List<String> mapperNames = l(a("mapper", "fixedPhases-1"));//bodySin-50-0.1-1<functionNumGrid<MLP-4-4"));//""sensorAndBodyAndHomoDist-50-3-3-t"));
     String bestFileName = a("bestFile", null);
     String allFileName = a("allFile", null);
     String validationFileName = a("validationFile", null);
