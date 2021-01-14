@@ -110,7 +110,7 @@ public class LocomotionEvolution extends Worker {
     List<String> targetSensorConfigNames = l(a("sensorConfig", "uniform-t+ax+ay+r+l1+a-0"));
     List<String> transformationNames = l(a("transformation", "identity"));
     List<String> evolverNames = l(a("evolver", "CMAES"));
-    List<String> mapperNames = l(a("mapper", "bodySin-50-0.1-1<functionNumGrid<MLP-4-4"));//""sensorAndBodyAndHomoDist-50-3-3-t"));
+    List<String> mapperNames = l(a("mapper", "fixedPhases-1,bodySin-50-0.1-1<functionNumGrid<MLP-4-4"));//""sensorAndBodyAndHomoDist-50-3-3-t"));
     String bestFileName = a("bestFile", null);
     String allFileName = a("allFile", null);
     String validationFileName = a("validationFile", null);
@@ -269,7 +269,7 @@ public class LocomotionEvolution extends Worker {
                         new Births(nBirths),
                         random,
                         executorService,
-                        factory.build().deferred(executorService)
+                        factory.build() //TODO could be deferred, but problems arise with the (possibly concurrent) modification of the keys
                     );
                     L.info(String.format("Progress %s (%d/%d); Done: %d solutions in %4ds",
                         TextPlotter.horizontalBar(counter, 0, nOfRuns, 8),
@@ -352,6 +352,12 @@ public class LocomotionEvolution extends Worker {
     }
     if ((params = params(fixedPhasesFunction, name)) != null) {
       return new FixedPhaseFunction(
+          Double.parseDouble(params.get("f")),
+          1d
+      );
+    }
+    if ((params = params(fixedPhases, name)) != null) {
+      return new FixedPhaseValues(
           Double.parseDouble(params.get("f")),
           1d
       );
