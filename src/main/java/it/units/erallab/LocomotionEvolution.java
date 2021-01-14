@@ -22,10 +22,7 @@ import it.units.erallab.builder.DirectNumbersGrid;
 import it.units.erallab.builder.FunctionGrid;
 import it.units.erallab.builder.FunctionNumbersGrid;
 import it.units.erallab.builder.PrototypedFunctionBuilder;
-import it.units.erallab.builder.evolver.CMAES;
-import it.units.erallab.builder.evolver.DoublesSpeciated;
-import it.units.erallab.builder.evolver.DoublesStandard;
-import it.units.erallab.builder.evolver.EvolverBuilder;
+import it.units.erallab.builder.evolver.*;
 import it.units.erallab.builder.phenotype.FGraph;
 import it.units.erallab.builder.phenotype.MLP;
 import it.units.erallab.builder.robot.*;
@@ -106,16 +103,16 @@ public class LocomotionEvolution extends Worker {
     int[] seeds = ri(a("seed", "0:1"));
     String experimentName = a("expName", "short");
     List<String> terrainNames = l(a("terrain", "hilly-1-10-0"));
-    List<String> targetShapeNames = l(a("shape", "biped-7x4"));
-    List<String> targetSensorConfigNames = l(a("sensorConfig", "spinedTouch-t-f"));
+    List<String> targetShapeNames = l(a("shape", "biped-4x3"));
+    List<String> targetSensorConfigNames = l(a("sensorConfig", "uniform-t+ax+ay+a+cpg+l1-0.05"));
     List<String> transformationNames = l(a("transformation", "identity"));
-    List<String> evolverNames = l(a("evolver", "CMAES"));
+    List<String> evolverNames = l(a("evolver", "ES-10-0.1"));
     List<String> mapperNames = l(a("mapper", "fixedPhases-1"));//bodySin-50-0.1-1<functionNumGrid<MLP-4-4"));//""sensorAndBodyAndHomoDist-50-3-3-t"));
     String bestFileName = a("bestFile", null);
     String allFileName = a("allFile", null);
     String validationFileName = a("validationFile", null);
     String telegramBotId = a("telegramBotId", null);
-    long telegramChatId = Long.parseLong(a("telegramChatId", "207490209"));
+    long telegramChatId = Long.parseLong(a("telegramChatId", "0"));
     boolean serialization = a("serialization", "false").startsWith("t");
     boolean output = a("output", "false").startsWith("t");
     List<String> validationTransformationNames = l(a("validationTransformation", "")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
@@ -295,23 +292,29 @@ public class LocomotionEvolution extends Worker {
   }
 
   private static EvolverBuilder<?> getEvolverBuilderFromName(String name) {
-    String numGA = "numGA-(?<nPop>\\d+)";
-    String numGASpeciated = "numGASpec-(?<nPop>\\d+)-(?<dT>\\d+(\\.\\d+)?)";
+    String numGA = "numGA-(?<nPop>\\d+)-(?<diversity>(t|f))";
+    String numGASpeciated = "numGASpec-(?<nPop>\\d+)";
     String cmaES = "CMAES";
+    String eS = "ES-(?<nPop>\\d+)-(?<sigma>\\d+(\\.\\d+)?)";
     Map<String, String> params;
     if ((params = params(numGA, name)) != null) {
       return new DoublesStandard(
           Integer.parseInt(params.get("nPop")),
           (int) Math.max(Math.round((double) Integer.parseInt(params.get("nPop")) / 10d), 3),
-          0.75d
+          0.75d,
+          params.get("nPop").equals("t")
       );
     }
     if ((params = params(numGASpeciated, name)) != null) {
       return new DoublesSpeciated(
           Integer.parseInt(params.get("nPop")),
-          (int) Math.max(Math.round((double) Integer.parseInt(params.get("nPop")) / 10d), 3),
-          0.75d,
-          Double.parseDouble(params.get("dT"))
+          0.75d
+      );
+    }
+    if ((params = params(eS, name)) != null) {
+      return new ES(
+          Double.parseDouble(params.get("sigma")),
+          Integer.parseInt(params.get("nPop"))
       );
     }
     if ((params = params(cmaES, name)) != null) {

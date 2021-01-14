@@ -5,6 +5,7 @@ import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.malelab.jgea.core.Individual;
 import it.units.malelab.jgea.core.evolver.Evolver;
 import it.units.malelab.jgea.core.evolver.StandardEvolver;
+import it.units.malelab.jgea.core.evolver.StandardWithEnforcedDiversityEvolver;
 import it.units.malelab.jgea.core.order.PartialComparator;
 import it.units.malelab.jgea.core.selector.Tournament;
 import it.units.malelab.jgea.core.selector.Worst;
@@ -21,20 +22,38 @@ import java.util.Map;
  */
 public class DoublesStandard implements EvolverBuilder<List<Double>> {
 
-  protected final int nPop;
-  protected final int nTournament;
-  protected final double xOverProb;
+  private final int nPop;
+  private final int nTournament;
+  private final double xOverProb;
+  protected final boolean diversityEnforcement;
 
-  public DoublesStandard(int nPop, int nTournament, double xOverProb) {
+  public DoublesStandard(int nPop, int nTournament, double xOverProb, boolean diversityEnforcement) {
     this.nPop = nPop;
     this.nTournament = nTournament;
     this.xOverProb = xOverProb;
+    this.diversityEnforcement = diversityEnforcement;
   }
 
   @Override
   public <T, F> Evolver<List<Double>, T, F> build(PrototypedFunctionBuilder<List<Double>, T> builder, T target, PartialComparator<F> comparator) {
     int length = builder.exampleFor(target).size();
-    return new StandardEvolver<>(
+    if (!diversityEnforcement) {
+      return new StandardEvolver<>(
+          builder.buildFor(target),
+          new FixedLengthListFactory<>(length, new UniformDoubleFactory(-1d, 1d)),
+          comparator.comparing(Individual::getFitness),
+          nPop,
+          Map.of(
+              new GaussianMutation(1d), 1d - xOverProb,
+              new GeometricCrossover(Range.closed(-.5d, 1.5d)), xOverProb
+          ),
+          new Tournament(nTournament),
+          new Worst(),
+          nPop,
+          true
+      );
+    }
+    return new StandardWithEnforcedDiversityEvolver<>(
         builder.buildFor(target),
         new FixedLengthListFactory<>(length, new UniformDoubleFactory(-1d, 1d)),
         comparator.comparing(Individual::getFitness),
@@ -46,7 +65,8 @@ public class DoublesStandard implements EvolverBuilder<List<Double>> {
         new Tournament(nTournament),
         new Worst(),
         nPop,
-        true
+        true,
+        100
     );
   }
 

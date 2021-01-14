@@ -20,13 +20,14 @@ import java.util.Map;
 /**
  * @author eric
  */
-public class DoublesSpeciated extends DoublesStandard {
+public class DoublesSpeciated implements EvolverBuilder<List<Double>> {
 
-  private final double dThreshold;
+  private final int nPop;
+  private final double xOverProb;
 
-  public DoublesSpeciated(int nPop, int nTournament, double xOverProb, double dThreshold) {
-    super(nPop, nTournament, xOverProb);
-    this.dThreshold = dThreshold;
+  public DoublesSpeciated(int nPop, double xOverProb) {
+    this.nPop = nPop;
+    this.xOverProb = xOverProb;
   }
 
   private static class EuclideanDistance implements Distance<List<Double>> {
