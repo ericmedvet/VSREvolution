@@ -302,7 +302,7 @@ public class LocomotionEvolution extends Worker {
           Integer.parseInt(params.get("nPop")),
           (int) Math.max(Math.round((double) Integer.parseInt(params.get("nPop")) / 10d), 3),
           0.75d,
-          params.get("nPop").equals("t")
+          params.get("diversity").equals("t")
       );
     }
     if ((params = params(numGASpeciated, name)) != null) {
