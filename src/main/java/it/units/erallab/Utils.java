@@ -54,16 +54,16 @@ public class Utils {
   private Utils() {
   }
 
-  public static List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> keysFunctions(Map<String, Object> keys) {
+  public static List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> keysFunctions() {
     return List.of(
-        namedConstant("experiment.name", keys),
-        namedConstant("seed", "%2d", keys),
-        namedConstant("terrain", keys),
-        namedConstant("shape", keys),
-        namedConstant("sensor.config", keys),
-        namedConstant("mapper", keys),
-        namedConstant("transformation", keys),
-        namedConstant("evolver", keys)
+        eventAttribute("experiment.name"),
+        eventAttribute("seed", "%2d"),
+        eventAttribute("terrain"),
+        eventAttribute("shape"),
+        eventAttribute("sensor.config"),
+        eventAttribute("mapper"),
+        eventAttribute("transformation"),
+        eventAttribute("evolver")
     );
   }
 
@@ -92,14 +92,16 @@ public class Utils {
     );
   }
 
-  public static List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> populationFunctions() {
+  public static List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> populationFunctions(Function<Outcome, Double> fitnessFunction) {
     return List.of(
         size().of(all()),
         size().of(firsts()),
         size().of(lasts()),
         uniqueness().of(each(genotype())).of(all()),
         uniqueness().of(each(solution())).of(all()),
-        uniqueness().of(each(fitness())).of(all())
+        uniqueness().of(each(fitness())).of(all()),
+        min(Double::compare).of(each(f("fitness", fitnessFunction).of(fitness()))).of(all()),
+        median(Double::compare).of(each(f("fitness", fitnessFunction).of(fitness()))).of(all())
     );
   }
 
@@ -173,12 +175,12 @@ public class Utils {
     );
   }
 
-  public static Accumulator.Factory<Event<?, ? extends Robot<?>, ? extends Outcome>, String> lastEventToString(Map<String, Object> keys, Function<Outcome, Double> fitnessFunction) {
+  public static Accumulator.Factory<Event<?, ? extends Robot<?>, ? extends Outcome>, String> lastEventToString(Function<Outcome, Double> fitnessFunction) {
     return Accumulator.Factory.<Event<?, ? extends Robot<?>, ? extends Outcome>>last().then(
         e -> Misc.concat(List.of(
-            keysFunctions(keys),
+            keysFunctions(),
             basicFunctions(),
-            populationFunctions(),
+            populationFunctions(fitnessFunction),
             NamedFunction.then(best(), individualFunctions(fitnessFunction)),
             NamedFunction.<Event<?, ? extends Robot<?>, ? extends Outcome>, Outcome, Object>then(as(Outcome.class).of(fitness()).of(best()), basicOutcomeFunctions())
         )).stream()
@@ -207,18 +209,24 @@ public class Utils {
     ).then(ImagePlotters.xyLines(600, 400));
   }
 
-  public static Accumulator.Factory<Event<?, ? extends Robot<?>, ? extends Outcome>, File> bestVideo(double episodeTransientTime, double videoEpisodeTime, String terrainName) {
+  public static Accumulator.Factory<Event<?, ? extends Robot<?>, ? extends Outcome>, File> bestVideo(double episodeTransientTime, double videoEpisodeTime, Settings settings) {
     return Accumulator.Factory.<Event<?, ? extends Robot<?>, ? extends Outcome>>last().then(
         event -> {
+          Random random = new Random(0);
+          SortedMap<Long, String> terrainSequence = LocomotionEvolution.getSequence((String)event.getAttributes().get("terrain"));
+          SortedMap<Long, String> transformationSequence = LocomotionEvolution.getSequence((String)event.getAttributes().get("transformation"));
+          String terrainName = terrainSequence.get(terrainSequence.lastKey());
+          String transformationName = transformationSequence.get(transformationSequence.lastKey());
           Robot<?> robot = SerializationUtils.clone(Misc.first(event.getOrderedPopulation().firsts()).getSolution());
+          robot = RobotUtils.buildRobotTransformation(transformationName, random).apply(robot);
+          Locomotion locomotion = new Locomotion(
+              videoEpisodeTime,
+              Locomotion.createTerrain(terrainName.replace("-rnd", "-" + random.nextInt(10000))),
+              settings
+          );
           File file;
           try {
             file = File.createTempFile("robot-video", ".mp4");
-            Locomotion locomotion = new Locomotion(
-                episodeTransientTime + videoEpisodeTime,
-                Locomotion.createTerrain(terrainName),
-                new Settings()
-            );
             GridFileWriter.save(locomotion, robot, 300, 200, episodeTransientTime, 25, VideoUtils.EncoderFacility.JCODEC, file);
             file.deleteOnExit();
           } catch (IOException ioException) {

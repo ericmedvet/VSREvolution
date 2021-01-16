@@ -37,10 +37,7 @@ import it.units.malelab.jgea.core.Individual;
 import it.units.malelab.jgea.core.evolver.Event;
 import it.units.malelab.jgea.core.evolver.Evolver;
 import it.units.malelab.jgea.core.evolver.stopcondition.Births;
-import it.units.malelab.jgea.core.listener.CSVPrinter;
-import it.units.malelab.jgea.core.listener.Listener;
-import it.units.malelab.jgea.core.listener.NamedFunction;
-import it.units.malelab.jgea.core.listener.TabularPrinter;
+import it.units.malelab.jgea.core.listener.*;
 import it.units.malelab.jgea.core.listener.telegram.TelegramUpdater;
 import it.units.malelab.jgea.core.order.PartialComparator;
 import it.units.malelab.jgea.core.util.Misc;
@@ -107,7 +104,7 @@ public class LocomotionEvolution extends Worker {
     List<String> targetSensorConfigNames = l(a("sensorConfig", "uniform-t+ax+ay+a+cpg+l1-0.05"));
     List<String> transformationNames = l(a("transformation", "identity"));
     List<String> evolverNames = l(a("evolver", "ES-10-0.1"));
-    List<String> mapperNames = l(a("mapper", "fixedPhases-1"));//bodySin-50-0.1-1<functionNumGrid<MLP-4-4"));//""sensorAndBodyAndHomoDist-50-3-3-t"));
+    List<String> mapperNames = l(a("mapper", "sensorCentralized-2"));//bodySin-50-0.1-1<functionNumGrid<MLP-4-4"));//""sensorAndBodyAndHomoDist-50-3-3-t"));
     String bestFileName = a("bestFile", null);
     String allFileName = a("allFile", null);
     String validationFileName = a("validationFile", null);
@@ -119,14 +116,13 @@ public class LocomotionEvolution extends Worker {
     List<String> validationTerrainNames = l(a("validationTerrain", "flat,downhill-30")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
     Function<Outcome, Double> fitnessFunction = Outcome::getVelocity;
     //consumers
-    Map<String, Object> keys = new HashMap<>();
-    List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> keysFunctions = Utils.keysFunctions(keys);
+    List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> keysFunctions = Utils.keysFunctions();
     List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> basicFunctions = Utils.basicFunctions();
     List<NamedFunction<Individual<?, ? extends Robot<?>, ? extends Outcome>, ?>> basicIndividualFunctions = Utils.individualFunctions(fitnessFunction);
     List<NamedFunction<Individual<?, ? extends Robot<?>, ? extends Outcome>, ?>> detailedIndividualFunctions = serialization ? List.of(
         f("serialized", r -> SerializationUtils.serialize(r, SerializationUtils.Mode.GZIPPED_JSON)).of(solution())
     ) : List.of();
-    List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> populationFunctions = Utils.populationFunctions();
+    List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> populationFunctions = Utils.populationFunctions(fitnessFunction);
     List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> visualFunctions = Utils.visualFunctions(fitnessFunction);
     List<NamedFunction<Outcome, ?>> basicOutcomeFunctions = Utils.basicOutcomeFunctions();
     List<NamedFunction<Outcome, ?>> detailedOutcomeFunctions = Utils.detailedOutcomeFunctions(spectrumMinFreq, spectrumMaxFreq, spectrumSize);
@@ -198,10 +194,10 @@ public class LocomotionEvolution extends Worker {
     }
     if (telegramBotId != null && telegramChatId != 0) {
       factory = factory.and(new TelegramUpdater<>(List.of(
-          Utils.lastEventToString(keys, fitnessFunction),
+          Utils.lastEventToString(fitnessFunction),
           Utils.fitnessPlot(fitnessFunction),
           Utils.centerPositionPlot(),
-          Utils.bestVideo(episodeTransientTime, videoEpisodeTime, validationTerrainNames.get(0))
+          Utils.bestVideo(episodeTransientTime, videoEpisodeTime, PHYSICS_SETTINGS)
       ), telegramBotId, telegramChatId));
     }
     //summarize params
@@ -225,17 +221,17 @@ public class LocomotionEvolution extends Worker {
                 for (String evolverName : evolverNames) {
                   counter = counter + 1;
                   final Random random = new Random(seed);
-                  //prepare consumers
-                  keys.putAll(Map.of(
-                      "experiment.name", experimentName,
-                      "seed", seed,
-                      "terrain", terrainName,
-                      "shape", targetShapeName,
-                      "sensor.config", targetSensorConfigName,
-                      "mapper", mapperName,
-                      "transformation", transformationName,
-                      "evolver", evolverName
-                  ));
+                  //prepare keys
+                  Map<String, Object> keys = Map.ofEntries(
+                      Map.entry("experiment.name", experimentName),
+                      Map.entry("seed", seed),
+                      Map.entry("terrain", terrainName),
+                      Map.entry("shape", targetShapeName),
+                      Map.entry("sensor.config", targetSensorConfigName),
+                      Map.entry("mapper", mapperName),
+                      Map.entry("transformation", transformationName),
+                      Map.entry("evolver", evolverName)
+                  );
                   Robot<?> target = new Robot<>(
                       null,
                       RobotUtils.buildSensorizingFunction(targetSensorConfigName).apply(RobotUtils.buildShape(targetShapeName))
@@ -253,6 +249,10 @@ public class LocomotionEvolution extends Worker {
                     ));
                     continue;
                   }
+                  Listener<Event<?, ? extends Robot<?>, ? extends Outcome>> listener = Listener.all(List.of(
+                      new EventAugmenter(keys),
+                      factory.build()
+                  )).deferred(executorService);
                   //optimize
                   Stopwatch stopwatch = Stopwatch.createStarted();
                   L.info(String.format("Progress %s (%d/%d); Starting %s",
@@ -260,13 +260,14 @@ public class LocomotionEvolution extends Worker {
                       counter, nOfRuns,
                       keys
                   ));
+                  //build task
                   try {
                     Collection<Robot<?>> solutions = evolver.solve(
                         buildTaskFromName(transformationName, terrainName, episodeTime, random).andThen(o -> o.subOutcome(episodeTransientTime, episodeTime)),
                         new Births(nBirths),
                         random,
                         executorService,
-                        factory.build() //TODO could be deferred, but problems arise with the (possibly concurrent) modification of the keys
+                        listener
                     );
                     L.info(String.format("Progress %s (%d/%d); Done: %d solutions in %4ds",
                         TextPlotter.horizontalBar(counter, 0, nOfRuns, 8),
@@ -333,6 +334,7 @@ public class LocomotionEvolution extends Worker {
     String bodySin = "bodySin-(?<fullness>\\d+(\\.\\d+)?)-(?<minF>\\d+(\\.\\d+)?)-(?<maxF>\\d+(\\.\\d+)?)";
     String bodyAndHomoDistributed = "bodyAndHomoDist-(?<fullness>\\d+(\\.\\d+)?)-(?<nSignals>\\d+)-(?<nLayers>\\d+)";
     String sensorAndBodyAndHomoDistributed = "sensorAndBodyAndHomoDist-(?<fullness>\\d+(\\.\\d+)?)-(?<nSignals>\\d+)-(?<nLayers>\\d+)-(?<position>(t|f))";
+    String sensorCentralized = "sensorCentralized-(?<nLayers>\\d+)";
     String mlp = "MLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)(-(?<actFun>(sin|tanh|sigmoid|relu)))?";
     String directNumGrid = "directNumGrid";
     String functionNumGrid = "functionNumGrid";
@@ -401,6 +403,14 @@ public class LocomotionEvolution extends Worker {
           Integer.parseInt(params.get("nSignals"))
       );
     }
+    if ((params = params(sensorCentralized, name)) != null) {
+      return new SensorCentralized()
+          .compose(PrototypedFunctionBuilder.of(List.of(
+              new MLP(2d, 3, MultiLayerPerceptron.ActivationFunction.SIN),
+              new MLP(1.5d, Integer.parseInt(params.get("nLayers")))
+          )))
+          .compose(PrototypedFunctionBuilder.merger());
+    }
     //function mappers
     if ((params = params(mlp, name)) != null) {
       return new MLP(
@@ -449,22 +459,24 @@ public class LocomotionEvolution extends Worker {
     //transformations
     Function<Robot<?>, Robot<?>> transformation;
     if (transformationSequenceName.contains(SEQUENCE_SEPARATOR_CHAR)) {
-      transformation = new SequentialFunction<>(Arrays.stream(transformationSequenceName.split(SEQUENCE_SEPARATOR_CHAR))
+      transformation = new SequentialFunction<>(getSequence(transformationSequenceName).entrySet().stream()
           .collect(Collectors.toMap(
-              p -> Long.parseLong(p.split(SEQUENCE_ITERATION_CHAR)[0]),
-              p -> RobotUtils.buildRobotTransformation(p.split(SEQUENCE_ITERATION_CHAR)[1], random)
-          )));
+              Map.Entry::getKey,
+              e -> RobotUtils.buildRobotTransformation(e.getValue(), random)
+              )
+          ));
     } else {
       transformation = RobotUtils.buildRobotTransformation(transformationSequenceName, random);
     }
     //terrains
     Function<Robot<?>, Outcome> task;
     if (terrainSequenceName.contains(SEQUENCE_SEPARATOR_CHAR)) {
-      task = new SequentialFunction<>(Arrays.stream(terrainSequenceName.split(SEQUENCE_SEPARATOR_CHAR))
+      task = new SequentialFunction<>(getSequence(terrainSequenceName).entrySet().stream()
           .collect(Collectors.toMap(
-              p -> Long.parseLong(p.split(SEQUENCE_ITERATION_CHAR)[0]),
-              p -> buildLocomotionTask(p.split(SEQUENCE_ITERATION_CHAR)[1], episodeT, random)
-          )));
+              Map.Entry::getKey,
+              e -> buildLocomotionTask(e.getValue(), episodeT, random)
+              )
+          ));
     } else {
       task = buildLocomotionTask(terrainSequenceName, episodeT, random);
     }
@@ -484,6 +496,13 @@ public class LocomotionEvolution extends Worker {
         Locomotion.createTerrain(terrainName.replace("-rnd", "-" + random.nextInt(10000))),
         PHYSICS_SETTINGS
     ).apply(r);
+  }
+
+  public static SortedMap<Long, String> getSequence(String sequenceName) {
+    return new TreeMap<>(Arrays.stream(sequenceName.split(SEQUENCE_SEPARATOR_CHAR)).collect(Collectors.toMap(
+        s -> s.contains(SEQUENCE_ITERATION_CHAR) ? Long.parseLong(s.split(SEQUENCE_ITERATION_CHAR)[0]) : 0,
+        s -> s.contains(SEQUENCE_ITERATION_CHAR) ? s.split(SEQUENCE_ITERATION_CHAR)[1] : s
+    )));
   }
 
 }
