@@ -42,17 +42,6 @@ public class DoublesSpeciated implements EvolverBuilder<List<Double>> {
     this.criterion = criterion;
   }
 
-  private static class EuclideanDistance implements Distance<List<Double>> {
-    @Override
-    public Double apply(List<Double> v1, List<Double> v2) {
-      double sum = 0d;
-      for (int i = 0; i < Math.min(v1.size(), v2.size()); i++) {
-        sum = sum + Math.pow(v1.get(i) - v2.get(i), 2d);
-      }
-      return Math.sqrt(sum);
-    }
-  }
-
   @Override
   public <T, F> Evolver<List<Double>, T, F> build(PrototypedFunctionBuilder<List<Double>, T> builder, T target, PartialComparator<F> comparator) {
     Function<Individual<List<Double>, T, F>, double[]> converter = switch (criterion) {
