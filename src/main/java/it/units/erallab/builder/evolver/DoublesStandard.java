@@ -44,7 +44,7 @@ public class DoublesStandard implements EvolverBuilder<List<Double>> {
           comparator.comparing(Individual::getFitness),
           nPop,
           Map.of(
-              new GaussianMutation(1d), 1d - xOverProb,
+              new GaussianMutation(.35d), 1d - xOverProb,
               new GeometricCrossover(Range.closed(-.5d, 1.5d)), xOverProb
           ),
           new Tournament(nTournament),

@@ -101,10 +101,10 @@ public class LocomotionEvolution extends Worker {
     String experimentName = a("expName", "short");
     List<String> terrainNames = l(a("terrain", "hilly-1-10-0"));
     List<String> targetShapeNames = l(a("shape", "biped-4x3"));
-    List<String> targetSensorConfigNames = l(a("sensorConfig", "uniform-t+ax+ay+a+cpg+l1-0.05"));
+    List<String> targetSensorConfigNames = l(a("sensorConfig", "spinedTouch-f-f-0.0"));
     List<String> transformationNames = l(a("transformation", "identity"));
-    List<String> evolverNames = l(a("evolver", "ES-10-0.1"));
-    List<String> mapperNames = l(a("mapper", "sensorCentralized-2"));//bodySin-50-0.1-1<functionNumGrid<MLP-4-4"));//""sensorAndBodyAndHomoDist-50-3-3-t"));
+    List<String> evolverNames = l(a("evolver", "numGASpec-20-5-genotype,numGASpec-20-5-spectrum,numGASpec-20-5-gait"));
+    List<String> mapperNames = l(a("mapper", "fixedCentralized<MLP-2-2"));
     String bestFileName = a("bestFile", null);
     String allFileName = a("allFile", null);
     String validationFileName = a("validationFile", null);
@@ -294,7 +294,7 @@ public class LocomotionEvolution extends Worker {
 
   private static EvolverBuilder<?> getEvolverBuilderFromName(String name) {
     String numGA = "numGA-(?<nPop>\\d+)-(?<diversity>(t|f))";
-    String numGASpeciated = "numGASpec-(?<nPop>\\d+)";
+    String numGASpeciated = "numGASpec-(?<nPop>\\d+)-(?<nSpecies>\\d+)-(?<criterion>(" + Arrays.stream(DoublesSpeciated.SpeciationCriterion.values()).map(c -> c.name().toLowerCase(Locale.ROOT)).collect(Collectors.joining("|")) + "))";
     String cmaES = "CMAES";
     String eS = "ES-(?<nPop>\\d+)-(?<sigma>\\d+(\\.\\d+)?)";
     Map<String, String> params;
@@ -309,7 +309,9 @@ public class LocomotionEvolution extends Worker {
     if ((params = params(numGASpeciated, name)) != null) {
       return new DoublesSpeciated(
           Integer.parseInt(params.get("nPop")),
-          0.75d
+          Integer.parseInt(params.get("nSpecies")),
+          0.75d,
+          DoublesSpeciated.SpeciationCriterion.valueOf(params.get("criterion").toUpperCase())
       );
     }
     if ((params = params(eS, name)) != null) {
