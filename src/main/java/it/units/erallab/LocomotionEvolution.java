@@ -37,6 +37,7 @@ import it.units.malelab.jgea.core.Individual;
 import it.units.malelab.jgea.core.evolver.Event;
 import it.units.malelab.jgea.core.evolver.Evolver;
 import it.units.malelab.jgea.core.evolver.stopcondition.Births;
+import it.units.malelab.jgea.core.evolver.stopcondition.FitnessEvaluations;
 import it.units.malelab.jgea.core.listener.*;
 import it.units.malelab.jgea.core.listener.telegram.TelegramUpdater;
 import it.units.malelab.jgea.core.order.PartialComparator;
@@ -96,7 +97,7 @@ public class LocomotionEvolution extends Worker {
     double episodeTime = d(a("episodeTime", "10"));
     double episodeTransientTime = d(a("episodeTransientTime", "5"));
     double videoEpisodeTime = d(a("videoEpisodeTime", "10"));
-    int nBirths = i(a("nBirths", "100"));
+    int nEvals = i(a("nEvals", "100"));
     int[] seeds = ri(a("seed", "0:1"));
     String experimentName = a("expName", "short");
     List<String> terrainNames = l(a("terrain", "hilly-1-10-rnd"));
@@ -264,7 +265,7 @@ public class LocomotionEvolution extends Worker {
                   try {
                     Collection<Robot<?>> solutions = evolver.solve(
                         buildTaskFromName(transformationName, terrainName, episodeTime, random).andThen(o -> o.subOutcome(episodeTransientTime, episodeTime)),
-                        new Births(nBirths),
+                        new FitnessEvaluations(nEvals),
                         random,
                         executorService,
                         listener
