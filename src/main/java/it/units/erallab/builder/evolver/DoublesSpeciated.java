@@ -103,7 +103,8 @@ public class DoublesSpeciated implements EvolverBuilder<List<Double>> {
             new LNorm(2),
             converter
         ),
-        0.75d
+        0.75d,
+        true
     );
   }
 

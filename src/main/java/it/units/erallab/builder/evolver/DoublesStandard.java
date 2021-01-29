@@ -50,6 +50,7 @@ public class DoublesStandard implements EvolverBuilder<List<Double>> {
           new Tournament(nTournament),
           new Worst(),
           nPop,
+          true,
           true
       );
     }
@@ -65,6 +66,7 @@ public class DoublesStandard implements EvolverBuilder<List<Double>> {
         new Tournament(nTournament),
         new Worst(),
         nPop,
+        true,
         true,
         100
     );

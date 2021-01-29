@@ -32,7 +32,8 @@ public class ES implements EvolverBuilder<List<Double>> {
         sigma,
         nPop,
         nPop / 4,
-        1
+        1,
+        true
     );
   }
 }

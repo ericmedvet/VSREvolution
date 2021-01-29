@@ -76,6 +76,7 @@ public class Utils {
   }
 
   public static List<NamedFunction<Individual<?, ? extends Robot<?>, ? extends Outcome>, ?>> individualFunctions(Function<Outcome, Double> fitnessFunction) {
+    NamedFunction<Individual<?, ? extends Robot<?>, ? extends Outcome>, ?> bi = birthIteration();
     return List.of(
         f("w", "%2d", (Function<Grid<?>, Number>) Grid::getW)
             .of(f("shape", (Function<Robot<?>, Grid<?>>) Robot::getVoxels))
@@ -87,7 +88,7 @@ public class Utils {
             .of(f("shape", (Function<Robot<?>, Grid<?>>) Robot::getVoxels))
             .of(solution()),
         size().of(genotype()),
-        f("birth.iteration", "%4d", Individual::getBirthIteration),
+        genotypeBirthIteration(),
         f("fitness", "%5.1f", fitnessFunction).of(fitness())
     );
   }
@@ -202,8 +203,12 @@ public class Utils {
     return Accumulator.Factory.<Event<?, ? extends Robot<?>, ? extends Outcome>>last().then(
         event -> {
           Outcome o = Misc.first(event.getOrderedPopulation().firsts()).getFitness();
-          Table<Number> table = new ArrayTable<>(List.of("x", "y"));
-          o.getCenterTrajectory().values().forEach(p -> table.addRow(List.of(p.x, p.y)));
+          Table<Number> table = new ArrayTable<>(List.of("x", "y", "terrain.y"));
+          o.getObservations().forEach(obs -> table.addRow(List.of(
+              obs.getCenterPosition().x,
+              obs.getCenterPosition().y,
+              obs.getTerrainHeight()
+          )));
           return table;
         }
     ).then(ImagePlotters.xyLines(600, 400));
@@ -213,8 +218,8 @@ public class Utils {
     return Accumulator.Factory.<Event<?, ? extends Robot<?>, ? extends Outcome>>last().then(
         event -> {
           Random random = new Random(0);
-          SortedMap<Long, String> terrainSequence = LocomotionEvolution.getSequence((String)event.getAttributes().get("terrain"));
-          SortedMap<Long, String> transformationSequence = LocomotionEvolution.getSequence((String)event.getAttributes().get("transformation"));
+          SortedMap<Long, String> terrainSequence = LocomotionEvolution.getSequence((String) event.getAttributes().get("terrain"));
+          SortedMap<Long, String> transformationSequence = LocomotionEvolution.getSequence((String) event.getAttributes().get("transformation"));
           String terrainName = terrainSequence.get(terrainSequence.lastKey());
           String transformationName = transformationSequence.get(transformationSequence.lastKey());
           Robot<?> robot = SerializationUtils.clone(Misc.first(event.getOrderedPopulation().firsts()).getSolution());
