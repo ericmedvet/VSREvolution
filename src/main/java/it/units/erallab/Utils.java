@@ -71,6 +71,7 @@ public class Utils {
     return List.of(
         iterations(),
         births(),
+        fitnessEvaluations(),
         elapsedSeconds()
     );
   }
