@@ -25,8 +25,10 @@ import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.erallab.builder.evolver.*;
 import it.units.erallab.builder.phenotype.FGraph;
 import it.units.erallab.builder.phenotype.MLP;
+import it.units.erallab.builder.phenotype.PruningMLP;
 import it.units.erallab.builder.robot.*;
 import it.units.erallab.hmsrobots.core.controllers.MultiLayerPerceptron;
+import it.units.erallab.hmsrobots.core.controllers.PruningMultiLayerPerceptron;
 import it.units.erallab.hmsrobots.core.objects.Robot;
 import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
 import it.units.erallab.hmsrobots.tasks.locomotion.Outcome;
@@ -102,10 +104,10 @@ public class LocomotionEvolution extends Worker {
     String experimentName = a("expName", "short");
     List<String> terrainNames = l(a("terrain", "hilly-1-10-rnd"));
     List<String> targetShapeNames = l(a("shape", "biped-4x3"));
-    List<String> targetSensorConfigNames = l(a("sensorConfig", "spinedTouch-f-f-0.0"));
+    List<String> targetSensorConfigNames = l(a("sensorConfig", "spinedTouch-f-f-0.01"));
     List<String> transformationNames = l(a("transformation", "identity"));
     List<String> evolverNames = l(a("evolver", "ES-10-0.35"));
-    List<String> mapperNames = l(a("mapper", "fixedCentralized<MLP-2-2"));
+    List<String> mapperNames = l(a("mapper", "fixedCentralized<pMLP-2-2-tanh-150-0.5-weight")); //;"fixedCentralized<MLP-2-2-tanh"));
     String bestFileName = a("bestFile", null);
     String allFileName = a("allFile", null);
     String validationFileName = a("validationFile", null);
@@ -339,6 +341,7 @@ public class LocomotionEvolution extends Worker {
     String sensorAndBodyAndHomoDistributed = "sensorAndBodyAndHomoDist-(?<fullness>\\d+(\\.\\d+)?)-(?<nSignals>\\d+)-(?<nLayers>\\d+)-(?<position>(t|f))";
     String sensorCentralized = "sensorCentralized-(?<nLayers>\\d+)";
     String mlp = "MLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)(-(?<actFun>(sin|tanh|sigmoid|relu)))?";
+    String pruningMlp = "pMLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<actFun>(sin|tanh|sigmoid|relu))-(?<nOfCalls>\\d+)-(?<pruningRate>0(\\.\\d+)?)-(?<criterion>(weight|abs_signal_mean))";
     String directNumGrid = "directNumGrid";
     String functionNumGrid = "functionNumGrid";
     String fgraph = "fGraph";
@@ -420,6 +423,18 @@ public class LocomotionEvolution extends Worker {
           Double.parseDouble(params.get("ratio")),
           Integer.parseInt(params.get("nLayers")),
           params.containsKey("actFun") ? MultiLayerPerceptron.ActivationFunction.valueOf(params.get("actFun").toUpperCase()) : MultiLayerPerceptron.ActivationFunction.TANH
+      );
+    }
+    if ((params = params(pruningMlp, name)) != null) {
+      return new PruningMLP(
+          Double.parseDouble(params.get("ratio")),
+          Integer.parseInt(params.get("nLayers")),
+          MultiLayerPerceptron.ActivationFunction.valueOf(params.get("actFun").toUpperCase()),
+          Long.parseLong(params.get("nOfCalls")),
+          Double.parseDouble(params.get("pruningRate")),
+          PruningMultiLayerPerceptron.Context.NETWORK,
+          PruningMultiLayerPerceptron.Criterion.valueOf(params.get("criterion").toUpperCase())
+
       );
     }
     if ((params = params(fgraph, name)) != null) {

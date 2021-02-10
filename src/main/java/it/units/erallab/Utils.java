@@ -76,8 +76,9 @@ public class Utils {
     );
   }
 
+  @SuppressWarnings("unchecked")
   public static List<NamedFunction<Individual<?, ? extends Robot<?>, ? extends Outcome>, ?>> individualFunctions(Function<Outcome, Double> fitnessFunction) {
-    NamedFunction<Individual<?, ? extends Robot<?>, ? extends Outcome>, ?> bi = birthIteration();
+    NamedFunction<Individual<?, ? extends Robot<?>, ? extends Outcome>, ?> size = size().of(genotype());
     return List.of(
         f("w", "%2d", (Function<Grid<?>, Number>) Grid::getW)
             .of(f("shape", (Function<Robot<?>, Grid<?>>) Robot::getVoxels))
@@ -88,7 +89,7 @@ public class Utils {
         f("num.voxel", "%2d", (Function<Grid<?>, Number>) g -> g.count(Objects::nonNull))
             .of(f("shape", (Function<Robot<?>, Grid<?>>) Robot::getVoxels))
             .of(solution()),
-        size().of(genotype()),
+        size.reformat("%5d"),
         genotypeBirthIteration(),
         f("fitness", "%5.1f", fitnessFunction).of(fitness())
     );
