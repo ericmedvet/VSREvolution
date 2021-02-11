@@ -96,6 +96,8 @@ public class Utils {
   }
 
   public static List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> populationFunctions(Function<Outcome, Double> fitnessFunction) {
+    NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?> min = min(Double::compare).of(each(f("fitness", fitnessFunction).of(fitness()))).of(all());
+    NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?> median = median(Double::compare).of(each(f("fitness", fitnessFunction).of(fitness()))).of(all());
     return List.of(
         size().of(all()),
         size().of(firsts()),
@@ -103,8 +105,8 @@ public class Utils {
         uniqueness().of(each(genotype())).of(all()),
         uniqueness().of(each(solution())).of(all()),
         uniqueness().of(each(fitness())).of(all()),
-        min(Double::compare).of(each(f("fitness", fitnessFunction).of(fitness()))).of(all()),
-        median(Double::compare).of(each(f("fitness", fitnessFunction).of(fitness()))).of(all())
+        min.reformat("%+4.1f"),
+        median.reformat("%5.1f")
     );
   }
 
