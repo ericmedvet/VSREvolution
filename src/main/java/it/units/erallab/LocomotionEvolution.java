@@ -108,7 +108,7 @@ public class LocomotionEvolution extends Worker {
     List<String> targetSensorConfigNames = l(a("sensorConfig", "spinedTouch-t-f-0.01"));
     List<String> transformationNames = l(a("transformation", "identity"));
     List<String> evolverNames = l(a("evolver", "ES-10-0.35"));
-    List<String> mapperNames = l(a("mapper", "fixedCentralized<pMLP-2-2-tanh-300-0.9995-weight")); //;"fixedCentralized<MLP-2-2-tanh"));
+    List<String> mapperNames = l(a("mapper", "fixedCentralized<MLP-2-2-tanh"));
     String bestFileName = a("bestFile", null);
     String allFileName = a("allFile", null);
     String validationFileName = a("validationFile", null);

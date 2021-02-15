@@ -1,7 +1,7 @@
 package it.units.erallab;
 
 import it.units.erallab.hmsrobots.core.controllers.MultiLayerPerceptron;
-import it.units.erallab.hmsrobots.core.controllers.PruningMLP;
+import it.units.erallab.hmsrobots.core.controllers.PruningMultiLayerPerceptron;
 import it.units.malelab.jgea.core.util.ArrayTable;
 import it.units.malelab.jgea.core.util.ImagePlotters;
 import it.units.malelab.jgea.core.util.Table;
@@ -32,8 +32,8 @@ public class MLPPruningTest {
         int[] innerLayers = IntStream.range(0, nOfLayer).map(l -> nOfInput).toArray();
         List<String> names = new ArrayList<>();
         names.add("rate");
-        for (PruningMLP.Context context : PruningMLP.Context.values()) {
-          for (PruningMLP.Criterion criterion : PruningMLP.Criterion.values()) {
+        for (PruningMultiLayerPerceptron.Context context : PruningMultiLayerPerceptron.Context.values()) {
+          for (PruningMultiLayerPerceptron.Criterion criterion : PruningMultiLayerPerceptron.Criterion.values()) {
             names.add(context.name().toLowerCase() + "/" + criterion.name().toLowerCase());
           }
         }
@@ -41,13 +41,13 @@ public class MLPPruningTest {
         for (double rate : rates) {
           List<Double> row = new ArrayList<>();
           row.add(rate);
-          for (PruningMLP.Context context : PruningMLP.Context.values()) {
-            for (PruningMLP.Criterion criterion : PruningMLP.Criterion.values()) {
+          for (PruningMultiLayerPerceptron.Context context : PruningMultiLayerPerceptron.Context.values()) {
+            for (PruningMultiLayerPerceptron.Criterion criterion : PruningMultiLayerPerceptron.Criterion.values()) {
               double err = 0d;
               for (int seed : seeds) {
                 Random r = new Random(seed);
                 MultiLayerPerceptron nn = new MultiLayerPerceptron(MultiLayerPerceptron.ActivationFunction.TANH, nOfInput, innerLayers, 1);
-                MultiLayerPerceptron pnn = new PruningMLP(MultiLayerPerceptron.ActivationFunction.TANH, nOfInput, innerLayers, 1, n / 2, context, criterion, rate);
+                MultiLayerPerceptron pnn = new PruningMultiLayerPerceptron(MultiLayerPerceptron.ActivationFunction.TANH, nOfInput, innerLayers, 1, n / 2, context, criterion, rate);
                 double[] ws = IntStream.range(0, nn.getParams().length).mapToDouble(i -> r.nextDouble() * 2d - 1d).toArray();
                 nn.setParams(ws);
                 pnn.setParams(ws);
@@ -84,10 +84,10 @@ public class MLPPruningTest {
     int nOfCalls = 50;
     int[] innerLayers = new int[]{8, 7, 6};
     double[] rates = new double[]{0.05, 0.10, 0.15, 0.25, 0.33, 0.5};
-    for (PruningMLP.Context context : PruningMLP.Context.values()) {
-      for (PruningMLP.Criterion criterion : PruningMLP.Criterion.values()) {
+    for (PruningMultiLayerPerceptron.Context context : PruningMultiLayerPerceptron.Context.values()) {
+      for (PruningMultiLayerPerceptron.Criterion criterion : PruningMultiLayerPerceptron.Criterion.values()) {
         MultiLayerPerceptron nn = new MultiLayerPerceptron(MultiLayerPerceptron.ActivationFunction.TANH, nOfInput, innerLayers, 1);
-        List<PruningMLP> pnns = Arrays.stream(rates).mapToObj(r -> new PruningMLP(MultiLayerPerceptron.ActivationFunction.TANH, nOfInput, innerLayers, 1, nOfCalls, context, criterion, r)).collect(Collectors.toList());
+        List<PruningMultiLayerPerceptron> pnns = Arrays.stream(rates).mapToObj(r -> new PruningMultiLayerPerceptron(MultiLayerPerceptron.ActivationFunction.TANH, nOfInput, innerLayers, 1, nOfCalls, context, criterion, r)).collect(Collectors.toList());
         Random r = new Random(2);
         double[] ws = IntStream.range(0, nn.getParams().length).mapToDouble(i -> r.nextDouble() * 2d - 1d).toArray();
         nn.setParams(ws);
