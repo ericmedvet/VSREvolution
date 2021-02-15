@@ -3,6 +3,7 @@ package it.units.erallab;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import it.units.erallab.hmsrobots.core.controllers.Resettable;
 
 import java.io.Serializable;
 import java.util.function.Function;
@@ -10,7 +11,7 @@ import java.util.function.Function;
 /**
  * @author eric
  */
-public class RealFunction implements Function<double[], double[]>, Serializable {
+public class RealFunction implements Function<double[], double[]>, Resettable, Serializable {
 
   public static RealFunction from(int nOfInputs, int nOfOutputs, Function<double[], double[]> f) {
     return new RealFunction(nOfInputs, nOfOutputs, f);
@@ -45,6 +46,13 @@ public class RealFunction implements Function<double[], double[]>, Serializable 
 
   public double[] apply(double[] input) {
     return function.apply(input);
+  }
+
+  @Override
+  public void reset() {
+    if (function instanceof Resettable) {
+      ((Resettable) function).reset();
+    }
   }
 
   @Override

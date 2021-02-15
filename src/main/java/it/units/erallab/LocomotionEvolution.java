@@ -97,17 +97,18 @@ public class LocomotionEvolution extends Worker {
     double spectrumMinFreq = 0d;
     double spectrumMaxFreq = 5d;
     double episodeTime = d(a("episodeTime", "10"));
-    double episodeTransientTime = d(a("episodeTransientTime", "5"));
+    double episodeTransientTime = d(a("episodeTransientTime", "1"));
     double videoEpisodeTime = d(a("videoEpisodeTime", "10"));
+    double videoEpisodeTransientTime = d(a("videoEpisodeTransientTime", "0"));
     int nEvals = i(a("nEvals", "100"));
     int[] seeds = ri(a("seed", "0:1"));
     String experimentName = a("expName", "short");
-    List<String> terrainNames = l(a("terrain", "hilly-1-10-rnd"));
+    List<String> terrainNames = l(a("terrain", "flat"));//"hilly-1-10-rnd"));
     List<String> targetShapeNames = l(a("shape", "biped-4x3"));
-    List<String> targetSensorConfigNames = l(a("sensorConfig", "spinedTouch-f-f-0.01"));
+    List<String> targetSensorConfigNames = l(a("sensorConfig", "spinedTouch-t-f-0.01"));
     List<String> transformationNames = l(a("transformation", "identity"));
     List<String> evolverNames = l(a("evolver", "ES-10-0.35"));
-    List<String> mapperNames = l(a("mapper", "fixedCentralized<pMLP-2-2-tanh-150-0.5-weight")); //;"fixedCentralized<MLP-2-2-tanh"));
+    List<String> mapperNames = l(a("mapper", "fixedCentralized<pMLP-2-2-tanh-300-0.9995-weight")); //;"fixedCentralized<MLP-2-2-tanh"));
     String bestFileName = a("bestFile", null);
     String allFileName = a("allFile", null);
     String validationFileName = a("validationFile", null);
@@ -200,7 +201,7 @@ public class LocomotionEvolution extends Worker {
           Utils.lastEventToString(fitnessFunction),
           Utils.fitnessPlot(fitnessFunction),
           Utils.centerPositionPlot(),
-          Utils.bestVideo(episodeTransientTime, videoEpisodeTime, PHYSICS_SETTINGS)
+          Utils.bestVideo(videoEpisodeTransientTime, videoEpisodeTime, PHYSICS_SETTINGS)
       ), telegramBotId, telegramChatId));
     }
     //summarize params
