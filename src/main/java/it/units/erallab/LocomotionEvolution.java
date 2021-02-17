@@ -98,6 +98,8 @@ public class LocomotionEvolution extends Worker {
     double spectrumMaxFreq = 5d;
     double episodeTime = d(a("episodeTime", "10"));
     double episodeTransientTime = d(a("episodeTransientTime", "1"));
+    double validationEpisodeTime = d(a("validationEpisodeTime", Double.toString(episodeTime)));
+    double validationEpisodeTransientTime = d(a("validationEpisodeTransientTime", Double.toString(episodeTransientTime)));
     double videoEpisodeTime = d(a("videoEpisodeTime", "10"));
     double videoEpisodeTransientTime = d(a("videoEpisodeTransientTime", "0"));
     int nEvals = i(a("nEvals", "100"));
@@ -108,7 +110,7 @@ public class LocomotionEvolution extends Worker {
     List<String> targetSensorConfigNames = l(a("sensorConfig", "spinedTouch-t-f-0.01"));
     List<String> transformationNames = l(a("transformation", "identity"));
     List<String> evolverNames = l(a("evolver", "ES-10-0.35"));
-    List<String> mapperNames = l(a("mapper", "fixedCentralized<MLP-2-2-tanh"));
+    List<String> mapperNames = l(a("mapper", "fixedCentralized<pMLP-2-2-tanh-180-0.95-abs_signal_mean"));
     String bestFileName = a("bestFile", null);
     String allFileName = a("allFile", null);
     String validationFileName = a("validationFile", null);
@@ -162,7 +164,7 @@ public class LocomotionEvolution extends Worker {
         validationTerrainNames.add(terrainNames.get(0));
       }
       Listener.Factory<Event<?, ? extends Robot<?>, ? extends Outcome>> validationFactory = Listener.Factory.forEach(
-          Utils.validation(validationTerrainNames, validationTransformationNames, List.of(0), episodeTime),
+          Utils.validation(validationTerrainNames, validationTransformationNames, List.of(0), validationEpisodeTime),
           new CSVPrinter<>(
               Misc.concat(List.of(
                   NamedFunction.then(f("event", (ValidationOutcome vo) -> vo.event), basicFunctions),
@@ -172,8 +174,14 @@ public class LocomotionEvolution extends Worker {
                       f("validation.transformation", (Map<String, Object> map) -> map.get("validation.transformation")),
                       f("validation.seed", "%2d", (Map<String, Object> map) -> map.get("validation.seed"))
                   )),
-                  NamedFunction.then(f("outcome", (ValidationOutcome vo) -> vo.outcome), basicOutcomeFunctions),
-                  NamedFunction.then(f("outcome", (ValidationOutcome vo) -> vo.outcome), detailedOutcomeFunctions)
+                  NamedFunction.then(
+                      f("outcome", (ValidationOutcome vo) -> vo.outcome.subOutcome(validationEpisodeTransientTime, validationEpisodeTime)),
+                      basicOutcomeFunctions
+                  ),
+                  NamedFunction.then(
+                      f("outcome", (ValidationOutcome vo) -> vo.outcome.subOutcome(validationEpisodeTransientTime, validationEpisodeTime)),
+                      detailedOutcomeFunctions
+                  )
               )),
               new File(validationFileName)
           )
