@@ -110,7 +110,7 @@ public class LocomotionEvolution extends Worker {
     List<String> targetSensorConfigNames = l(a("sensorConfig", "spinedTouch-t-f-0.01"));
     List<String> transformationNames = l(a("transformation", "identity"));
     List<String> evolverNames = l(a("evolver", "ES-10-0.35"));
-    List<String> mapperNames = l(a("mapper", "fixedCentralized<pMLP-2-2-tanh-180-0.95-abs_signal_mean"));
+    List<String> mapperNames = l(a("mapper", "fixedCentralized<pMLP-2-2-tanh-4.5-0.95-abs_signal_mean"));
     String bestFileName = a("bestFile", null);
     String allFileName = a("allFile", null);
     String validationFileName = a("validationFile", null);
@@ -439,7 +439,7 @@ public class LocomotionEvolution extends Worker {
           Double.parseDouble(params.get("ratio")),
           Integer.parseInt(params.get("nLayers")),
           MultiLayerPerceptron.ActivationFunction.valueOf(params.get("actFun").toUpperCase()),
-          Long.parseLong(params.get("pruningTime")),
+          Double.parseDouble(params.get("pruningTime")),
           Double.parseDouble(params.get("pruningRate")),
           PruningMultiLayerPerceptron.Context.NETWORK,
           PruningMultiLayerPerceptron.Criterion.valueOf(params.get("criterion").toUpperCase())
