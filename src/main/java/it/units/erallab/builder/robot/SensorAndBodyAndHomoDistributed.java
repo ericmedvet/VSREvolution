@@ -1,8 +1,9 @@
 package it.units.erallab.builder.robot;
 
-import it.units.erallab.RealFunction;
 import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.erallab.hmsrobots.core.controllers.DistributedSensing;
+import it.units.erallab.hmsrobots.core.controllers.RealFunction;
+import it.units.erallab.hmsrobots.core.controllers.TimedRealFunction;
 import it.units.erallab.hmsrobots.core.objects.Robot;
 import it.units.erallab.hmsrobots.core.objects.SensingVoxel;
 import it.units.erallab.hmsrobots.core.sensors.Constant;
@@ -19,7 +20,7 @@ import java.util.function.Function;
 /**
  * @author eric
  */
-public class SensorAndBodyAndHomoDistributed implements PrototypedFunctionBuilder<List<RealFunction>, Robot<? extends SensingVoxel>> {
+public class SensorAndBodyAndHomoDistributed implements PrototypedFunctionBuilder<List<TimedRealFunction>, Robot<? extends SensingVoxel>> {
   private final int signals;
   private final double percentile;
   private final boolean withPositionSensors;
@@ -31,7 +32,7 @@ public class SensorAndBodyAndHomoDistributed implements PrototypedFunctionBuilde
   }
 
   @Override
-  public Function<List<RealFunction>, Robot<? extends SensingVoxel>> buildFor(Robot<? extends SensingVoxel> robot) {
+  public Function<List<TimedRealFunction>, Robot<? extends SensingVoxel>> buildFor(Robot<? extends SensingVoxel> robot) {
     int w = robot.getVoxels().getW();
     int h = robot.getVoxels().getH();
     List<Sensor> prototypeSensors = getPrototypeSensors(robot);
@@ -45,35 +46,35 @@ public class SensorAndBodyAndHomoDistributed implements PrototypedFunctionBuilde
             pair.size()
         ));
       }
-      RealFunction bodyFunction = pair.get(0);
-      RealFunction brainFunction = pair.get(1);
+      TimedRealFunction bodyFunction = pair.get(0);
+      TimedRealFunction brainFunction = pair.get(1);
       //check function sizes
-      if (bodyFunction.getNOfInputs() != 2 || bodyFunction.getNOfOutputs() != prototypeSensors.size()) {
+      if (bodyFunction.getInputDimension() != 2 || bodyFunction.getOutputDimension() != prototypeSensors.size()) {
         throw new IllegalArgumentException(String.format(
             "Wrong number of body function args: 2->%d expected, %d->%d found",
             prototypeSensors.size(),
-            bodyFunction.getNOfInputs(),
-            bodyFunction.getNOfOutputs()
+            bodyFunction.getInputDimension(),
+            bodyFunction.getOutputDimension()
         ));
       }
-      if (brainFunction.getNOfInputs() != nOfInputs) {
+      if (brainFunction.getInputDimension() != nOfInputs) {
         throw new IllegalArgumentException(String.format(
             "Wrong number of brain function input args: %d expected, %d found",
             nOfInputs,
-            brainFunction.getNOfInputs()
+            brainFunction.getInputDimension()
         ));
       }
-      if (brainFunction.getNOfOutputs() != nOfOutputs) {
+      if (brainFunction.getOutputDimension() != nOfOutputs) {
         throw new IllegalArgumentException(String.format(
             "Wrong number of brain function output args: %d expected, %d found",
             nOfOutputs,
-            brainFunction.getNOfOutputs()
+            brainFunction.getOutputDimension()
         ));
       }
       //build body
       Grid<double[]> values = Grid.create(
           w, h,
-          (x, y) -> bodyFunction.apply(new double[]{(double) x / ((double) w - 1d), (double) y / ((double) h - 1d)})
+          (x, y) -> bodyFunction.apply(0d, new double[]{(double) x / ((double) w - 1d), (double) y / ((double) h - 1d)})
       );
       double threshold = new Percentile().evaluate(
           values.values().stream().mapToDouble(SensorAndBodyAndHomoDistributed::max).toArray(),
@@ -134,14 +135,14 @@ public class SensorAndBodyAndHomoDistributed implements PrototypedFunctionBuilde
   }
 
   @Override
-  public List<RealFunction> exampleFor(Robot<? extends SensingVoxel> robot) {
+  public List<TimedRealFunction> exampleFor(Robot<? extends SensingVoxel> robot) {
     List<Sensor> sensors = getPrototypeSensors(robot);
     return List.of(
-        RealFunction.from(2, sensors.size(), d -> d),
-        RealFunction.from(
+        RealFunction.build(d -> d, 2, sensors.size()),
+        RealFunction.build(
+            d -> d,
             DistributedSensing.nOfInputs(new SensingVoxel(sensors.subList(0, 1)), signals) + (withPositionSensors ? 2 : 0),
-            DistributedSensing.nOfOutputs(new SensingVoxel(sensors.subList(0, 1)), signals),
-            d -> d
+            DistributedSensing.nOfOutputs(new SensingVoxel(sensors.subList(0, 1)), signals)
         )
     );
   }

@@ -1,9 +1,9 @@
 package it.units.erallab.builder.phenotype;
 
-import it.units.erallab.RealFunction;
 import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.erallab.hmsrobots.core.controllers.MultiLayerPerceptron;
 import it.units.erallab.hmsrobots.core.controllers.PruningMultiLayerPerceptron;
+import it.units.erallab.hmsrobots.core.controllers.TimedRealFunction;
 
 import java.util.Collections;
 import java.util.List;
@@ -12,21 +12,21 @@ import java.util.function.Function;
 /**
  * @author eric
  */
-public class PruningMLP implements PrototypedFunctionBuilder<List<Double>, RealFunction> {
+public class PruningMLP implements PrototypedFunctionBuilder<List<Double>, TimedRealFunction> {
 
   private final double innerLayerRatio;
   private final int nOfInnerLayers;
   private final MultiLayerPerceptron.ActivationFunction activationFunction;
-  private final long nOfCalls;
+  private final double pruningTime;
   private final double rate;
   private final PruningMultiLayerPerceptron.Context context;
   private final PruningMultiLayerPerceptron.Criterion criterion;
 
-  public PruningMLP(double innerLayerRatio, int nOfInnerLayers, MultiLayerPerceptron.ActivationFunction activationFunction, long nOfCalls, double rate, PruningMultiLayerPerceptron.Context context, PruningMultiLayerPerceptron.Criterion criterion) {
+  public PruningMLP(double innerLayerRatio, int nOfInnerLayers, MultiLayerPerceptron.ActivationFunction activationFunction, double pruningTime, double rate, PruningMultiLayerPerceptron.Context context, PruningMultiLayerPerceptron.Criterion criterion) {
     this.innerLayerRatio = innerLayerRatio;
     this.nOfInnerLayers = nOfInnerLayers;
     this.activationFunction = activationFunction;
-    this.nOfCalls = nOfCalls;
+    this.pruningTime = pruningTime;
     this.rate = rate;
     this.context = context;
     this.criterion = criterion;
@@ -49,10 +49,10 @@ public class PruningMLP implements PrototypedFunctionBuilder<List<Double>, RealF
   }
 
   @Override
-  public Function<List<Double>, RealFunction> buildFor(RealFunction function) {
+  public Function<List<Double>, TimedRealFunction> buildFor(TimedRealFunction function) {
     return values -> {
-      int nOfInputs = function.getNOfInputs();
-      int nOfOutputs = function.getNOfOutputs();
+      int nOfInputs = function.getInputDimension();
+      int nOfOutputs = function.getOutputDimension();
       int[] innerNeurons = innerNeurons(nOfInputs, nOfOutputs);
       int nOfWeights = MultiLayerPerceptron.countWeights(nOfInputs, innerNeurons, nOfOutputs);
       if (nOfWeights != values.size()) {
@@ -62,31 +62,28 @@ public class PruningMLP implements PrototypedFunctionBuilder<List<Double>, RealF
             values.size()
         ));
       }
-      return RealFunction.from(
+      return new PruningMultiLayerPerceptron(
+          activationFunction,
           nOfInputs,
+          innerNeurons,
           nOfOutputs,
-          new PruningMultiLayerPerceptron(
-              activationFunction,
-              nOfInputs,
-              innerNeurons,
-              nOfOutputs,
-              values.stream().mapToDouble(d -> d).toArray(),
-              nOfCalls,
-              context,
-              criterion,
-              rate
-          ));
+          values.stream().mapToDouble(d -> d).toArray(),
+          pruningTime,
+          context,
+          criterion,
+          rate
+      );
     };
   }
 
   @Override
-  public List<Double> exampleFor(RealFunction function) {
+  public List<Double> exampleFor(TimedRealFunction function) {
     return Collections.nCopies(
         MultiLayerPerceptron.countWeights(
             MultiLayerPerceptron.countNeurons(
-                function.getNOfInputs(),
-                innerNeurons(function.getNOfInputs(), function.getNOfOutputs()),
-                function.getNOfOutputs())
+                function.getInputDimension(),
+                innerNeurons(function.getInputDimension(), function.getOutputDimension()),
+                function.getOutputDimension())
         ),
         0d
     );

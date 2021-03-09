@@ -350,7 +350,7 @@ public class LocomotionEvolution extends Worker {
     String sensorAndBodyAndHomoDistributed = "sensorAndBodyAndHomoDist-(?<fullness>\\d+(\\.\\d+)?)-(?<nSignals>\\d+)-(?<nLayers>\\d+)-(?<position>(t|f))";
     String sensorCentralized = "sensorCentralized-(?<nLayers>\\d+)";
     String mlp = "MLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)(-(?<actFun>(sin|tanh|sigmoid|relu)))?";
-    String pruningMlp = "pMLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<actFun>(sin|tanh|sigmoid|relu))-(?<nOfCalls>\\d+)-(?<pruningRate>0(\\.\\d+)?)-(?<criterion>(weight|abs_signal_mean))";
+    String pruningMlp = "pMLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<actFun>(sin|tanh|sigmoid|relu))-(?<pruningTime>\\d+(\\.\\d+)?)-(?<pruningRate>0(\\.\\d+)?)-(?<criterion>(weight|abs_signal_mean))";
     String directNumGrid = "directNumGrid";
     String functionNumGrid = "functionNumGrid";
     String fgraph = "fGraph";
@@ -439,7 +439,7 @@ public class LocomotionEvolution extends Worker {
           Double.parseDouble(params.get("ratio")),
           Integer.parseInt(params.get("nLayers")),
           MultiLayerPerceptron.ActivationFunction.valueOf(params.get("actFun").toUpperCase()),
-          Long.parseLong(params.get("nOfCalls")),
+          Long.parseLong(params.get("pruningTime")),
           Double.parseDouble(params.get("pruningRate")),
           PruningMultiLayerPerceptron.Context.NETWORK,
           PruningMultiLayerPerceptron.Criterion.valueOf(params.get("criterion").toUpperCase())

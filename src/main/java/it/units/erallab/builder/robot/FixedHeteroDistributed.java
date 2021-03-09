@@ -1,19 +1,20 @@
 package it.units.erallab.builder.robot;
 
-import it.units.erallab.RealFunction;
+import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.erallab.hmsrobots.core.controllers.DistributedSensing;
+import it.units.erallab.hmsrobots.core.controllers.RealFunction;
+import it.units.erallab.hmsrobots.core.controllers.TimedRealFunction;
 import it.units.erallab.hmsrobots.core.objects.Robot;
 import it.units.erallab.hmsrobots.core.objects.SensingVoxel;
 import it.units.erallab.hmsrobots.util.Grid;
 import it.units.erallab.hmsrobots.util.SerializationUtils;
-import it.units.erallab.builder.PrototypedFunctionBuilder;
 
 import java.util.function.Function;
 
 /**
  * @author eric
  */
-public class FixedHeteroDistributed implements PrototypedFunctionBuilder<Grid<RealFunction>, Robot<? extends SensingVoxel>> {
+public class FixedHeteroDistributed implements PrototypedFunctionBuilder<Grid<TimedRealFunction>, Robot<? extends SensingVoxel>> {
   private final int signals;
 
   public FixedHeteroDistributed(int signals) {
@@ -21,7 +22,7 @@ public class FixedHeteroDistributed implements PrototypedFunctionBuilder<Grid<Re
   }
 
   @Override
-  public Function<Grid<RealFunction>, Robot<? extends SensingVoxel>> buildFor(Robot<? extends SensingVoxel> robot) {
+  public Function<Grid<TimedRealFunction>, Robot<? extends SensingVoxel>> buildFor(Robot<? extends SensingVoxel> robot) {
     Grid<int[]> dims = getIODims(robot);
     Grid<? extends SensingVoxel> body = robot.getVoxels();
     return functions -> {
@@ -37,20 +38,20 @@ public class FixedHeteroDistributed implements PrototypedFunctionBuilder<Grid<Re
         if (entry.getValue() == null) {
           continue;
         }
-        if (functions.get(entry.getX(), entry.getY()).getNOfInputs() != entry.getValue()[0]) {
+        if (functions.get(entry.getX(), entry.getY()).getInputDimension() != entry.getValue()[0]) {
           throw new IllegalArgumentException(String.format(
               "Wrong number of function input args at (%d,%d): %d expected, %d found",
               entry.getX(), entry.getY(),
               entry.getValue()[0],
-              functions.get(entry.getX(), entry.getY()).getNOfInputs()
+              functions.get(entry.getX(), entry.getY()).getInputDimension()
           ));
         }
-        if (functions.get(entry.getX(), entry.getY()).getNOfInputs() != entry.getValue()[0]) {
+        if (functions.get(entry.getX(), entry.getY()).getOutputDimension() != entry.getValue()[1]) {
           throw new IllegalArgumentException(String.format(
               "Wrong number of function output args at (%d,%d): %d expected, %d found",
               entry.getX(), entry.getY(),
               entry.getValue()[1],
-              functions.get(entry.getX(), entry.getY()).getNOfOutputs()
+              functions.get(entry.getX(), entry.getY()).getOutputDimension()
           ));
         }
       }
@@ -69,10 +70,10 @@ public class FixedHeteroDistributed implements PrototypedFunctionBuilder<Grid<Re
   }
 
   @Override
-  public Grid<RealFunction> exampleFor(Robot<? extends SensingVoxel> robot) {
+  public Grid<TimedRealFunction> exampleFor(Robot<? extends SensingVoxel> robot) {
     return Grid.create(
         getIODims(robot),
-        dim -> dim == null ? null : RealFunction.from(dim[0], dim[1], d -> d)
+        dim -> dim == null ? null : RealFunction.build(d -> d, dim[0], dim[1])
     );
   }
 

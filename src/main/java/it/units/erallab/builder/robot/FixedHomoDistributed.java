@@ -1,8 +1,9 @@
 package it.units.erallab.builder.robot;
 
-import it.units.erallab.RealFunction;
 import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.erallab.hmsrobots.core.controllers.DistributedSensing;
+import it.units.erallab.hmsrobots.core.controllers.RealFunction;
+import it.units.erallab.hmsrobots.core.controllers.TimedRealFunction;
 import it.units.erallab.hmsrobots.core.objects.Robot;
 import it.units.erallab.hmsrobots.core.objects.SensingVoxel;
 import it.units.erallab.hmsrobots.util.Grid;
@@ -16,7 +17,7 @@ import java.util.stream.Collectors;
 /**
  * @author eric
  */
-public class FixedHomoDistributed implements PrototypedFunctionBuilder<RealFunction, Robot<? extends SensingVoxel>> {
+public class FixedHomoDistributed implements PrototypedFunctionBuilder<TimedRealFunction, Robot<? extends SensingVoxel>> {
   private final int signals;
 
   public FixedHomoDistributed(int signals) {
@@ -24,24 +25,24 @@ public class FixedHomoDistributed implements PrototypedFunctionBuilder<RealFunct
   }
 
   @Override
-  public Function<RealFunction, Robot<? extends SensingVoxel>> buildFor(Robot<? extends SensingVoxel> robot) {
+  public Function<TimedRealFunction, Robot<? extends SensingVoxel>> buildFor(Robot<? extends SensingVoxel> robot) {
     int[] dim = getIODim(robot);
     Grid<? extends SensingVoxel> body = robot.getVoxels();
     int nOfInputs = dim[0];
     int nOfOutputs = dim[1];
     return function -> {
-      if (function.getNOfInputs() != nOfInputs) {
+      if (function.getInputDimension() != nOfInputs) {
         throw new IllegalArgumentException(String.format(
             "Wrong number of function input args: %d expected, %d found",
             nOfInputs,
-            function.getNOfInputs()
+            function.getInputDimension()
         ));
       }
-      if (function.getNOfOutputs() != nOfOutputs) {
+      if (function.getOutputDimension() != nOfOutputs) {
         throw new IllegalArgumentException(String.format(
             "Wrong number of function output args: %d expected, %d found",
             nOfOutputs,
-            function.getNOfOutputs()
+            function.getOutputDimension()
         ));
       }
       DistributedSensing controller = new DistributedSensing(body, signals);
@@ -58,9 +59,9 @@ public class FixedHomoDistributed implements PrototypedFunctionBuilder<RealFunct
   }
 
   @Override
-  public RealFunction exampleFor(Robot<? extends SensingVoxel> robot) {
+  public TimedRealFunction exampleFor(Robot<? extends SensingVoxel> robot) {
     int[] dim = getIODim(robot);
-    return RealFunction.from(dim[0], dim[1], d -> d);
+    return RealFunction.build(d -> d, dim[0], dim[1]);
   }
 
   private int[] getIODim(Robot<? extends SensingVoxel> robot) {

@@ -1,8 +1,9 @@
 package it.units.erallab.builder.robot;
 
-import it.units.erallab.RealFunction;
 import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.erallab.hmsrobots.core.controllers.CentralizedSensing;
+import it.units.erallab.hmsrobots.core.controllers.RealFunction;
+import it.units.erallab.hmsrobots.core.controllers.TimedRealFunction;
 import it.units.erallab.hmsrobots.core.objects.Robot;
 import it.units.erallab.hmsrobots.core.objects.SensingVoxel;
 import it.units.erallab.hmsrobots.core.sensors.Sensor;
@@ -16,10 +17,10 @@ import java.util.function.Function;
 /**
  * @author eric on 2021/01/02 for VSREvolution
  */
-public class SensorCentralized implements PrototypedFunctionBuilder<List<RealFunction>, Robot<? extends SensingVoxel>> {
+public class SensorCentralized implements PrototypedFunctionBuilder<List<TimedRealFunction>, Robot<? extends SensingVoxel>> {
 
   @Override
-  public Function<List<RealFunction>, Robot<? extends SensingVoxel>> buildFor(Robot<? extends SensingVoxel> robot) {
+  public Function<List<TimedRealFunction>, Robot<? extends SensingVoxel>> buildFor(Robot<? extends SensingVoxel> robot) {
     List<Sensor> prototypeSensors = SensorAndBodyAndHomoDistributed.getPrototypeSensors(robot);
     int nOfVoxels = (int) robot.getVoxels().values().stream().filter(Objects::nonNull).count();
     int sensorDim = prototypeSensors.get(0).domains().length;
@@ -30,29 +31,29 @@ public class SensorCentralized implements PrototypedFunctionBuilder<List<RealFun
             pair.size()
         ));
       }
-      RealFunction sensorizingFunction = pair.get(0);
-      RealFunction brainFunction = pair.get(1);
+      TimedRealFunction sensorizingFunction = pair.get(0);
+      TimedRealFunction brainFunction = pair.get(1);
       //check function sizes
-      if (sensorizingFunction.getNOfInputs() != 2 || sensorizingFunction.getNOfOutputs() != prototypeSensors.size()) {
+      if (sensorizingFunction.getInputDimension() != 2 || sensorizingFunction.getOutputDimension() != prototypeSensors.size()) {
         throw new IllegalArgumentException(String.format(
             "Wrong number of sensorizing function args: 2->%d expected, %d->%d found",
             prototypeSensors.size(),
-            sensorizingFunction.getNOfInputs(),
-            sensorizingFunction.getNOfOutputs()
+            sensorizingFunction.getInputDimension(),
+            sensorizingFunction.getOutputDimension()
         ));
       }
-      if (brainFunction.getNOfInputs() != nOfVoxels * sensorDim) {
+      if (brainFunction.getInputDimension() != nOfVoxels * sensorDim) {
         throw new IllegalArgumentException(String.format(
             "Wrong number of brain function input args: %d expected, %d found",
             nOfVoxels * sensorDim,
-            brainFunction.getNOfInputs()
+            brainFunction.getInputDimension()
         ));
       }
-      if (brainFunction.getNOfOutputs() != nOfVoxels) {
+      if (brainFunction.getOutputDimension() != nOfVoxels) {
         throw new IllegalArgumentException(String.format(
             "Wrong number of brain function output args: %d expected, %d found",
             nOfVoxels,
-            brainFunction.getNOfOutputs()
+            brainFunction.getOutputDimension()
         ));
       }
       //sensorize body
@@ -60,7 +61,7 @@ public class SensorCentralized implements PrototypedFunctionBuilder<List<RealFun
       int h = robot.getVoxels().getH();
       Grid<double[]> values = Grid.create(
           w, h,
-          (x, y) -> sensorizingFunction.apply(new double[]{(double) x / ((double) w - 1d), (double) y / ((double) h - 1d)})
+          (x, y) -> sensorizingFunction.apply(0, new double[]{(double) x / ((double) w - 1d), (double) y / ((double) h - 1d)})
       );
       Grid<? extends SensingVoxel> body = Grid.create(
           w, h,
@@ -79,17 +80,13 @@ public class SensorCentralized implements PrototypedFunctionBuilder<List<RealFun
   }
 
   @Override
-  public List<RealFunction> exampleFor(Robot<? extends SensingVoxel> robot) {
+  public List<TimedRealFunction> exampleFor(Robot<? extends SensingVoxel> robot) {
     List<Sensor> prototypeSensors = SensorAndBodyAndHomoDistributed.getPrototypeSensors(robot);
     int nOfVoxels = (int) robot.getVoxels().values().stream().filter(Objects::nonNull).count();
     int sensorDim = prototypeSensors.get(0).domains().length;
     return List.of(
-        RealFunction.from(2, prototypeSensors.size(), d -> d),
-        RealFunction.from(
-            nOfVoxels * sensorDim,
-            nOfVoxels,
-            v -> v
-        )
+        RealFunction.build(d -> d, 2, prototypeSensors.size()),
+        RealFunction.build(d -> d, nOfVoxels * sensorDim, nOfVoxels)
     );
   }
 

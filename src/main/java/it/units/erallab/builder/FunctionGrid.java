@@ -1,6 +1,6 @@
 package it.units.erallab.builder;
 
-import it.units.erallab.RealFunction;
+import it.units.erallab.hmsrobots.core.controllers.TimedRealFunction;
 import it.units.erallab.hmsrobots.util.Grid;
 
 import java.util.Collections;
@@ -11,20 +11,20 @@ import java.util.function.Function;
 /**
  * @author eric
  */
-public class FunctionGrid implements PrototypedFunctionBuilder<List<Double>, Grid<RealFunction>> {
+public class FunctionGrid implements PrototypedFunctionBuilder<List<Double>, Grid<TimedRealFunction>> {
 
-  private final PrototypedFunctionBuilder<List<Double>, RealFunction> itemBuilder;
+  private final PrototypedFunctionBuilder<List<Double>, TimedRealFunction> itemBuilder;
 
-  public FunctionGrid(PrototypedFunctionBuilder<List<Double>, RealFunction> itemBuilder) {
+  public FunctionGrid(PrototypedFunctionBuilder<List<Double>, TimedRealFunction> itemBuilder) {
     this.itemBuilder = itemBuilder;
   }
 
   @Override
-  public Function<List<Double>, Grid<RealFunction>> buildFor(Grid<RealFunction> targetFunctions) {
+  public Function<List<Double>, Grid<TimedRealFunction>> buildFor(Grid<TimedRealFunction> targetFunctions) {
     return values -> {
-      Grid<RealFunction> functions = Grid.create(targetFunctions);
+      Grid<TimedRealFunction> functions = Grid.create(targetFunctions);
       int c = 0;
-      for (Grid.Entry<RealFunction> entry : targetFunctions) {
+      for (Grid.Entry<TimedRealFunction> entry : targetFunctions) {
         if (entry.getValue() == null) {
           continue;
         }
@@ -41,7 +41,7 @@ public class FunctionGrid implements PrototypedFunctionBuilder<List<Double>, Gri
   }
 
   @Override
-  public List<Double> exampleFor(Grid<RealFunction> functions) {
+  public List<Double> exampleFor(Grid<TimedRealFunction> functions) {
     return Collections.nCopies(
         functions.values().stream()
             .filter(Objects::nonNull)

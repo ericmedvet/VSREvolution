@@ -1,19 +1,20 @@
 package it.units.erallab.builder.robot;
 
-import it.units.erallab.RealFunction;
+import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.erallab.hmsrobots.core.controllers.PhaseSin;
+import it.units.erallab.hmsrobots.core.controllers.RealFunction;
+import it.units.erallab.hmsrobots.core.controllers.TimedRealFunction;
 import it.units.erallab.hmsrobots.core.objects.ControllableVoxel;
 import it.units.erallab.hmsrobots.core.objects.Robot;
 import it.units.erallab.hmsrobots.util.Grid;
 import it.units.erallab.hmsrobots.util.SerializationUtils;
-import it.units.erallab.builder.PrototypedFunctionBuilder;
 
 import java.util.function.Function;
 
 /**
  * @author eric
  */
-public class FixedPhaseFunction implements PrototypedFunctionBuilder<RealFunction, Robot<?>> {
+public class FixedPhaseFunction implements PrototypedFunctionBuilder<TimedRealFunction, Robot<?>> {
   private final double frequency;
   private final double amplitude;
 
@@ -23,13 +24,13 @@ public class FixedPhaseFunction implements PrototypedFunctionBuilder<RealFunctio
   }
 
   @Override
-  public Function<RealFunction, Robot<?>> buildFor(Robot<?> robot) {
+  public Function<TimedRealFunction, Robot<?>> buildFor(Robot<?> robot) {
     Grid<? extends ControllableVoxel> body = robot.getVoxels();
     return function -> {
-      if (function.getNOfInputs() != 2) {
+      if (function.getInputDimension() != 2) {
         throw new IllegalArgumentException(String.format(
             "Wrong number of function input args: 2 expected, %d found",
-            function.getNOfInputs()
+            function.getInputDimension()
         ));
       }
       return new Robot<>(
@@ -39,7 +40,7 @@ public class FixedPhaseFunction implements PrototypedFunctionBuilder<RealFunctio
               Grid.create(
                   body.getW(),
                   body.getH(),
-                  (x, y) -> function.apply(new double[]{
+                  (x, y) -> function.apply(0d, new double[]{
                       (double) x / (double) body.getW(),
                       (double) y / (double) body.getW()}
                   )[0]
@@ -51,8 +52,8 @@ public class FixedPhaseFunction implements PrototypedFunctionBuilder<RealFunctio
   }
 
   @Override
-  public RealFunction exampleFor(Robot<?> robot) {
-    return RealFunction.from(2, 1, d -> d);
+  public TimedRealFunction exampleFor(Robot<?> robot) {
+    return RealFunction.build(d -> d, 2, 1);
   }
 
 }

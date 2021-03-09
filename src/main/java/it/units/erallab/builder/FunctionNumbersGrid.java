@@ -1,6 +1,6 @@
 package it.units.erallab.builder;
 
-import it.units.erallab.RealFunction;
+import it.units.erallab.hmsrobots.core.controllers.RealFunction;
 import it.units.erallab.hmsrobots.util.Grid;
 
 import java.util.Arrays;
@@ -15,12 +15,12 @@ public class FunctionNumbersGrid implements PrototypedFunctionBuilder<RealFuncti
   public Function<RealFunction, Grid<double[]>> buildFor(Grid<double[]> grid) {
     int targetLength = targetLength(grid);
     return function -> {
-      if (function.getNOfInputs() != 2 || function.getNOfOutputs() != targetLength) {
+      if (function.getInputDimension() != 2 || function.getOutputDimension() != targetLength) {
         throw new IllegalArgumentException(String.format(
             "Wrong number of body function args: 2->%d expected, %d->%d found",
             targetLength,
-            function.getNOfInputs(),
-            function.getNOfOutputs()
+            function.getInputDimension(),
+            function.getOutputDimension()
         ));
       }
       Grid<double[]> output = Grid.create(grid);
@@ -38,7 +38,7 @@ public class FunctionNumbersGrid implements PrototypedFunctionBuilder<RealFuncti
   @Override
   public RealFunction exampleFor(Grid<double[]> grid) {
     int targetLength = targetLength(grid);
-    return new RealFunction(2, targetLength, d -> d);
+    return RealFunction.build(d -> d, 2, targetLength);
   }
 
   private static int targetLength(Grid<double[]> grid) {
