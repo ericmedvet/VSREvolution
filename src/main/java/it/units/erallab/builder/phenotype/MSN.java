@@ -2,11 +2,11 @@ package it.units.erallab.builder.phenotype;
 
 import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.erallab.hmsrobots.core.controllers.MultiLayerPerceptron;
-import it.units.erallab.hmsrobots.core.controllers.PruningMultiLayerPerceptron;
 import it.units.erallab.hmsrobots.core.controllers.TimedRealFunction;
-import it.units.erallab.hmsrobots.core.controllers.snn.LIFNeuron;
 import it.units.erallab.hmsrobots.core.controllers.snn.MultilayerSpikingNetwork;
 import it.units.erallab.hmsrobots.core.controllers.snn.SpikingFunction;
+import it.units.erallab.hmsrobots.core.controllers.snn.converters.stv.SpikeTrainToValueConverter;
+import it.units.erallab.hmsrobots.core.controllers.snn.converters.vts.ValueToSpikeTrainConverter;
 
 import java.util.Collections;
 import java.util.List;
@@ -20,12 +20,16 @@ public class MSN implements PrototypedFunctionBuilder<List<Double>, TimedRealFun
   private final double innerLayerRatio;
   private final int nOfInnerLayers;
   private final SpikingFunction spikingFunction;
+  private final ValueToSpikeTrainConverter valueToSpikeTrainConverter;
+  private final SpikeTrainToValueConverter spikeTrainToValueConverter;
 
 
-  public MSN(double innerLayerRatio, int nOfInnerLayers, SpikingFunction spikingFunction) {
+  public MSN(double innerLayerRatio, int nOfInnerLayers, SpikingFunction spikingFunction, ValueToSpikeTrainConverter valueToSpikeTrainConverter, SpikeTrainToValueConverter spikeTrainToValueConverter) {
     this.innerLayerRatio = innerLayerRatio;
     this.nOfInnerLayers = nOfInnerLayers;
     this.spikingFunction = spikingFunction;
+    this.valueToSpikeTrainConverter = valueToSpikeTrainConverter;
+    this.spikeTrainToValueConverter = spikeTrainToValueConverter;
   }
 
   private int[] innerNeurons(int nOfInputs, int nOfOutputs) {
@@ -53,17 +57,19 @@ public class MSN implements PrototypedFunctionBuilder<List<Double>, TimedRealFun
       int nOfWeights = MultilayerSpikingNetwork.countWeights(nOfInputs, innerNeurons, nOfOutputs);
       if (nOfWeights != values.size()) {
         throw new IllegalArgumentException(String.format(
-            "Wrong number of values for weights: %d expected, %d found",
-            nOfWeights,
-            values.size()
+                "Wrong number of values for weights: %d expected, %d found",
+                nOfWeights,
+                values.size()
         ));
       }
       return new MultilayerSpikingNetwork(
-          nOfInputs,
-          innerNeurons,
-          nOfOutputs,
-          values.stream().mapToDouble(d -> d).toArray(),
-          new LIFNeuron()
+              nOfInputs,
+              innerNeurons,
+              nOfOutputs,
+              values.stream().mapToDouble(d -> d).toArray(),
+              spikingFunction,
+              valueToSpikeTrainConverter,
+              spikeTrainToValueConverter
       );
     };
   }
@@ -71,13 +77,13 @@ public class MSN implements PrototypedFunctionBuilder<List<Double>, TimedRealFun
   @Override
   public List<Double> exampleFor(TimedRealFunction function) {
     return Collections.nCopies(
-        MultilayerSpikingNetwork.countWeights(
-                MultiLayerPerceptron.countNeurons(
-                function.getInputDimension(),
-                innerNeurons(function.getInputDimension(), function.getOutputDimension()),
-                function.getOutputDimension())
-        ),
-        0d
+            MultilayerSpikingNetwork.countWeights(
+                    MultiLayerPerceptron.countNeurons(
+                            function.getInputDimension(),
+                            innerNeurons(function.getInputDimension(), function.getOutputDimension()),
+                            function.getOutputDimension())
+            ),
+            0d
     );
   }
 
