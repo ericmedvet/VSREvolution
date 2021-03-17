@@ -12,15 +12,15 @@ import java.util.List;
 
 public class MembraneEvolutionPlotter {
 
-  public void plotMembranePotentialEvolution(SpikingNeuron spikingNeuron, int width, int height) {
+  public static void plotMembranePotentialEvolution(SpikingNeuron spikingNeuron, int width, int height) {
     new SwingWrapper<>(getMembranePotentialEvolutionChart(spikingNeuron, width, height)).displayChart();
   }
 
-  public void plotMembranePotentialEvolutionWithInputSpikes(SpikingNeuron spikingNeuron, int width, int height) {
+  public static void plotMembranePotentialEvolutionWithInputSpikes(SpikingNeuron spikingNeuron, int width, int height) {
     new SwingWrapper<>(getMembranePotentialEvolutionWithInputSpikesChart(spikingNeuron, width, height)).displayChart();
   }
 
-  public XYChart getMembranePotentialEvolutionChart(SpikingNeuron spikingNeuron, int width, int height) {
+  public static XYChart getMembranePotentialEvolutionChart(SpikingNeuron spikingNeuron, int width, int height) {
     XYChart chart = new XYChart(width, height);
     chart.getStyler().setXAxisMin(0.0).setXAxisMax(spikingNeuron.getLastEvaluatedTime()).setLegendPosition(Styler.LegendPosition.InsideNW);
     if (!spikingNeuron.getMembranePotentialValues().isEmpty()) {
@@ -32,7 +32,7 @@ public class MembraneEvolutionPlotter {
     return chart;
   }
 
-  public XYChart getMembranePotentialEvolutionWithInputSpikesChart(SpikingNeuron spikingNeuron, int width, int height) {
+  public static XYChart getMembranePotentialEvolutionWithInputSpikesChart(SpikingNeuron spikingNeuron, int width, int height) {
     XYChart chart = getMembranePotentialEvolutionChart(spikingNeuron, width, height);
     if (!spikingNeuron.getInputSpikesValues().isEmpty()) {
       XYSeries inputSpikesSeries = chart.addSeries("input", new ArrayList<>(spikingNeuron.getInputSpikesValues().keySet()), new ArrayList<>(spikingNeuron.getInputSpikesValues().values()));
