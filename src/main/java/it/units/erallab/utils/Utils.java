@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
-package it.units.erallab;
+package it.units.erallab.utils;
 
+import it.units.erallab.LocomotionEvolution;
 import it.units.erallab.hmsrobots.core.objects.Robot;
 import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
 import it.units.erallab.hmsrobots.tasks.locomotion.Outcome;
