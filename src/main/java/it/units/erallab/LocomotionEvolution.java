@@ -119,8 +119,8 @@ public class LocomotionEvolution extends Worker {
     List<String> targetSensorConfigNames = l(a("sensorConfig", "spinedTouch-t-f-0.01"));
     List<String> transformationNames = l(a("transformation", "identity"));
     List<String> evolverNames = l(a("evolver", "ES-10-0.35"));
-    //List<String> mapperNames = l(a("mapper", "fixedCentralized<pMLP-2-2-tanh-4.5-0.95-abs_signal_mean"));
-    List<String> mapperNames = l(a("mapper", "fixedCentralized<MSN-2-2-lif-unif_mem-2-100-avg-85"));
+    //List<String> mapperNames = l(a("mapper", "fixedCentralized<pMLP-2-2-tanh-4.5-0.0-abs_signal_mean"));
+    List<String> mapperNames = l(a("mapper", "fixedCentralized<MSN-2-2-lif-unif-1200-avg-1100"));
     String bestFileName = a("bestFile", null);
     String allFileName = a("allFile", null);
     String validationFileName = a("validationFile", null);
@@ -362,7 +362,9 @@ public class LocomotionEvolution extends Worker {
     String mlp = "MLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)(-(?<actFun>(sin|tanh|sigmoid|relu)))?";
     String pruningMlp = "pMLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<actFun>(sin|tanh|sigmoid|relu))-(?<pruningTime>\\d+(\\.\\d+)?)-(?<pruningRate>0(\\.\\d+)?)-(?<criterion>(weight|abs_signal_mean))";
     String msn = "MSN-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<spikeType>(lif|iz))" +
-            "-(?<iConv>(unif|unif_mem))-(?<mem>\\d)-(?<iFreq>\\d+(\\.\\d+)?)-(?<oConv>(avg))-(?<oFreq>\\d+(\\.\\d+)?)";
+            "(-(?<lRestPot>-?\\d+(\\.\\d+)?)-(?<lThreshPot>-?\\d+(\\.\\d+)?)-(?<lambda>\\d+(\\.\\d+)?))?" +
+            "(-(?<iRestPot>-?\\d+(\\.\\d+)?)-(?<iThreshPot>-?\\d+(\\.\\d+)?)-(?<a>-?\\d+(\\.\\d+)?)-(?<b>-?\\d+(\\.\\d+)?)-(?<c>-?\\d+(\\.\\d+)?)-(?<d>-?\\d+(\\.\\d+)?))?" +
+            "-(?<iConv>(unif|unif_mem))(-(?<mem>\\d))?-(?<iFreq>\\d+(\\.\\d+)?)-(?<oConv>(avg))-(?<oFreq>\\d+(\\.\\d+)?)";
     String directNumGrid = "directNumGrid";
     String functionNumGrid = "functionNumGrid";
     String fgraph = "fGraph";
@@ -458,11 +460,31 @@ public class LocomotionEvolution extends Worker {
       );
     }
     if ((params = params(msn, name)) != null) {
-      SpikingFunction spikingFunction = new LIFNeuron();
+      SpikingFunction spikingFunction = null;
       ValueToSpikeTrainConverter valueToSpikeTrainConverter = new UniformValueToSpikeTrainConverter();
       SpikeTrainToValueConverter spikeTrainToValueConverter = new AverageFrequencySpikeTrainToValueConverter();
+      if (params.containsKey("spikeType") && params.get("spikeType").equals("lif")) {
+        if (params.containsKey("lRestPot") && params.containsKey("lThreshPot") && params.containsKey("lambda")) {
+          spikingFunction = new LIFNeuron(
+                  Double.parseDouble(params.get("lRestPot")),
+                  Double.parseDouble(params.get("lThreshPot")),
+                  Double.parseDouble(params.get("lambda")));
+        } else {
+          spikingFunction = new LIFNeuron();
+        }
+      }
       if (params.containsKey("spikeType") && params.get("spikeType").equals("iz")) {
-        spikingFunction = new IzhikevicNeuron();
+        if (params.containsKey("iRestPot") && params.containsKey("iThreshPot") && params.containsKey("a")&& params.containsKey("b")&& params.containsKey("c")&& params.containsKey("d")) {
+          spikingFunction = new IzhikevicNeuron(
+                  Double.parseDouble(params.get("iRestPot")),
+                  Double.parseDouble(params.get("iThreshPot")),
+                  Double.parseDouble(params.get("a")),
+                  Double.parseDouble(params.get("b")),
+                  Double.parseDouble(params.get("c")),
+                  Double.parseDouble(params.get("d")));
+        } else {
+          spikingFunction = new IzhikevicNeuron();
+        }
       }
       if (params.containsKey("iConv")) {
         switch (params.get("iConv")) {
