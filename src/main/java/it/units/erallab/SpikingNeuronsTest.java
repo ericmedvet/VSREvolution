@@ -1,12 +1,8 @@
 package it.units.erallab;
 
-import it.units.erallab.hmsrobots.core.controllers.snn.IzhikevicNeuron;
-import it.units.erallab.hmsrobots.core.controllers.snn.LIFNeuron;
-import it.units.erallab.hmsrobots.core.controllers.snn.SpikingNeuron;
-import it.units.erallab.hmsrobots.core.controllers.snn.converters.stv.AverageFrequencySpikeTrainToValueConverter;
-import it.units.erallab.hmsrobots.core.controllers.snn.converters.stv.SpikeTrainToValueConverter;
-import it.units.erallab.hmsrobots.core.controllers.snn.converters.vts.UniformValueToSpikeTrainConverter;
-import it.units.erallab.hmsrobots.core.controllers.snn.converters.vts.ValueToSpikeTrainConverter;
+import it.units.erallab.hmsrobots.core.controllers.snn.*;
+import it.units.erallab.hmsrobots.core.controllers.snn.converters.stv.*;
+import it.units.erallab.hmsrobots.core.controllers.snn.converters.vts.*;
 import it.units.erallab.utils.MembraneEvolutionPlotter;
 
 import java.util.SortedMap;
@@ -15,24 +11,22 @@ import java.util.TreeMap;
 
 public class SpikingNeuronsTest {
 
-  private static double MULTIPLIER = 1;
-
   public static void main(String[] args) {
-    SpikingNeuron spikingNeuron = new LIFNeuron(true);
-    if (spikingNeuron instanceof IzhikevicNeuron) {
-      MULTIPLIER = 100000;
-    }
-    ValueToSpikeTrainConverter valueToSpikeTrainConverter = new UniformValueToSpikeTrainConverter(600);
+    SpikingNeuron lifNeuron = new LIFNeuron( true);
+    SpikingNeuron izNeuron = new IzhikevicNeuron(true);
+    ValueToSpikeTrainConverter valueToSpikeTrainConverter = new UniformWithMemoryValueToSpikeTrainConverter(600d);
     SpikeTrainToValueConverter spikeTrainToValueConverter = new AverageFrequencySpikeTrainToValueConverter(550);
     double simulationFrequency = 60;
 
     double deltaT = 1 / simulationFrequency;
     double[] values = {0.2, 0.8, -2, -0.5, 1, 0.3, -2, -0.5, 1};
     for (int i = 0; i < values.length; i++) {
-      passValueToNeuron(spikingNeuron, valueToSpikeTrainConverter, spikeTrainToValueConverter, values[i], (i + 1) * deltaT, deltaT);
+      passValueToNeuron(lifNeuron, valueToSpikeTrainConverter, spikeTrainToValueConverter, values[i], (i + 1) * deltaT, deltaT);
+      //passValueToNeuron(izNeuron, valueToSpikeTrainConverter, spikeTrainToValueConverter, values[i], (i + 1) * deltaT, deltaT);
     }
 
-    MembraneEvolutionPlotter.plotMembranePotentialEvolution(spikingNeuron, 800, 600);
+    MembraneEvolutionPlotter.plotMembranePotentialEvolutionWithInputSpikes(lifNeuron, 800, 600);
+    //MembraneEvolutionPlotter.plotMembranePotentialEvolutionWithInputSpikes(izNeuron, 800, 600);
   }
 
   private static void passValueToNeuron(SpikingNeuron spikingNeuron,
@@ -41,9 +35,9 @@ public class SpikingNeuronsTest {
                                         double inputValue,
                                         double absoluteTime,
                                         double timeWindow) {
-    SortedSet<Double> inputSpikeTrain = valueToSpikeTrainConverter.convert(inputValue, timeWindow);
+    SortedSet<Double> inputSpikeTrain = valueToSpikeTrainConverter.convert(inputValue, timeWindow, absoluteTime);
     SortedMap<Double, Double> weightedInputSpikeTrain = new TreeMap<>();
-    inputSpikeTrain.forEach(t -> weightedInputSpikeTrain.put(t, MULTIPLIER));
+    inputSpikeTrain.forEach(t -> weightedInputSpikeTrain.put(t, 1d));
     SortedSet<Double> outputSpikeTrain = spikingNeuron.compute(weightedInputSpikeTrain, absoluteTime);
     double outputValue = spikeTrainToValueConverter.convert(outputSpikeTrain, timeWindow);
     System.out.printf("Input: %.3f\tOutput: %.3f\n", inputValue, outputValue);

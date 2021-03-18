@@ -119,8 +119,8 @@ public class LocomotionEvolution extends Worker {
     List<String> targetSensorConfigNames = l(a("sensorConfig", "spinedTouch-t-f-0.01"));
     List<String> transformationNames = l(a("transformation", "identity"));
     List<String> evolverNames = l(a("evolver", "ES-10-0.35"));
-    //List<String> mapperNames = l(a("mapper", "fixedCentralized<pMLP-2-2-tanh-4.5-0.0-abs_signal_mean"));
-    List<String> mapperNames = l(a("mapper", "fixedCentralized<MSN-2-2-lif-unif-1200-avg-1100"));
+    List<String> mapperNames = l(a("mapper", "fixedCentralized<MLP-2-2-tanh"));
+    //List<String> mapperNames = l(a("mapper", "fixedCentralized<MSN-2-2-lif-0-1.2-0.5-unif_mem-100-avg-95"));
     String bestFileName = a("bestFile", null);
     String allFileName = a("allFile", null);
     String validationFileName = a("validationFile", null);
@@ -364,7 +364,7 @@ public class LocomotionEvolution extends Worker {
     String msn = "MSN-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<spikeType>(lif|iz))" +
             "(-(?<lRestPot>-?\\d+(\\.\\d+)?)-(?<lThreshPot>-?\\d+(\\.\\d+)?)-(?<lambda>\\d+(\\.\\d+)?))?" +
             "(-(?<iRestPot>-?\\d+(\\.\\d+)?)-(?<iThreshPot>-?\\d+(\\.\\d+)?)-(?<a>-?\\d+(\\.\\d+)?)-(?<b>-?\\d+(\\.\\d+)?)-(?<c>-?\\d+(\\.\\d+)?)-(?<d>-?\\d+(\\.\\d+)?))?" +
-            "-(?<iConv>(unif|unif_mem))(-(?<mem>\\d))?-(?<iFreq>\\d+(\\.\\d+)?)-(?<oConv>(avg))-(?<oFreq>\\d+(\\.\\d+)?)";
+            "-(?<iConv>(unif|unif_mem))-(?<iFreq>\\d+(\\.\\d+)?)-(?<oConv>(avg))-(?<oFreq>\\d+(\\.\\d+)?)";
     String directNumGrid = "directNumGrid";
     String functionNumGrid = "functionNumGrid";
     String fgraph = "fGraph";
@@ -474,7 +474,7 @@ public class LocomotionEvolution extends Worker {
         }
       }
       if (params.containsKey("spikeType") && params.get("spikeType").equals("iz")) {
-        if (params.containsKey("iRestPot") && params.containsKey("iThreshPot") && params.containsKey("a")&& params.containsKey("b")&& params.containsKey("c")&& params.containsKey("d")) {
+        if (params.containsKey("iRestPot") && params.containsKey("iThreshPot") && params.containsKey("a") && params.containsKey("b") && params.containsKey("c") && params.containsKey("d")) {
           spikingFunction = new IzhikevicNeuron(
                   Double.parseDouble(params.get("iRestPot")),
                   Double.parseDouble(params.get("iThreshPot")),
@@ -497,17 +497,9 @@ public class LocomotionEvolution extends Worker {
             break;
           case "unif_mem":
             if (params.containsKey("iFreq")) {
-              if (params.containsKey("mem")) {
-                valueToSpikeTrainConverter = new UniformWithMemoryValueToSpikeTrainConverter(Double.parseDouble(params.get("iFreq")), Integer.parseInt(params.get("mem")));
-              } else {
-                valueToSpikeTrainConverter = new UniformWithMemoryValueToSpikeTrainConverter(Double.parseDouble(params.get("iFreq")));
-              }
+              valueToSpikeTrainConverter = new UniformWithMemoryValueToSpikeTrainConverter(Double.parseDouble(params.get("iFreq")));
             } else {
-              if (params.containsKey("mem")) {
-                valueToSpikeTrainConverter = new UniformWithMemoryValueToSpikeTrainConverter(Integer.parseInt(params.get("mem")));
-              } else {
-                valueToSpikeTrainConverter = new UniformWithMemoryValueToSpikeTrainConverter();
-              }
+              valueToSpikeTrainConverter = new UniformWithMemoryValueToSpikeTrainConverter();
             }
             break;
         }
