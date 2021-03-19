@@ -34,6 +34,7 @@ import it.units.erallab.hmsrobots.core.controllers.snn.IzhikevicNeuron;
 import it.units.erallab.hmsrobots.core.controllers.snn.LIFNeuron;
 import it.units.erallab.hmsrobots.core.controllers.snn.SpikingFunction;
 import it.units.erallab.hmsrobots.core.controllers.snn.converters.stv.AverageFrequencySpikeTrainToValueConverter;
+import it.units.erallab.hmsrobots.core.controllers.snn.converters.stv.MovingAverageSpikeTrainToValueConverter;
 import it.units.erallab.hmsrobots.core.controllers.snn.converters.stv.SpikeTrainToValueConverter;
 import it.units.erallab.hmsrobots.core.controllers.snn.converters.vts.UniformValueToSpikeTrainConverter;
 import it.units.erallab.hmsrobots.core.controllers.snn.converters.vts.UniformWithMemoryValueToSpikeTrainConverter;
@@ -119,8 +120,8 @@ public class LocomotionEvolution extends Worker {
     List<String> targetSensorConfigNames = l(a("sensorConfig", "spinedTouch-t-f-0.01"));
     List<String> transformationNames = l(a("transformation", "identity"));
     List<String> evolverNames = l(a("evolver", "ES-10-0.35"));
-    List<String> mapperNames = l(a("mapper", "fixedCentralized<MLP-2-2-tanh"));
-    //List<String> mapperNames = l(a("mapper", "fixedCentralized<MSN-2-2-lif-0-1.2-0.5-unif_mem-100-avg-95"));
+    //List<String> mapperNames = l(a("mapper", "fixedCentralized<MLP-2-2-tanh"));
+    List<String> mapperNames = l(a("mapper", "fixedCentralized<MSN-2-2-lif-0-1.2-0.1-unif-120-avg-60"));
     String bestFileName = a("bestFile", null);
     String allFileName = a("allFile", null);
     String validationFileName = a("validationFile", null);
@@ -364,7 +365,7 @@ public class LocomotionEvolution extends Worker {
     String msn = "MSN-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<spikeType>(lif|iz))" +
             "(-(?<lRestPot>-?\\d+(\\.\\d+)?)-(?<lThreshPot>-?\\d+(\\.\\d+)?)-(?<lambda>\\d+(\\.\\d+)?))?" +
             "(-(?<iRestPot>-?\\d+(\\.\\d+)?)-(?<iThreshPot>-?\\d+(\\.\\d+)?)-(?<a>-?\\d+(\\.\\d+)?)-(?<b>-?\\d+(\\.\\d+)?)-(?<c>-?\\d+(\\.\\d+)?)-(?<d>-?\\d+(\\.\\d+)?))?" +
-            "-(?<iConv>(unif|unif_mem))-(?<iFreq>\\d+(\\.\\d+)?)-(?<oConv>(avg))-(?<oFreq>\\d+(\\.\\d+)?)";
+            "-(?<iConv>(unif|unif_mem))-(?<iFreq>\\d+(\\.\\d+)?)-(?<oConv>(avg|avg_mem))(-(?<oMem>\\d+))?-(?<oFreq>\\d+(\\.\\d+)?)";
     String directNumGrid = "directNumGrid";
     String functionNumGrid = "functionNumGrid";
     String fgraph = "fGraph";
@@ -511,6 +512,22 @@ public class LocomotionEvolution extends Worker {
               spikeTrainToValueConverter = new AverageFrequencySpikeTrainToValueConverter(Double.parseDouble(params.get("oFreq")));
             } else {
               spikeTrainToValueConverter = new AverageFrequencySpikeTrainToValueConverter();
+            }
+            break;
+          case "avg_mem":
+            if (params.containsKey("oFreq")) {
+              if (params.containsKey("oMem")) {
+                spikeTrainToValueConverter = new MovingAverageSpikeTrainToValueConverter(Double.parseDouble(params.get("oFreq")),
+                        Integer.parseInt(params.get("oMem")));
+              } else {
+                spikeTrainToValueConverter = new MovingAverageSpikeTrainToValueConverter(Double.parseDouble(params.get("oFreq")));
+              }
+            } else {
+              if (params.containsKey("oMem")) {
+                spikeTrainToValueConverter = new MovingAverageSpikeTrainToValueConverter(Integer.parseInt(params.get("oMem")));
+              } else {
+                spikeTrainToValueConverter = new MovingAverageSpikeTrainToValueConverter();
+              }
             }
             break;
         }
