@@ -33,12 +33,10 @@ import it.units.erallab.hmsrobots.core.objects.Robot;
 import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
 import it.units.erallab.hmsrobots.tasks.locomotion.Outcome;
 import it.units.erallab.hmsrobots.util.RobotUtils;
-import it.units.erallab.hmsrobots.util.SerializationUtils;
 import it.units.malelab.jgea.Worker;
 import it.units.malelab.jgea.core.Individual;
 import it.units.malelab.jgea.core.evolver.Event;
 import it.units.malelab.jgea.core.evolver.Evolver;
-import it.units.malelab.jgea.core.evolver.stopcondition.Births;
 import it.units.malelab.jgea.core.evolver.stopcondition.FitnessEvaluations;
 import it.units.malelab.jgea.core.listener.*;
 import it.units.malelab.jgea.core.listener.telegram.TelegramUpdater;
@@ -111,12 +109,13 @@ public class LocomotionEvolution extends Worker {
     List<String> transformationNames = l(a("transformation", "identity"));
     List<String> evolverNames = l(a("evolver", "ES-10-0.35"));
     List<String> mapperNames = l(a("mapper", "fixedCentralized<pMLP-2-2-tanh-4.5-0.95-abs_signal_mean"));
+    String lastFileName = a("lastFile", null);
     String bestFileName = a("bestFile", null);
     String allFileName = a("allFile", null);
     String validationFileName = a("validationFile", null);
     String telegramBotId = a("telegramBotId", null);
     long telegramChatId = Long.parseLong(a("telegramChatId", "0"));
-    boolean serialization = a("serialization", "false").startsWith("t");
+    List<String> serializationFlags = l(a("serialization", "")); //last,best,all
     boolean output = a("output", "false").startsWith("t");
     List<String> validationTransformationNames = l(a("validationTransformation", "")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
     List<String> validationTerrainNames = l(a("validationTerrain", "flat,downhill-30")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
@@ -125,15 +124,13 @@ public class LocomotionEvolution extends Worker {
     List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> keysFunctions = Utils.keysFunctions();
     List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> basicFunctions = Utils.basicFunctions();
     List<NamedFunction<Individual<?, ? extends Robot<?>, ? extends Outcome>, ?>> basicIndividualFunctions = Utils.individualFunctions(fitnessFunction);
-    List<NamedFunction<Individual<?, ? extends Robot<?>, ? extends Outcome>, ?>> detailedIndividualFunctions = serialization ? List.of(
-        f("serialized", r -> SerializationUtils.serialize(r, SerializationUtils.Mode.GZIPPED_JSON)).of(solution())
-    ) : List.of();
     List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> populationFunctions = Utils.populationFunctions(fitnessFunction);
     List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> visualFunctions = Utils.visualFunctions(fitnessFunction);
     List<NamedFunction<Outcome, ?>> basicOutcomeFunctions = Utils.basicOutcomeFunctions();
     List<NamedFunction<Outcome, ?>> detailedOutcomeFunctions = Utils.detailedOutcomeFunctions(spectrumMinFreq, spectrumMaxFreq, spectrumSize);
     List<NamedFunction<Outcome, ?>> visualOutcomeFunctions = Utils.visualOutcomeFunctions(spectrumMinFreq, spectrumMaxFreq);
     Listener.Factory<Event<?, ? extends Robot<?>, ? extends Outcome>> factory = Listener.Factory.deaf();
+    //screen listener
     if (bestFileName == null || output) {
       factory = factory.and(new TabularPrinter<>(Misc.concat(List.of(
           basicFunctions,
@@ -144,18 +141,48 @@ public class LocomotionEvolution extends Worker {
           NamedFunction.then(as(Outcome.class).of(fitness()).of(best()), visualOutcomeFunctions)
       ))));
     }
+    //file listeners
+    if (lastFileName != null) {
+      factory = factory.and(new CSVPrinter<>(Misc.concat(List.of(
+          keysFunctions,
+          basicFunctions,
+          populationFunctions,
+          NamedFunction.then(best(), basicIndividualFunctions),
+          NamedFunction.then(as(Outcome.class).of(fitness()).of(best()), basicOutcomeFunctions),
+          NamedFunction.then(as(Outcome.class).of(fitness()).of(best()), detailedOutcomeFunctions),
+          NamedFunction.then(best(), Utils.serializationFunction(serializationFlags.contains("last")))
+      )), new File(lastFileName)
+      ).onLast());
+    }
     if (bestFileName != null) {
       factory = factory.and(new CSVPrinter<>(Misc.concat(List.of(
           keysFunctions,
           basicFunctions,
           populationFunctions,
           NamedFunction.then(best(), basicIndividualFunctions),
-          NamedFunction.then(best(), detailedIndividualFunctions),
           NamedFunction.then(as(Outcome.class).of(fitness()).of(best()), basicOutcomeFunctions),
-          NamedFunction.then(as(Outcome.class).of(fitness()).of(best()), detailedOutcomeFunctions)
+          NamedFunction.then(as(Outcome.class).of(fitness()).of(best()), detailedOutcomeFunctions),
+          NamedFunction.then(best(), Utils.serializationFunction(serializationFlags.contains("best")))
       )), new File(bestFileName)
       ));
     }
+    if (allFileName != null) {
+      factory = factory.and(Listener.Factory.forEach(
+          event -> event.getOrderedPopulation().all().stream()
+              .map(i -> Pair.of(event, i))
+              .collect(Collectors.toList()),
+          new CSVPrinter<>(
+              Misc.concat(List.of(
+                  NamedFunction.then(f("event", Pair::first), keysFunctions),
+                  NamedFunction.then(f("event", Pair::first), basicFunctions),
+                  NamedFunction.then(f("individual", Pair::second), basicIndividualFunctions),
+                  NamedFunction.then(f("individual", Pair::second), Utils.serializationFunction(serializationFlags.contains("all")))
+              )),
+              new File(allFileName)
+          )
+      ));
+    }
+    //validation listener
     if (validationFileName != null) {
       if (!validationTerrainNames.isEmpty() && validationTransformationNames.isEmpty()) {
         validationTransformationNames.add("identity");
@@ -187,22 +214,6 @@ public class LocomotionEvolution extends Worker {
           )
       ).onLast();
       factory = factory.and(validationFactory);
-    }
-    if (allFileName != null) {
-      factory = factory.and(Listener.Factory.forEach(
-          event -> event.getOrderedPopulation().all().stream()
-              .map(i -> Pair.of(event, i))
-              .collect(Collectors.toList()),
-          new CSVPrinter<>(
-              Misc.concat(List.of(
-                  NamedFunction.then(f("event", Pair::first), keysFunctions),
-                  NamedFunction.then(f("event", Pair::first), basicFunctions),
-                  NamedFunction.then(f("individual", Pair::second), basicIndividualFunctions),
-                  NamedFunction.then(f("individual", Pair::second), detailedIndividualFunctions)
-              )),
-              new File(allFileName)
-          )
-      ));
     }
     if (telegramBotId != null && telegramChatId != 0) {
       factory = factory.and(new TelegramUpdater<>(List.of(

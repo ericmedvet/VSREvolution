@@ -76,6 +76,13 @@ public class Utils {
     );
   }
 
+  public static List<NamedFunction<Individual<?, ? extends Robot<?>, ? extends Outcome>, ?>> serializationFunction(boolean flag) {
+    if (!flag) {
+      return List.of();
+    }
+    return List.of(f("serialized", r -> SerializationUtils.serialize(r, SerializationUtils.Mode.GZIPPED_JSON)).of(solution()));
+  }
+
   @SuppressWarnings("unchecked")
   public static List<NamedFunction<Individual<?, ? extends Robot<?>, ? extends Outcome>, ?>> individualFunctions(Function<Outcome, Double> fitnessFunction) {
     NamedFunction<Individual<?, ? extends Robot<?>, ? extends Outcome>, ?> size = size().of(genotype());
@@ -181,14 +188,15 @@ public class Utils {
   }
 
   public static Accumulator.Factory<Event<?, ? extends Robot<?>, ? extends Outcome>, String> lastEventToString(Function<Outcome, Double> fitnessFunction) {
+    final List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> functions = Misc.concat(List.of(
+        keysFunctions(),
+        basicFunctions(),
+        populationFunctions(fitnessFunction),
+        NamedFunction.then(best(), individualFunctions(fitnessFunction)),
+        NamedFunction.then(as(Outcome.class).of(fitness()).of(best()), basicOutcomeFunctions())
+    ));
     return Accumulator.Factory.<Event<?, ? extends Robot<?>, ? extends Outcome>>last().then(
-        e -> Misc.concat(List.of(
-            keysFunctions(),
-            basicFunctions(),
-            populationFunctions(fitnessFunction),
-            NamedFunction.then(best(), individualFunctions(fitnessFunction)),
-            NamedFunction.<Event<?, ? extends Robot<?>, ? extends Outcome>, Outcome, Object>then(as(Outcome.class).of(fitness()).of(best()), basicOutcomeFunctions())
-        )).stream()
+        e -> functions.stream()
             .map(f -> f.getName() + ": " + f.applyAndFormat(e))
             .collect(Collectors.joining("\n"))
     );
