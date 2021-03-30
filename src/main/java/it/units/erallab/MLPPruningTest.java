@@ -26,7 +26,7 @@ import java.util.stream.IntStream;
 public class MLPPruningTest {
 
   public static void main(String[] args) throws IOException {
-    errPlots("/home/eric/experiments/2021-gecco-nat-vsr-pruning");
+    nnIOPlots("/home/eric/experiments/2021-gecco-nat-vsr-pruning");
   }
 
   public static void errPlots(String dir) throws IOException {
@@ -100,12 +100,13 @@ public class MLPPruningTest {
   }
 
   public static void nnIOPlots(String dir) throws IOException {
-    int nOfInput = 10;
-    double dT = 1d / 60d;
+    int nOfInput = 100;
+    int nOfLayer = 2;
+    double dT = 1d / 10d;
     double totalT = 20d;
     double pruningT = 5d;
-    int[] innerLayers = new int[]{nOfInput};
-    double[] rates = new double[]{0.05, 0.10, 0.15, 0.25, 0.33, 0.5, 0.75};
+    int[] innerLayers = IntStream.range(0, nOfLayer).map(l -> nOfInput).toArray();
+    double[] rates = {0.25, 0.5, 0.75};
     for (PruningMultiLayerPerceptron.Context context : PruningMultiLayerPerceptron.Context.values()) {
       for (PruningMultiLayerPerceptron.Criterion criterion : PruningMultiLayerPerceptron.Criterion.values()) {
         MultiLayerPerceptron nn = new MultiLayerPerceptron(MultiLayerPerceptron.ActivationFunction.TANH, nOfInput, innerLayers, 1);
@@ -135,13 +136,22 @@ public class MLPPruningTest {
           pnns.forEach(pnn -> values.add(pnn.apply(finalT, inputs)[0]));
           table.addRow(values);
         }
+        toCSV(table, new File(String.format(
+            dir + File.separator + "pnns-%s-%s-i%d_l%d.txt",
+            criterion.toString().toLowerCase(),
+            context.toString().toLowerCase(),
+            nOfInput,
+            nOfLayer
+        )));
         ImageIO.write(
             ImagePlotters.xyLines(800, 600).apply(table),
             "png",
             new File(String.format(
-                dir + File.separator + "pnns-%s-%s.png",
+                dir + File.separator + "pnns-%s-%s-i%d_l%d.png",
                 criterion.toString().toLowerCase(),
-                context.toString().toLowerCase()
+                context.toString().toLowerCase(),
+                nOfInput,
+                nOfLayer
             )));
       }
     }
