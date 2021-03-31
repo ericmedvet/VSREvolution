@@ -113,6 +113,7 @@ public class LocomotionEvolution extends Worker {
     String bestFileName = a("bestFile", null);
     String allFileName = a("allFile", null);
     String validationFileName = a("validationFile", null);
+    boolean deferred = a("deferred", "true").startsWith("t");
     String telegramBotId = a("telegramBotId", null);
     long telegramChatId = Long.parseLong(a("telegramChatId", "0"));
     List<String> serializationFlags = l(a("serialization", "")); //last,best,all
@@ -275,7 +276,10 @@ public class LocomotionEvolution extends Worker {
                   Listener<Event<?, ? extends Robot<?>, ? extends Outcome>> listener = Listener.all(List.of(
                       new EventAugmenter(keys),
                       factory.build()
-                  )).deferred(executorService);
+                  ));
+                  if (deferred) {
+                    listener = listener.deferred(executorService);
+                  }
                   //optimize
                   Stopwatch stopwatch = Stopwatch.createStarted();
                   L.info(String.format("Progress %s (%d/%d); Starting %s",
@@ -361,7 +365,7 @@ public class LocomotionEvolution extends Worker {
     String sensorAndBodyAndHomoDistributed = "sensorAndBodyAndHomoDist-(?<fullness>\\d+(\\.\\d+)?)-(?<nSignals>\\d+)-(?<nLayers>\\d+)-(?<position>(t|f))";
     String sensorCentralized = "sensorCentralized-(?<nLayers>\\d+)";
     String mlp = "MLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)(-(?<actFun>(sin|tanh|sigmoid|relu)))?";
-    String pruningMlp = "pMLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<actFun>(sin|tanh|sigmoid|relu))-(?<pruningTime>\\d+(\\.\\d+)?)-(?<pruningRate>0(\\.\\d+)?)-(?<criterion>(weight|abs_signal_mean))";
+    String pruningMlp = "pMLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<actFun>(sin|tanh|sigmoid|relu))-(?<pruningTime>\\d+(\\.\\d+)?)-(?<pruningRate>0(\\.\\d+)?)-(?<criterion>(weight|abs_signal_mean|random))";
     String directNumGrid = "directNumGrid";
     String functionNumGrid = "functionNumGrid";
     String fgraph = "fGraph";
