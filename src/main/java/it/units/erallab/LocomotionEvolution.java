@@ -117,11 +117,11 @@ public class LocomotionEvolution extends Worker {
     String experimentName = a("expName", "short");
     List<String> terrainNames = l(a("terrain", "flat"));//"hilly-1-10-rnd"));
     List<String> targetShapeNames = l(a("shape", "biped-4x3"));
-    List<String> targetSensorConfigNames = l(a("sensorConfig", "spinedTouch-t-f-0.01"));
+    List<String> targetSensorConfigNames = l(a("sensorConfig", "spinedTouchSighted-f-f-0.01"));
     List<String> transformationNames = l(a("transformation", "identity"));
     List<String> evolverNames = l(a("evolver", "ES-10-0.35"));
     //List<String> mapperNames = l(a("mapper", "fixedCentralized<MLP-2-2-tanh"));
-    List<String> mapperNames = l(a("mapper", "fixedCentralized<MSN-2-2-lif-0-1.2-0.1-unif-120-avg-60"));
+    List<String> mapperNames = l(a("mapper", "fixedCentralized<MSN-2-0-lif-unif_mem-50-avg_mem-50"));
     String bestFileName = a("bestFile", null);
     String allFileName = a("allFile", null);
     String validationFileName = a("validationFile", null);
@@ -361,7 +361,7 @@ public class LocomotionEvolution extends Worker {
     String sensorAndBodyAndHomoDistributed = "sensorAndBodyAndHomoDist-(?<fullness>\\d+(\\.\\d+)?)-(?<nSignals>\\d+)-(?<nLayers>\\d+)-(?<position>(t|f))";
     String sensorCentralized = "sensorCentralized-(?<nLayers>\\d+)";
     String mlp = "MLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)(-(?<actFun>(sin|tanh|sigmoid|relu)))?";
-    String pruningMlp = "pMLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<actFun>(sin|tanh|sigmoid|relu))-(?<pruningTime>\\d+(\\.\\d+)?)-(?<pruningRate>0(\\.\\d+)?)-(?<criterion>(weight|abs_signal_mean))";
+    String pruningMlp = "pMLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<actFun>(sin|tanh|sigmoid|relu))-(?<pruningTime>\\d+(\\.\\d+)?)-(?<pruningRate>0(\\.\\d+)?)-(?<criterion>(weight|abs_signal_mean|random))";
     String msn = "MSN-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<spikeType>(lif|iz))" +
             "(-(?<lRestPot>-?\\d+(\\.\\d+)?)-(?<lThreshPot>-?\\d+(\\.\\d+)?)-(?<lambda>\\d+(\\.\\d+)?))?" +
             "(-(?<iRestPot>-?\\d+(\\.\\d+)?)-(?<iThreshPot>-?\\d+(\\.\\d+)?)-(?<a>-?\\d+(\\.\\d+)?)-(?<b>-?\\d+(\\.\\d+)?)-(?<c>-?\\d+(\\.\\d+)?)-(?<d>-?\\d+(\\.\\d+)?))?" +

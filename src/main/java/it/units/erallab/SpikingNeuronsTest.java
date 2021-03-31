@@ -26,26 +26,38 @@ public class SpikingNeuronsTest {
   private static final double STV_FREQ = 50;
   private static final String[] NEURON_MODELS = {"LIF", "IZ"};
   private static final String[] VTS = {"UNIF", "UNIF_MEM"};
-
-  public static void testConverters() {
-    ValueToSpikeTrainConverter valueToSpikeTrainConverter = new UniformValueToSpikeTrainConverter(120);
-    SpikeTrainToValueConverter spikeTrainToValueConverter = new AverageFrequencySpikeTrainToValueConverter(120);
-    SortedSet<Double> converted = valueToSpikeTrainConverter.convert(1, 1 / (double) 60, 1);
-    System.out.println(converted);
-    double reconverted = spikeTrainToValueConverter.convert(converted, 1 / (double) 60);
-    System.out.println(reconverted);
-  }
+  private static final int[] MEMORY_SIZES = IntStream.iterate(10, x -> x+10).limit(4).toArray();
 
   public static void main(String[] args) throws IOException {
 
-    //test("IZ", "UNIF", generateSinusoidalInputSignal(), "CONSTANT", null,true);
+    SpikingNeuron spikingNeuron = new LIFNeuron( true);
+
+    ValueToSpikeTrainConverter vts = new UniformWithMemoryValueToSpikeTrainConverter(50);
+    SpikeTrainToValueConverter stv = new MovingAverageSpikeTrainToValueConverter(50);
+    double[] values = new double[20];
+    for(int i=0;i<values.length;i++){
+      values[i]=0.5;
+    }
+    double deltaT = 1/FREQUENCY;
+    double t = deltaT;
+    for(int i=0; i<values.length; i++){
+      SortedSet<Double> s = vts.convert(values[i], deltaT, t);
+      System.out.print(s.toString());
+      System.out.print(" ");
+      SortedMap<Double,Double> sm = new TreeMap();
+      s.forEach(x -> sm.put(x,1d));
+      double outputValue = stv.convert(spikingNeuron.compute(sm, t), deltaT);
+      System.out.printf("%.2f\t%.2f\n",values[i],outputValue);
+      t+=deltaT;
+    }
+    MembraneEvolutionPlotter.plotMembranePotentialEvolutionWithInputSpikes(spikingNeuron, 800, 600);
 
     String outputTestFileName = "C:\\Users\\giorg\\Documents\\UNITS\\LAUREA MAGISTRALE\\TESI\\OSLOMET\\spikingNeuronsTest.txt";
     //printTest(outputTestFileName);
 
 
-    String outputMemFileName = "C:\\Users\\giorg\\Documents\\UNITS\\LAUREA MAGISTRALE\\TESI\\OSLOMET\\memoryConvertersTest.txt";
-    printTestMemoryConverters(outputMemFileName);
+    //String outputMemFileName = "C:\\Users\\giorg\\Documents\\UNITS\\LAUREA MAGISTRALE\\TESI\\OSLOMET\\memoryConvertersTest.txt";
+    //printTestMemoryConverters(outputMemFileName);
   }
 
   public static void printTest(String outputFileName) throws IOException {
@@ -116,17 +128,16 @@ public class SpikingNeuronsTest {
       spikingNeuron = new IzhikevicNeuron(true);
     }
     ValueToSpikeTrainConverter valueToSpikeTrainConverter = new UniformWithMemoryValueToSpikeTrainConverter(VTS_FREQ);
-    int[] memorySizes = IntStream.iterate(10, x -> x+10).limit(1).toArray();
-    SpikeTrainToValueConverter[] spikeTrainToValueConverter = new SpikeTrainToValueConverter[memorySizes.length];
-    SortedMap<Double, Double>[] outputSignals = new SortedMap[memorySizes.length];
-    for(int i=0; i< memorySizes.length; i++){
-      spikeTrainToValueConverter[i] = new MovingAverageSpikeTrainToValueConverter(STV_FREQ, memorySizes[i]);
+    SpikeTrainToValueConverter[] spikeTrainToValueConverter = new SpikeTrainToValueConverter[MEMORY_SIZES.length];
+    SortedMap<Double, Double>[] outputSignals = new SortedMap[MEMORY_SIZES.length];
+    for(int i = 0; i< MEMORY_SIZES.length; i++){
+      spikeTrainToValueConverter[i] = new MovingAverageSpikeTrainToValueConverter(STV_FREQ, MEMORY_SIZES[i]);
       outputSignals[i] = new TreeMap<>();
     }
     double deltaT = 1 / FREQUENCY;
     inputSignal.forEach((t, v) -> {
       SortedSet<Double> outputSpikes = passValueToNeuron(spikingNeuron, valueToSpikeTrainConverter, v, t, deltaT);
-      for (int i = 0; i < memorySizes.length; i++) {
+      for (int i = 0; i < MEMORY_SIZES.length; i++) {
         outputSignals[i].put(t, spikeTrainToValueConverter[i].convert(outputSpikes, deltaT));
       }
     });
@@ -143,7 +154,7 @@ public class SpikingNeuronsTest {
       }
     });
     for (int i = 0; i < outputSignals.length; i++) {
-      final int memSize = memorySizes[i];
+      final int memSize = MEMORY_SIZES[i];
       outputSignals[i].forEach((x, y) -> {
         List<String> thisRecord = new ArrayList<>(record);
         thisRecord.add("OUTPUT_" + memSize);
@@ -162,17 +173,19 @@ public class SpikingNeuronsTest {
   public static void test(String neuronModel, String vts, SortedMap<Double, Double> inputSignal, String signalName, CSVPrinter printer, boolean plot) {
     SpikingNeuron spikingNeuron;
     if (neuronModel.equals("LIF")) {
-      spikingNeuron = new LIFNeuron(0, 1.2, 0.1, true);
+      spikingNeuron = new LIFNeuron(0, 1.0, 0.01, true);
     } else {
       spikingNeuron = new IzhikevicNeuron(true);
     }
     ValueToSpikeTrainConverter valueToSpikeTrainConverter;
+    SpikeTrainToValueConverter spikeTrainToValueConverter;
     if (vts.equals("UNIF")) {
       valueToSpikeTrainConverter = new UniformValueToSpikeTrainConverter(VTS_FREQ);
+      spikeTrainToValueConverter = new AverageFrequencySpikeTrainToValueConverter(STV_FREQ);
     } else {
       valueToSpikeTrainConverter = new UniformWithMemoryValueToSpikeTrainConverter(VTS_FREQ);
+      spikeTrainToValueConverter =  new MovingAverageSpikeTrainToValueConverter(STV_FREQ);
     }
-    SpikeTrainToValueConverter spikeTrainToValueConverter = new MovingAverageSpikeTrainToValueConverter(STV_FREQ);
     double deltaT = 1 / FREQUENCY;
     SortedMap<Double, Double> outputSignal = new TreeMap<>();
     inputSignal.forEach((t, v) -> {

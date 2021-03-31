@@ -1,5 +1,6 @@
 package it.units.erallab.utils;
 
+import it.units.erallab.hmsrobots.core.controllers.snn.IzhikevicNeuron;
 import it.units.erallab.hmsrobots.core.controllers.snn.SpikingNeuron;
 import org.knowm.xchart.SwingWrapper;
 import org.knowm.xchart.XYChart;
@@ -20,6 +21,10 @@ public class MembraneEvolutionPlotter {
     new SwingWrapper<>(getMembranePotentialEvolutionWithInputSpikesChart(spikingNeuron, width, height)).displayChart();
   }
 
+  public static void plotMembranePotentialAndRecoveryEvolutionWithInputSpikes(IzhikevicNeuron izhikevicNeuron, int width, int height) {
+    new SwingWrapper<>(getMembraneAndRecoveryPotentialEvolutionWithInputSpikesChart(izhikevicNeuron, width, height)).displayChart();
+  }
+
   public static XYChart getMembranePotentialEvolutionChart(SpikingNeuron spikingNeuron, int width, int height) {
     XYChart chart = new XYChart(width, height);
     chart.getStyler().setXAxisMin(0.0).setXAxisMax(spikingNeuron.getLastEvaluatedTime()).setLegendPosition(Styler.LegendPosition.InsideNW);
@@ -37,6 +42,15 @@ public class MembraneEvolutionPlotter {
     if (!spikingNeuron.getInputSpikesValues().isEmpty()) {
       XYSeries inputSpikesSeries = chart.addSeries("input", new ArrayList<>(spikingNeuron.getInputSpikesValues().keySet()), new ArrayList<>(spikingNeuron.getInputSpikesValues().values()));
       inputSpikesSeries.setXYSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Scatter).setMarker(SeriesMarkers.DIAMOND);
+    }
+    return chart;
+  }
+
+  public static XYChart getMembraneAndRecoveryPotentialEvolutionWithInputSpikesChart(IzhikevicNeuron izhikevicNeuron, int width, int height){
+    XYChart chart = getMembranePotentialEvolutionWithInputSpikesChart(izhikevicNeuron, width, height);
+    if (!izhikevicNeuron.getMembraneRecoveryValues().isEmpty()) {
+      XYSeries membraneRecoverySeries = chart.addSeries("membrane recovery", new ArrayList<>(izhikevicNeuron.getMembraneRecoveryValues().keySet()), new ArrayList<>(izhikevicNeuron.getMembraneRecoveryValues().values()));
+      membraneRecoverySeries.setXYSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Line).setMarker(SeriesMarkers.NONE);
     }
     return chart;
   }
