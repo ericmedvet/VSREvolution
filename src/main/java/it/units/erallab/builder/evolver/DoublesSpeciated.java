@@ -94,7 +94,7 @@ public class DoublesSpeciated implements EvolverBuilder<List<Double>> {
         nPop,
         Map.of(
             new GaussianMutation(.35d), 1d - xOverProb,
-            new GeometricCrossover(Range.closed(-.5d, 1.5d)), xOverProb
+            new GeometricCrossover(Range.closed(-.5d, 1.5d)).andThen(new GaussianMutation(.1d)), xOverProb
         ),
         nPop / nSpecies,
         new KMeansSpeciator<>(

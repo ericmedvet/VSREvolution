@@ -6,6 +6,7 @@ import it.units.malelab.jgea.core.Individual;
 import it.units.malelab.jgea.core.evolver.Evolver;
 import it.units.malelab.jgea.core.evolver.StandardEvolver;
 import it.units.malelab.jgea.core.evolver.StandardWithEnforcedDiversityEvolver;
+import it.units.malelab.jgea.core.operator.GeneticOperator;
 import it.units.malelab.jgea.core.order.PartialComparator;
 import it.units.malelab.jgea.core.selector.Tournament;
 import it.units.malelab.jgea.core.selector.Worst;
@@ -45,7 +46,7 @@ public class DoublesStandard implements EvolverBuilder<List<Double>> {
           nPop,
           Map.of(
               new GaussianMutation(.35d), 1d - xOverProb,
-              new GeometricCrossover(Range.closed(-.5d, 1.5d)), xOverProb
+              new GeometricCrossover(Range.closed(-.5d, 1.5d)).andThen(new GaussianMutation(.1d)), xOverProb
           ),
           new Tournament(nTournament),
           new Worst(),
@@ -61,7 +62,7 @@ public class DoublesStandard implements EvolverBuilder<List<Double>> {
         nPop,
         Map.of(
             new GaussianMutation(1d), 1d - xOverProb,
-            new GeometricCrossover(Range.closed(-.5d, 1.5d)), xOverProb
+            new GeometricCrossover(Range.closed(-.5d, 1.5d)).andThen(new GaussianMutation(.1d)), xOverProb
         ),
         new Tournament(nTournament),
         new Worst(),
