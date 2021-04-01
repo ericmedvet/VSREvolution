@@ -26,16 +26,17 @@ import java.util.stream.IntStream;
 public class MLPPruningTest {
 
   public static void main(String[] args) throws IOException {
-    nnIOPlots("/home/eric/experiments/2021-gecco-nat-vsr-pruning");
+    //nnIOPlots("/home/eric/experiments/2021-gecco-nat-vsr-pruning");
+    errPlots("/home/eric/experiments/2021-gecco-nat-vsr-pruning");
   }
 
   public static void errPlots(String dir) throws IOException {
-    int[] nOfInputs = {10, 25, 50, 100};
+    int[] nOfInputs = {10, 25, 50};
     int[] nOfLayers = {0, 1, 2};
     int[] seeds = IntStream.range(0, 10).toArray();
     double dT = 1d / 10d;
     double totalT = 10d;
-    double[] rates = IntStream.range(0, 20).mapToDouble(i -> (double) i * 0.025d).toArray();
+    double[] rates = IntStream.range(20, 31).mapToDouble(i -> (double) i * 0.025d).toArray();
     List<String> localNames = new ArrayList<>();
     localNames.add("rate");
     for (PruningMultiLayerPerceptron.Context context : PruningMultiLayerPerceptron.Context.values()) {
