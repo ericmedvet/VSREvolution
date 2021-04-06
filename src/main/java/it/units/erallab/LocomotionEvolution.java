@@ -120,8 +120,8 @@ public class LocomotionEvolution extends Worker {
     List<String> targetSensorConfigNames = l(a("sensorConfig", "spinedTouchSighted-f-f-0.01"));
     List<String> transformationNames = l(a("transformation", "identity"));
     List<String> evolverNames = l(a("evolver", "ES-10-0.35"));
-    //List<String> mapperNames = l(a("mapper", "fixedCentralized<MLP-2-2-tanh"));
-    List<String> mapperNames = l(a("mapper", "fixedCentralized<MSN-2-0-lif-unif_mem-50-avg_mem-50"));
+    //List<String> mapperNames = l(a("mapper", "fixedCentralized<MLP-0-0-tanh"));
+    List<String> mapperNames = l(a("mapper", "fixedCentralized<MSN-1-1-lif-0-1.2-0.01-unif_mem-50-avg_mem-5-50"));
     String bestFileName = a("bestFile", null);
     String allFileName = a("allFile", null);
     String validationFileName = a("validationFile", null);
@@ -352,6 +352,7 @@ public class LocomotionEvolution extends Worker {
   @SuppressWarnings({"unchecked", "rawtypes"})
   private static PrototypedFunctionBuilder<?, ?> getMapperBuilderFromName(String name) {
     String fixedCentralized = "fixedCentralized";
+    String fixedCentralizedDoubleOutput = "fixedCentralizedDoubleOutput";
     String fixedHomoDistributed = "fixedHomoDist-(?<nSignals>\\d+)";
     String fixedHeteroDistributed = "fixedHeteroDist-(?<nSignals>\\d+)";
     String fixedPhasesFunction = "fixedPhasesFunct-(?<f>\\d+)";
@@ -374,6 +375,9 @@ public class LocomotionEvolution extends Worker {
     //robot mappers
     if ((params = params(fixedCentralized, name)) != null) {
       return new FixedCentralized();
+    }
+    if ((params = params(fixedCentralizedDoubleOutput, name)) != null) {
+      return new FixedCentralizedDoubleOutput();
     }
     if ((params = params(fixedHomoDistributed, name)) != null) {
       return new FixedHomoDistributed(

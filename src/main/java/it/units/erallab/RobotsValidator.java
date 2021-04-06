@@ -72,27 +72,31 @@ public class RobotsValidator extends Worker {
     logger = Logger.getAnonymousLogger();
     System.setProperty("java.util.logging.SimpleFormatter.format", "[%1$tF %1$tT] [%4$-6s] %5$s %n");
     // params
-    String[] newMappers = {"pMLP-tanh-1200-0.125-abs_signal_mean",
-        "pMLP-tanh-1200-0.125-weight",
-        "pMLP-tanh-1200-0.125-random",
-        "pMLP-tanh-1200-0.25-abs_signal_mean",
-        "pMLP-tanh-1200-0.25-weight",
-        "pMLP-tanh-1200-0.25-random",
-        "pMLP-tanh-1200-0.5-abs_signal_mean",
-        "pMLP-tanh-1200-0.5-weight",
-        "pMLP-tanh-1200-0.5-random",
-        "pMLP-tanh-1200-0.75-abs_signal_mean",
-        "pMLP-tanh-1200-0.75-weight",
-        "pMLP-tanh-1200-0.75-random"
+    String[] newMappers = {"pMLP-tanh-20-0.125-abs_signal_mean",
+            "pMLP-tanh-20-0.125-weight",
+            "pMLP-tanh-20-0.125-random",
+            "pMLP-tanh-20-0.25-abs_signal_mean",
+            "pMLP-tanh-20-0.25-weight",
+            "pMLP-tanh-20-0.25-random",
+            "pMLP-tanh-20-0.5-abs_signal_mean",
+            "pMLP-tanh-20-0.5-weight",
+            "pMLP-tanh-20-0.5-random",
+            "pMLP-tanh-20-0.75-abs_signal_mean",
+            "pMLP-tanh-20-0.75-weight",
+            "pMLP-tanh-20-0.75-random"
     };
-    String unprunedMapperEnding = "-2-tanh-1200-0.0-weight";
-    String inputFileName = "final.txt";
+    String unprunedMapperEnding = "-tanh-20-0.0-weight";
+    String inputFileName = "last.txt";
     String serializedRobotColumnName = "best→solution→serialized";
     String mapperColumnName = "mapper";
     String outputFileName = "validation-unpruned-to-pruned.txt";
     double endTime = 60;
     double transientTime = 20;
-    List<String> terrainNames = List.of("flat", "hilly-1-10-0", "hilly-1-10-1", "hilly-1-10-2", "hilly-1-10-3", "hilly-1-10-4", "hilly-1-10-5", "steppy-1-10-0", "steppy-1-10-1", "steppy-1-10-2", "steppy-1-10-3", "steppy-1-10-4", "steppy-1-10-5", "downhill-10", "downhill-20", "uphill-10", "uphill-20");
+    List<String> terrainNames = List.of("flat",
+            "hilly-1-10-0", "hilly-1-10-1", "hilly-1-10-2", "hilly-1-10-3", "hilly-1-10-4", "hilly-1-10-5",
+            "steppy-1-10-0", "steppy-1-10-1", "steppy-1-10-2", "steppy-1-10-3", "steppy-1-10-4", "steppy-1-10-5",
+            "downhill-10", "downhill-20",
+            "uphill-10", "uphill-20");
     SerializationUtils.Mode mode = SerializationUtils.Mode.GZIPPED_JSON;
     // create printer
     try {
@@ -117,34 +121,39 @@ public class RobotsValidator extends Worker {
       e.printStackTrace();
     }
 
+    int totalRobots = 0;
+    for (CSVRecord record : records) {
+      if (record.get(mapperColumnName).endsWith(unprunedMapperEnding)) {
+        totalRobots++;
+      }
+    }
+
     int validationsCounter = 0;
-    logger.info(String.format("%3d/%3d", validationsCounter, records.size()));
     List<List<Object>> rows = new ArrayList<>();
     for (CSVRecord record : records) {
       if (!record.get(mapperColumnName).endsWith(unprunedMapperEnding)) {
-        logger.info(String.format("%3d/%3d -> skipped", ++validationsCounter, records.size()));
         continue;
       }
       // read robot and record
       Robot<?> oldRobot = SerializationUtils.deserialize(record.get(serializedRobotColumnIndex), Robot.class, mode);
       List<String> oldRecord = IntStream.range(0, record.size()).filter(index -> index != serializedRobotColumnIndex).mapToObj(
-          record::get).collect(Collectors.toList());
+              record::get).collect(Collectors.toList());
       for (String newMapper : newMappers) {
         Robot<?> robot = changeRobot(oldRobot, newMapper);
         // validate robot on all terrains
         rows.addAll(terrainNames.stream().parallel()
-            .map(terrainName -> {
-              List<Object> cells = new ArrayList<>(oldRecord);
-              cells.add(terrainName);
-              cells.add(newMapper);
-              Locomotion locomotion = new Locomotion(endTime, Locomotion.createTerrain(terrainName), new Settings());
-              Outcome outcome = locomotion.apply(SerializationUtils.clone(robot));
-              cells.addAll(basicOutcomeFunctions.stream().map(f -> f.apply(outcome.subOutcome(transientTime, endTime))).collect(Collectors.toList()));
-              return cells;
-            })
-            .collect(Collectors.toList()));
+                .map(terrainName -> {
+                  List<Object> cells = new ArrayList<>(oldRecord);
+                  cells.add(terrainName);
+                  cells.add(newMapper);
+                  Locomotion locomotion = new Locomotion(endTime, Locomotion.createTerrain(terrainName), new Settings());
+                  Outcome outcome = locomotion.apply(SerializationUtils.clone(robot));
+                  cells.addAll(basicOutcomeFunctions.stream().map(f -> f.apply(outcome.subOutcome(transientTime, endTime))).collect(Collectors.toList()));
+                  return cells;
+                })
+                .collect(Collectors.toList()));
       }
-      logger.info(String.format("%3d/%3d", validationsCounter++, records.size()));
+      logger.info(String.format("%2d/%2d", ++validationsCounter, totalRobots));
     }
     rows.forEach(row -> {
       try {
@@ -175,18 +184,18 @@ public class RobotsValidator extends Worker {
     double[][][] weights = multiLayerPerceptron.getWeights();
     int[] neurons = multiLayerPerceptron.getNeurons();
     return new Robot<>(
-        new CentralizedSensing(
-            (Grid<SensingVoxel>) robot.getVoxels(),
-            new PruningMultiLayerPerceptron(
-                MultiLayerPerceptron.ActivationFunction.valueOf(params.get("actFun").toUpperCase()),
-                weights,
-                neurons,
-                Long.parseLong(params.get("nOfCalls")),
-                PruningMultiLayerPerceptron.Context.NETWORK,
-                PruningMultiLayerPerceptron.Criterion.valueOf(params.get("criterion").toUpperCase()),
-                Double.parseDouble(params.get("pruningRate")))
-        ),
-        (Grid<SensingVoxel>) robot.getVoxels()
+            new CentralizedSensing(
+                    (Grid<SensingVoxel>) robot.getVoxels(),
+                    new PruningMultiLayerPerceptron(
+                            MultiLayerPerceptron.ActivationFunction.valueOf(params.get("actFun").toUpperCase()),
+                            weights,
+                            neurons,
+                            Long.parseLong(params.get("nOfCalls")),
+                            PruningMultiLayerPerceptron.Context.NETWORK,
+                            PruningMultiLayerPerceptron.Criterion.valueOf(params.get("criterion").toUpperCase()),
+                            Double.parseDouble(params.get("pruningRate")))
+            ),
+            (Grid<SensingVoxel>) robot.getVoxels()
     );
   }
 
