@@ -66,7 +66,7 @@ public class SpikingNeuronsTest {
     for (String neuronModel : NEURON_MODELS) {
       for (String vts : VTS) {
         test(neuronModel, vts, generateConstantInputSignal(), "CONSTANT", printer, false);
-        test(neuronModel, vts, generateSinusoidalInputSignal(), "SINUSOIDAL", printer, false);
+        test(neuronModel, vts, generateSinusoidalInputSignal(SIMULATION_SECONDS,SIN_FREQUENCY), "SINUSOIDAL", printer, false);
         test(neuronModel, vts, generateSquareWaveInputSignal(), "SQUARE", printer, false);
       }
     }
@@ -77,7 +77,7 @@ public class SpikingNeuronsTest {
     printer.printRecord("model", "vts_freq", "stv_freq", "input_type", "series", "x", "y");
     for (String neuronModel : NEURON_MODELS) {
       testMemoryConverters(neuronModel, generateConstantInputSignal(), "CONSTANT", printer);
-      testMemoryConverters(neuronModel, generateSinusoidalInputSignal(), "SINUSOIDAL", printer);
+      testMemoryConverters(neuronModel, generateSinusoidalInputSignal(SIMULATION_SECONDS,SIN_FREQUENCY), "SINUSOIDAL", printer);
       testMemoryConverters(neuronModel, generateSquareWaveInputSignal(), "SQUARE", printer);
     }
   }
@@ -91,11 +91,11 @@ public class SpikingNeuronsTest {
     return constantInputSignal;
   }
 
-  public static SortedMap<Double, Double> generateSinusoidalInputSignal() {
+  public static SortedMap<Double, Double> generateSinusoidalInputSignal(double totalSeconds, double frequency) {
     double deltaT = 1 / FREQUENCY;
     SortedMap<Double, Double> sinusoidalInputSignal = new TreeMap<>();
-    for (double t = 0; t <= SIMULATION_SECONDS; t += deltaT) {
-      double sinusoidalInput = 0.5 + Math.sin(2 * Math.PI * SIN_FREQUENCY * t) / 2;
+    for (double t = 0; t <= totalSeconds; t += deltaT) {
+      double sinusoidalInput = 0.5 + Math.sin(2 * Math.PI * frequency * t) / 2;
       sinusoidalInputSignal.put(t, sinusoidalInput);  // 0 - 1 range
     }
     return sinusoidalInputSignal;
