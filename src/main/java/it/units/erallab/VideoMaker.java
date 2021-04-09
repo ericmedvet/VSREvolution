@@ -61,11 +61,11 @@ public class VideoMaker {
       String terrainName = a(args, "terrain", "flat");
       String transformationName = a(args, "transformation", "identity");
       double startTime = d(a(args, "startTime", "10.0"));
-      double endTime = d(a(args, "endTime", "30.0"));
-      int w = i(a(args, "w", "400"));
-      int h = i(a(args, "h", "150"));
+      double endTime = d(a(args, "endTime", "40.0"));
+      int w = i(a(args, "w", "600"));
+      int h = i(a(args, "h", "300"));
       int frameRate = i(a(args, "frameRate", "30"));
-      String encoderName = a(args, "encoder", VideoUtils.EncoderFacility.JCODEC.name());
+      String encoderName = a(args, "encoder", VideoUtils.EncoderFacility.FFMPEG_SMALL.name());
       SerializationUtils.Mode mode = SerializationUtils.Mode.valueOf(a(args, "deserializationMode", SerializationUtils.Mode.GZIPPED_JSON.name()).toUpperCase());
       //read data
       Reader reader = null;
