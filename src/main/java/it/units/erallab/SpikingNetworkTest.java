@@ -20,7 +20,7 @@ public class SpikingNetworkTest {
 
   public static void main(String[] args) throws Exception {
 
-    String outputFileName = "C:\\Users\\giorg\\Documents\\UNITS\\LAUREA MAGISTRALE\\TESI\\OSLOMET\\snnDataLowFreq.txt";
+    String outputFileName = "C:\\Users\\giorg\\Documents\\UNITS\\LAUREA MAGISTRALE\\TESI\\OSLOMET\\snnDataHighFreq.txt";
     String mlpOutputFileName = "C:\\Users\\giorg\\Documents\\UNITS\\LAUREA MAGISTRALE\\TESI\\OSLOMET\\mlp.txt";
     CSVPrinter mlpPrinter = new CSVPrinter(new PrintStream(mlpOutputFileName), CSVFormat.DEFAULT.withDelimiter(';'));
     mlpPrinter.printRecord(List.of("seed", "weightsMin", "weightsMax", "nOfInputs", "nOfOutputs", "nInnerLayers", "innerLayerRatio",
@@ -45,12 +45,12 @@ public class SpikingNetworkTest {
     double weightMin = -1d;
     double weightMax = 1d;
 
-    double valueToSpikeTrainConverterFrequency = 50;
-    double[] spikeTrainToValueConverterFrequencies = DoubleStream.iterate(20, x -> x + 5).limit(10).toArray();
+    double valueToSpikeTrainConverterFrequency = 1200;
+    double[] spikeTrainToValueConverterFrequencies = DoubleStream.iterate(600, x -> x + 40).limit(20).toArray();
     int[] spikeTrainToValueMemorySizes = IntStream.iterate(1, x -> x + 2).limit(10).toArray();
     double restingPotential = 0;
     double thresholdPotential = 1;
-    double lambdaDecay = 0.01;
+    double lambdaDecay = 0.1;
 
     int[] seeds = IntStream.range(0, 20).toArray();
 

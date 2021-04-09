@@ -110,7 +110,7 @@ public class LocomotionEvolution extends Worker {
     double episodeTransientTime = d(a("episodeTransientTime", "1"));
     double validationEpisodeTime = d(a("validationEpisodeTime", Double.toString(episodeTime)));
     double validationEpisodeTransientTime = d(a("validationEpisodeTransientTime", Double.toString(episodeTransientTime)));
-    double videoEpisodeTime = d(a("videoEpisodeTime", "10"));
+    double videoEpisodeTime = d(a("videoEpisodeTime", "30"));
     double videoEpisodeTransientTime = d(a("videoEpisodeTransientTime", "0"));
     int nEvals = i(a("nEvals", "100"));
     int[] seeds = ri(a("seed", "0:1"));
