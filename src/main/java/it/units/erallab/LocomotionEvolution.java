@@ -63,6 +63,7 @@ import org.dyn4j.dynamics.Settings;
 import java.io.File;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -364,7 +365,7 @@ public class LocomotionEvolution extends Worker {
     String sensorCentralized = "sensorCentralized-(?<nLayers>\\d+)";
     String mlp = "MLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)(-(?<actFun>(sin|tanh|sigmoid|relu)))?";
     String pruningMlp = "pMLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<actFun>(sin|tanh|sigmoid|relu))-(?<pruningTime>\\d+(\\.\\d+)?)-(?<pruningRate>0(\\.\\d+)?)-(?<criterion>(weight|abs_signal_mean|random))";
-    String msn = "MSN-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<spikeType>(lif|iz|lif_h))" +
+    String msn = "MSN-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<spikeType>(lif|iz|lif_h|lif_h_output))" +
             "(-(?<lRestPot>-?\\d+(\\.\\d+)?)-(?<lThreshPot>-?\\d+(\\.\\d+)?)-(?<lambda>\\d+(\\.\\d+)?)(-(?<theta>\\d+(\\.\\d+)?))?)?" +
             "(-(?<iRestPot>-?\\d+(\\.\\d+)?)-(?<iThreshPot>-?\\d+(\\.\\d+)?)-(?<a>-?\\d+(\\.\\d+)?)-(?<b>-?\\d+(\\.\\d+)?)-(?<c>-?\\d+(\\.\\d+)?)-(?<d>-?\\d+(\\.\\d+)?))?" +
             "-(?<iConv>(unif|unif_mem))-(?<iFreq>\\d+(\\.\\d+)?)-(?<oConv>(avg|avg_mem))(-(?<oMem>\\d+))?-(?<oFreq>\\d+(\\.\\d+)?)";
@@ -467,40 +468,53 @@ public class LocomotionEvolution extends Worker {
     }
     if ((params = params(msn, name)) != null) {
       SpikingFunction spikingFunction = null;
+      BiFunction<Integer, Integer, SpikingFunction> neuronBuilder = null;
       ValueToSpikeTrainConverter valueToSpikeTrainConverter = new UniformValueToSpikeTrainConverter();
       SpikeTrainToValueConverter spikeTrainToValueConverter = new AverageFrequencySpikeTrainToValueConverter();
       if (params.containsKey("spikeType") && params.get("spikeType").equals("lif")) {
         if (params.containsKey("lRestPot") && params.containsKey("lThreshPot") && params.containsKey("lambda")) {
-          spikingFunction = new LIFNeuron(
-                  Double.parseDouble(params.get("lRestPot")),
-                  Double.parseDouble(params.get("lThreshPot")),
-                  Double.parseDouble(params.get("lambda")));
+          double restingPotential = Double.parseDouble(params.get("lRestPot"));
+          double thresholdPotential = Double.parseDouble(params.get("lThreshPot"));
+          double lambda = Double.parseDouble(params.get("lambda"));
+          neuronBuilder = (l, n) -> new LIFNeuron(restingPotential, thresholdPotential, lambda);
         } else {
-          spikingFunction = new LIFNeuron();
+          neuronBuilder = (l, n) -> new LIFNeuron();
         }
       }
       if (params.containsKey("spikeType") && params.get("spikeType").equals("lif_h")) {
         if (params.containsKey("lRestPot") && params.containsKey("lThreshPot") && params.containsKey("lambda") && params.containsKey("theta")) {
-          spikingFunction = new LIFNeuronWithHomeostasis(
-                  Double.parseDouble(params.get("lRestPot")),
-                  Double.parseDouble(params.get("lThreshPot")),
-                  Double.parseDouble(params.get("lambda")),
-                  Double.parseDouble(params.get("theta")));
+          double restingPotential = Double.parseDouble(params.get("lRestPot"));
+          double thresholdPotential = Double.parseDouble(params.get("lThreshPot"));
+          double lambda = Double.parseDouble(params.get("lambda"));
+          double theta = Double.parseDouble(params.get("theta"));
+          neuronBuilder = (l, n) -> new LIFNeuronWithHomeostasis(restingPotential, thresholdPotential, lambda, theta);
         } else {
-          spikingFunction = new LIFNeuronWithHomeostasis();
+          neuronBuilder = (l, n) -> new LIFNeuronWithHomeostasis();
+        }
+      }
+      if (params.containsKey("spikeType") && params.get("spikeType").equals("lif_h_output")) {
+        int outputLayerIndex = Integer.parseInt(params.get("nLayers")) + 1;
+        if (params.containsKey("lRestPot") && params.containsKey("lThreshPot") && params.containsKey("lambda") && params.containsKey("theta")) {
+          double restingPotential = Double.parseDouble(params.get("lRestPot"));
+          double thresholdPotential = Double.parseDouble(params.get("lThreshPot"));
+          double lambda = Double.parseDouble(params.get("lambda"));
+          double theta = Double.parseDouble(params.get("theta"));
+          neuronBuilder = (l, n) -> (l == outputLayerIndex) ? new LIFNeuronWithHomeostasis(restingPotential, thresholdPotential, lambda, theta) : new LIFNeuron(restingPotential, thresholdPotential, lambda);
+        } else {
+          neuronBuilder = (l, n) -> (l == outputLayerIndex) ? new LIFNeuronWithHomeostasis() : new LIFNeuron();
         }
       }
       if (params.containsKey("spikeType") && params.get("spikeType").equals("iz")) {
         if (params.containsKey("iRestPot") && params.containsKey("iThreshPot") && params.containsKey("a") && params.containsKey("b") && params.containsKey("c") && params.containsKey("d")) {
-          spikingFunction = new IzhikevicNeuron(
-                  Double.parseDouble(params.get("iRestPot")),
-                  Double.parseDouble(params.get("iThreshPot")),
-                  Double.parseDouble(params.get("a")),
-                  Double.parseDouble(params.get("b")),
-                  Double.parseDouble(params.get("c")),
-                  Double.parseDouble(params.get("d")));
+          double restingPotential = Double.parseDouble(params.get("iRestPot"));
+          double thresholdPotential = Double.parseDouble(params.get("iThreshPot"));
+          double a = Double.parseDouble(params.get("a"));
+          double b = Double.parseDouble(params.get("b"));
+          double c = Double.parseDouble(params.get("c"));
+          double d = Double.parseDouble(params.get("d"));
+          neuronBuilder = (l, n) -> new IzhikevicNeuron(restingPotential, thresholdPotential, a, b, c, d);
         } else {
-          spikingFunction = new IzhikevicNeuron();
+          neuronBuilder = (l, n) -> new IzhikevicNeuron();
         }
       }
       if (params.containsKey("iConv")) {
@@ -551,7 +565,7 @@ public class LocomotionEvolution extends Worker {
       return new MSN(
               Double.parseDouble(params.get("ratio")),
               Integer.parseInt(params.get("nLayers")),
-              spikingFunction,
+              neuronBuilder,
               valueToSpikeTrainConverter,
               spikeTrainToValueConverter
       );

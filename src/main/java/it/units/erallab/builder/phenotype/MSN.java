@@ -10,6 +10,7 @@ import it.units.erallab.hmsrobots.core.controllers.snn.converters.vts.ValueToSpi
 
 import java.util.Collections;
 import java.util.List;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 
 /**
@@ -19,15 +20,15 @@ public class MSN implements PrototypedFunctionBuilder<List<Double>, TimedRealFun
 
   private final double innerLayerRatio;
   private final int nOfInnerLayers;
-  private final SpikingFunction spikingFunction;
+  private final BiFunction<Integer,Integer,SpikingFunction> neuronBuilder;
   private final ValueToSpikeTrainConverter valueToSpikeTrainConverter;
   private final SpikeTrainToValueConverter spikeTrainToValueConverter;
 
 
-  public MSN(double innerLayerRatio, int nOfInnerLayers, SpikingFunction spikingFunction, ValueToSpikeTrainConverter valueToSpikeTrainConverter, SpikeTrainToValueConverter spikeTrainToValueConverter) {
+  public MSN(double innerLayerRatio, int nOfInnerLayers, BiFunction<Integer,Integer,SpikingFunction> neuronBuilder, ValueToSpikeTrainConverter valueToSpikeTrainConverter, SpikeTrainToValueConverter spikeTrainToValueConverter) {
     this.innerLayerRatio = innerLayerRatio;
     this.nOfInnerLayers = nOfInnerLayers;
-    this.spikingFunction = spikingFunction;
+    this.neuronBuilder = neuronBuilder;
     this.valueToSpikeTrainConverter = valueToSpikeTrainConverter;
     this.spikeTrainToValueConverter = spikeTrainToValueConverter;
   }
@@ -67,7 +68,7 @@ public class MSN implements PrototypedFunctionBuilder<List<Double>, TimedRealFun
               innerNeurons,
               nOfOutputs,
               values.stream().mapToDouble(d -> d).toArray(),
-              spikingFunction,
+              neuronBuilder,
               valueToSpikeTrainConverter,
               spikeTrainToValueConverter
       );
