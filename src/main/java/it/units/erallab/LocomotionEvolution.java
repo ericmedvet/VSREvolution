@@ -32,6 +32,7 @@ import it.units.erallab.hmsrobots.core.controllers.MultiLayerPerceptron;
 import it.units.erallab.hmsrobots.core.controllers.PruningMultiLayerPerceptron;
 import it.units.erallab.hmsrobots.core.controllers.snn.IzhikevicNeuron;
 import it.units.erallab.hmsrobots.core.controllers.snn.LIFNeuron;
+import it.units.erallab.hmsrobots.core.controllers.snn.LIFNeuronWithHomeostasis;
 import it.units.erallab.hmsrobots.core.controllers.snn.SpikingFunction;
 import it.units.erallab.hmsrobots.core.controllers.snn.converters.stv.AverageFrequencySpikeTrainToValueConverter;
 import it.units.erallab.hmsrobots.core.controllers.snn.converters.stv.MovingAverageSpikeTrainToValueConverter;
@@ -363,8 +364,8 @@ public class LocomotionEvolution extends Worker {
     String sensorCentralized = "sensorCentralized-(?<nLayers>\\d+)";
     String mlp = "MLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)(-(?<actFun>(sin|tanh|sigmoid|relu)))?";
     String pruningMlp = "pMLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<actFun>(sin|tanh|sigmoid|relu))-(?<pruningTime>\\d+(\\.\\d+)?)-(?<pruningRate>0(\\.\\d+)?)-(?<criterion>(weight|abs_signal_mean|random))";
-    String msn = "MSN-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<spikeType>(lif|iz))" +
-            "(-(?<lRestPot>-?\\d+(\\.\\d+)?)-(?<lThreshPot>-?\\d+(\\.\\d+)?)-(?<lambda>\\d+(\\.\\d+)?))?" +
+    String msn = "MSN-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<spikeType>(lif|iz|lif_h))" +
+            "(-(?<lRestPot>-?\\d+(\\.\\d+)?)-(?<lThreshPot>-?\\d+(\\.\\d+)?)-(?<lambda>\\d+(\\.\\d+)?)(-(?<theta>\\d+(\\.\\d+)?))?)?" +
             "(-(?<iRestPot>-?\\d+(\\.\\d+)?)-(?<iThreshPot>-?\\d+(\\.\\d+)?)-(?<a>-?\\d+(\\.\\d+)?)-(?<b>-?\\d+(\\.\\d+)?)-(?<c>-?\\d+(\\.\\d+)?)-(?<d>-?\\d+(\\.\\d+)?))?" +
             "-(?<iConv>(unif|unif_mem))-(?<iFreq>\\d+(\\.\\d+)?)-(?<oConv>(avg|avg_mem))(-(?<oMem>\\d+))?-(?<oFreq>\\d+(\\.\\d+)?)";
     String directNumGrid = "directNumGrid";
@@ -476,6 +477,17 @@ public class LocomotionEvolution extends Worker {
                   Double.parseDouble(params.get("lambda")));
         } else {
           spikingFunction = new LIFNeuron();
+        }
+      }
+      if (params.containsKey("spikeType") && params.get("spikeType").equals("lif_h")) {
+        if (params.containsKey("lRestPot") && params.containsKey("lThreshPot") && params.containsKey("lambda") && params.containsKey("theta")) {
+          spikingFunction = new LIFNeuronWithHomeostasis(
+                  Double.parseDouble(params.get("lRestPot")),
+                  Double.parseDouble(params.get("lThreshPot")),
+                  Double.parseDouble(params.get("lambda")),
+                  Double.parseDouble(params.get("theta")));
+        } else {
+          spikingFunction = new LIFNeuronWithHomeostasis();
         }
       }
       if (params.containsKey("spikeType") && params.get("spikeType").equals("iz")) {
