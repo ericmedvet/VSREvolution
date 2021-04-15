@@ -365,7 +365,7 @@ public class LocomotionEvolution extends Worker {
     String sensorCentralized = "sensorCentralized-(?<nLayers>\\d+)";
     String mlp = "MLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)(-(?<actFun>(sin|tanh|sigmoid|relu)))?";
     String pruningMlp = "pMLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<actFun>(sin|tanh|sigmoid|relu))-(?<pruningTime>\\d+(\\.\\d+)?)-(?<pruningRate>0(\\.\\d+)?)-(?<criterion>(weight|abs_signal_mean|random))";
-    String msn = "MSN-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<spikeType>(lif|iz|lif_h|lif_h_output))" +
+    String msn = "MSN-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<spikeType>(lif|iz|lif_h|lif_h_output|lif_h_io))" +
             "(-(?<lRestPot>-?\\d+(\\.\\d+)?)-(?<lThreshPot>-?\\d+(\\.\\d+)?)-(?<lambda>\\d+(\\.\\d+)?)(-(?<theta>\\d+(\\.\\d+)?))?)?" +
             "(-(?<iRestPot>-?\\d+(\\.\\d+)?)-(?<iThreshPot>-?\\d+(\\.\\d+)?)-(?<a>-?\\d+(\\.\\d+)?)-(?<b>-?\\d+(\\.\\d+)?)-(?<c>-?\\d+(\\.\\d+)?)-(?<d>-?\\d+(\\.\\d+)?))?" +
             "-(?<iConv>(unif|unif_mem))-(?<iFreq>\\d+(\\.\\d+)?)-(?<oConv>(avg|avg_mem))(-(?<oMem>\\d+))?-(?<oFreq>\\d+(\\.\\d+)?)";
@@ -502,6 +502,18 @@ public class LocomotionEvolution extends Worker {
           neuronBuilder = (l, n) -> (l == outputLayerIndex) ? new LIFNeuronWithHomeostasis(restingPotential, thresholdPotential, lambda, theta) : new LIFNeuron(restingPotential, thresholdPotential, lambda);
         } else {
           neuronBuilder = (l, n) -> (l == outputLayerIndex) ? new LIFNeuronWithHomeostasis() : new LIFNeuron();
+        }
+      }
+      if (params.containsKey("spikeType") && params.get("spikeType").equals("lif_h_io")) {
+        int outputLayerIndex = Integer.parseInt(params.get("nLayers")) + 1;
+        if (params.containsKey("lRestPot") && params.containsKey("lThreshPot") && params.containsKey("lambda") && params.containsKey("theta")) {
+          double restingPotential = Double.parseDouble(params.get("lRestPot"));
+          double thresholdPotential = Double.parseDouble(params.get("lThreshPot"));
+          double lambda = Double.parseDouble(params.get("lambda"));
+          double theta = Double.parseDouble(params.get("theta"));
+          neuronBuilder = (l, n) -> (l == outputLayerIndex || l == 0) ? new LIFNeuronWithHomeostasis(restingPotential, thresholdPotential, lambda, theta) : new LIFNeuron(restingPotential, thresholdPotential, lambda);
+        } else {
+          neuronBuilder = (l, n) -> (l == outputLayerIndex || l == 0) ? new LIFNeuronWithHomeostasis() : new LIFNeuron();
         }
       }
       if (params.containsKey("spikeType") && params.get("spikeType").equals("iz")) {

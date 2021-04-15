@@ -1,6 +1,7 @@
 package it.units.erallab.utils;
 
 import it.units.erallab.hmsrobots.core.controllers.snn.IzhikevicNeuron;
+import it.units.erallab.hmsrobots.core.controllers.snn.LIFNeuronWithHomeostasis;
 import it.units.erallab.hmsrobots.core.controllers.snn.SpikingNeuron;
 import org.knowm.xchart.SwingWrapper;
 import org.knowm.xchart.XYChart;
@@ -10,6 +11,7 @@ import org.knowm.xchart.style.markers.SeriesMarkers;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.SortedMap;
 
 public class MembraneEvolutionPlotter {
 
@@ -32,8 +34,16 @@ public class MembraneEvolutionPlotter {
       XYSeries membranePotentialSeries = chart.addSeries("membrane potential", new ArrayList<>(spikingNeuron.getMembranePotentialValues().keySet()), new ArrayList<>(spikingNeuron.getMembranePotentialValues().values()));
       membranePotentialSeries.setXYSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Line).setMarker(SeriesMarkers.NONE);
     }
-    XYSeries thresholdSeries = chart.addSeries("threshold", List.of(0, spikingNeuron.getLastEvaluatedTime()), List.of(spikingNeuron.getThresholdPotential(), spikingNeuron.getThresholdPotential()));
-    thresholdSeries.setXYSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Line).setMarker(SeriesMarkers.NONE);
+    if (spikingNeuron instanceof LIFNeuronWithHomeostasis) {
+      SortedMap<Double, Double> thresholdValues = ((LIFNeuronWithHomeostasis) spikingNeuron).getThresholdValues();
+      if (!thresholdValues.isEmpty()) {
+        XYSeries thresholdSeries = chart.addSeries("threshold", new ArrayList<>(thresholdValues.keySet()), new ArrayList<>(thresholdValues.values()));
+        thresholdSeries.setXYSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Line).setMarker(SeriesMarkers.NONE);
+      }
+    } else {
+      XYSeries thresholdSeries = chart.addSeries("threshold", List.of(0, spikingNeuron.getLastEvaluatedTime()), List.of(spikingNeuron.getThresholdPotential(), spikingNeuron.getThresholdPotential()));
+      thresholdSeries.setXYSeriesRenderStyle(XYSeries.XYSeriesRenderStyle.Line).setMarker(SeriesMarkers.NONE);
+    }
     return chart;
   }
 
@@ -46,7 +56,7 @@ public class MembraneEvolutionPlotter {
     return chart;
   }
 
-  public static XYChart getMembraneAndRecoveryPotentialEvolutionWithInputSpikesChart(IzhikevicNeuron izhikevicNeuron, int width, int height){
+  public static XYChart getMembraneAndRecoveryPotentialEvolutionWithInputSpikesChart(IzhikevicNeuron izhikevicNeuron, int width, int height) {
     XYChart chart = getMembranePotentialEvolutionWithInputSpikesChart(izhikevicNeuron, width, height);
     if (!izhikevicNeuron.getMembraneRecoveryValues().isEmpty()) {
       XYSeries membraneRecoverySeries = chart.addSeries("membrane recovery", new ArrayList<>(izhikevicNeuron.getMembraneRecoveryValues().keySet()), new ArrayList<>(izhikevicNeuron.getMembraneRecoveryValues().values()));
