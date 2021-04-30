@@ -16,7 +16,7 @@ import java.util.stream.IntStream;
 public class SpikingNeuronsTest {
 
   private static final double FREQUENCY = 60;
-  private static final double SIMULATION_SECONDS = 10;
+  private static final double SIMULATION_SECONDS = 2;
   private static final double CONSTANT_INPUT_VALUE = 0.5;
   private static final double SIN_FREQUENCY = 1;
   private static final double SQUARE_WAVE_HIGH_VALUE = 1;
@@ -28,14 +28,9 @@ public class SpikingNeuronsTest {
   private static final String[] NEURON_MODELS = {"LIF", "IZ", "LIF_H"};
   private static final int[] MEMORY_SIZES = IntStream.iterate(5, x -> x+5).limit(4).toArray();
 
-  //private static final String[] NEURON_MODELS = {"LIF_H"};
-  //private static final int[] MEMORY_SIZES = {5};
-
   public static void main(String[] args) throws IOException {
-
     String outputTestFileName = "C:\\Users\\giorg\\Documents\\UNITS\\LAUREA MAGISTRALE\\TESI\\OSLOMET\\spikingNeuronsTest.txt";
     printTest(outputTestFileName);
-
   }
 
   public static void printTest(String outputFileName) throws IOException {
@@ -110,7 +105,8 @@ public class SpikingNeuronsTest {
         outputSignals[i].put(t, spikeTrainToValueConverter[i].convert(outputSpikes, deltaT));
       }
     });
-    //MembraneEvolutionPlotter.plotMembranePotentialEvolution(spikingNeuron,800,600);
+    MembraneEvolutionPlotter.plotMembranePotentialAndRecoveryEvolutionWithInputSpikes((IzhikevicNeuron) spikingNeuron, 800, 600);
+    //MembraneEvolutionPlotter.plotMembranePotentialEvolutionWithInputSpikes(spikingNeuron,800,600);
     List<String> record = List.of(neuronModel, "" + VTS_FREQ, "" + STV_FREQ, signalName);
     inputSignal.forEach((x, y) -> {
       List<String> thisRecord = new ArrayList<>(record);
@@ -147,7 +143,9 @@ public class SpikingNeuronsTest {
                                                      double timeWindow) {
     SortedSet<Double> inputSpikeTrain = valueToSpikeTrainConverter.convert(inputValue, timeWindow, absoluteTime);
     SortedMap<Double, Double> weightedInputSpikeTrain = new TreeMap<>();
-    inputSpikeTrain.forEach(t -> weightedInputSpikeTrain.put(t, 1d));
+    for (double t : inputSpikeTrain) {
+      weightedInputSpikeTrain.put(t, -10d);
+    }
     return spikingNeuron.compute(weightedInputSpikeTrain, absoluteTime);
   }
 
