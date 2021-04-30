@@ -64,7 +64,8 @@ public class Utils {
         eventAttribute("sensor.config"),
         eventAttribute("mapper"),
         eventAttribute("transformation"),
-        eventAttribute("evolver")
+        eventAttribute("evolver"),
+        eventAttribute("fitness.metrics")
     );
   }
 
@@ -84,7 +85,6 @@ public class Utils {
     return List.of(f("serialized", r -> SerializationUtils.serialize(r, SerializationUtils.Mode.GZIPPED_JSON)).of(solution()));
   }
 
-  @SuppressWarnings("unchecked")
   public static List<NamedFunction<Individual<?, ? extends Robot<?>, ? extends Outcome>, ?>> individualFunctions(Function<Outcome, Double> fitnessFunction) {
     NamedFunction<Individual<?, ? extends Robot<?>, ? extends Outcome>, ?> size = size().of(genotype());
     return List.of(
@@ -269,6 +269,7 @@ public class Utils {
         for (String validationTransformationName : validationTransformationNames) {
           for (int seed : seeds) {
             Random random = new Random(seed);
+            robot = SerializationUtils.clone(robot, SerializationUtils.Mode.GZIPPED_JSON);
             robot = RobotUtils.buildRobotTransformation(validationTransformationName, random).apply(robot);
             Function<Robot<?>, Outcome> validationLocomotion = LocomotionEvolution.buildLocomotionTask(
                 validationTerrainName,
