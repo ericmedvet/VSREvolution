@@ -1,10 +1,13 @@
 package it.units.erallab;
 
-import it.units.erallab.hmsrobots.core.controllers.snn.*;
-import it.units.erallab.hmsrobots.core.controllers.snn.converters.stv.*;
-import it.units.erallab.hmsrobots.core.controllers.snn.converters.vts.*;
-import it.units.erallab.utils.MembraneEvolutionPlotter;
-import it.units.erallab.utils.Utils;
+import it.units.erallab.hmsrobots.core.controllers.snn.IzhikevicNeuron;
+import it.units.erallab.hmsrobots.core.controllers.snn.LIFNeuron;
+import it.units.erallab.hmsrobots.core.controllers.snn.LIFNeuronWithHomeostasis;
+import it.units.erallab.hmsrobots.core.controllers.snn.SpikingNeuron;
+import it.units.erallab.hmsrobots.core.controllers.snn.converters.stv.MovingAverageSpikeTrainToValueConverter;
+import it.units.erallab.hmsrobots.core.controllers.snn.converters.stv.SpikeTrainToValueConverter;
+import it.units.erallab.hmsrobots.core.controllers.snn.converters.vts.UniformWithMemoryValueToSpikeTrainConverter;
+import it.units.erallab.hmsrobots.core.controllers.snn.converters.vts.ValueToSpikeTrainConverter;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
 
@@ -81,6 +84,7 @@ public class SpikingNeuronsTest {
     return squareWaveInputSignal;
   }
 
+  @SuppressWarnings("unchecked")
   public static void testSnn(String neuronModel, SortedMap<Double, Double> inputSignal, String signalName, CSVPrinter printer) {
     SpikingNeuron spikingNeuron;
     if (neuronModel.equals("LIF")) {
@@ -105,8 +109,6 @@ public class SpikingNeuronsTest {
         outputSignals[i].put(t, spikeTrainToValueConverter[i].convert(outputSpikes, deltaT));
       }
     });
-    MembraneEvolutionPlotter.plotMembranePotentialAndRecoveryEvolutionWithInputSpikes((IzhikevicNeuron) spikingNeuron, 800, 600);
-    //MembraneEvolutionPlotter.plotMembranePotentialEvolutionWithInputSpikes(spikingNeuron,800,600);
     List<String> record = List.of(neuronModel, "" + VTS_FREQ, "" + STV_FREQ, signalName);
     inputSignal.forEach((x, y) -> {
       List<String> thisRecord = new ArrayList<>(record);
