@@ -27,7 +27,6 @@ public class RobotsValidator extends Worker {
 
   private List<CSVRecord> records;
   private CSVPrinter printer;
-  private Logger logger;
 
   public RobotsValidator(String[] args) {
     super(args);
@@ -67,7 +66,7 @@ public class RobotsValidator extends Worker {
     double spectrumMinFreq = 0d;
     double spectrumMaxFreq = 5d;
 
-    logger = Logger.getAnonymousLogger();
+    Logger logger = Logger.getAnonymousLogger();
     System.setProperty("java.util.logging.SimpleFormatter.format", "[%1$tF %1$tT] [%4$-6s] %5$s %n");
     // params
     String inputFileName = a("inputFile", "last.txt");
@@ -112,7 +111,7 @@ public class RobotsValidator extends Worker {
       List<String> oldRecord = IntStream.range(0, record.size()).filter(index -> index != serializedRobotColumnIndex).mapToObj(
           record::get).collect(Collectors.toList());
       // validate robot on all terrains
-      List<List<Object>> rows = new ArrayList<>(terrainNames.stream().parallel()
+      List<List<Object>> rows = terrainNames.stream().parallel()
           .map(terrainName -> {
             List<Object> cells = new ArrayList<>(oldRecord);
             cells.add(terrainName);
@@ -121,8 +120,7 @@ public class RobotsValidator extends Worker {
             cells.addAll(basicOutcomeFunctions.stream().map(f -> f.apply(outcome.subOutcome(episodeTransientTime, episodeTime))).collect(Collectors.toList()));
             cells.addAll(detailedOutcomeFunctions.stream().map(f -> f.apply(outcome.subOutcome(episodeTransientTime, episodeTime))).collect(Collectors.toList()));
             return cells;
-          })
-          .collect(Collectors.toList()));
+          }).collect(Collectors.toList());
       rows.forEach(row -> {
         try {
           printer.printRecord(row);
