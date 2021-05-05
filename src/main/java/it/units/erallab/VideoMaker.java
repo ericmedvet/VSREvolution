@@ -134,14 +134,8 @@ public class VideoMaker {
     List<String> terrainRepeatedNames = terrainNames.stream().map(terrainName ->
         Collections.nCopies(finalRecords.size(), terrainName)).flatMap(List::stream).collect(Collectors.toList());
 
-    System.out.println(robotDescriptions);
-
     List<String> descriptions = IntStream.range(0, robotDescriptions.size()).mapToObj(i ->
         robotDescriptions.get(i) + "\n" + terrainRepeatedNames.get(i)).collect(Collectors.toList());
-
-    System.out.println(descriptions);
-    System.out.println(nCols);
-    System.out.println(nRows);
 
     Grid<String> descriptionsGrid = new Grid<>(nCols, nRows, descriptions);
     List<Task<Robot<?>, ?>> locomotionList = new ArrayList<>();
