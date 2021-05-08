@@ -5,7 +5,6 @@ import it.units.erallab.hmsrobots.core.controllers.MultiLayerPerceptron;
 import it.units.erallab.hmsrobots.core.controllers.TimedRealFunction;
 import it.units.erallab.hmsrobots.core.controllers.snn.MultilayerSpikingNetwork;
 import it.units.erallab.hmsrobots.core.controllers.snn.MultilayerSpikingNetworkWithConverters;
-import it.units.erallab.hmsrobots.core.controllers.snn.MultivariateSpikingFunction;
 import it.units.erallab.hmsrobots.core.controllers.snn.SpikingFunction;
 import it.units.erallab.hmsrobots.core.controllers.snn.converters.stv.SpikeTrainToValueConverter;
 import it.units.erallab.hmsrobots.core.controllers.snn.converters.vts.ValueToSpikeTrainConverter;
@@ -18,17 +17,21 @@ import java.util.function.Function;
 /**
  * @author eric
  */
-public class MSN implements PrototypedFunctionBuilder<List<Double>, MultivariateSpikingFunction> {
+public class MSNWithConverter implements PrototypedFunctionBuilder<List<Double>, TimedRealFunction> {
 
   private final double innerLayerRatio;
   private final int nOfInnerLayers;
   private final BiFunction<Integer, Integer, SpikingFunction> neuronBuilder;
+  private final ValueToSpikeTrainConverter valueToSpikeTrainConverter;
+  private final SpikeTrainToValueConverter spikeTrainToValueConverter;
 
 
-  public MSN(double innerLayerRatio, int nOfInnerLayers, BiFunction<Integer, Integer, SpikingFunction> neuronBuilder) {
+  public MSNWithConverter(double innerLayerRatio, int nOfInnerLayers, BiFunction<Integer, Integer, SpikingFunction> neuronBuilder, ValueToSpikeTrainConverter valueToSpikeTrainConverter, SpikeTrainToValueConverter spikeTrainToValueConverter) {
     this.innerLayerRatio = innerLayerRatio;
     this.nOfInnerLayers = nOfInnerLayers;
     this.neuronBuilder = neuronBuilder;
+    this.valueToSpikeTrainConverter = valueToSpikeTrainConverter;
+    this.spikeTrainToValueConverter = spikeTrainToValueConverter;
   }
 
   private int[] innerNeurons(int nOfInputs, int nOfOutputs) {
@@ -48,7 +51,7 @@ public class MSN implements PrototypedFunctionBuilder<List<Double>, Multivariate
   }
 
   @Override
-  public Function<List<Double>, MultivariateSpikingFunction> buildFor(MultivariateSpikingFunction function) {
+  public Function<List<Double>, TimedRealFunction> buildFor(TimedRealFunction function) {
     return values -> {
       int nOfInputs = function.getInputDimension();
       int nOfOutputs = function.getOutputDimension();
@@ -61,18 +64,20 @@ public class MSN implements PrototypedFunctionBuilder<List<Double>, Multivariate
             values.size()
         ));
       }
-      return new MultilayerSpikingNetwork(
+      return new MultilayerSpikingNetworkWithConverters(
           nOfInputs,
           innerNeurons,
           nOfOutputs,
           values.stream().mapToDouble(d -> d).toArray(),
-          neuronBuilder
+          neuronBuilder,
+          valueToSpikeTrainConverter,
+          spikeTrainToValueConverter
       );
     };
   }
 
   @Override
-  public List<Double> exampleFor(MultivariateSpikingFunction function) {
+  public List<Double> exampleFor(TimedRealFunction function) {
     return Collections.nCopies(
         MultilayerSpikingNetwork.countWeights(
             MultiLayerPerceptron.countNeurons(
