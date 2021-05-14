@@ -59,7 +59,7 @@ public class VideoMaker {
   public static void main(String[] args) {
     //get params
     List<String> terrainNames = l(a(args,"terrainNames", "flat,hilly-1-10-0"));
-    String robotFileName = a(args, "robotFile", "last-fixed.txt");
+    String robotFileName = a(args, "robotFile", "last.txt");
     String serializedRobotColumn = a(args, "serializedRobotColumnName", "best→solution→serialized");
     String descriptionColumn = a(args, "descriptionColumnName", "mapper");
     String outputFileName = a(args, "outputFile", "video.mov");

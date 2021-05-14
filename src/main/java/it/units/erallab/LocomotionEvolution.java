@@ -23,10 +23,7 @@ import it.units.erallab.builder.FunctionGrid;
 import it.units.erallab.builder.FunctionNumbersGrid;
 import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.erallab.builder.evolver.*;
-import it.units.erallab.builder.phenotype.FGraph;
-import it.units.erallab.builder.phenotype.MLP;
-import it.units.erallab.builder.phenotype.MSN;
-import it.units.erallab.builder.phenotype.PruningMLP;
+import it.units.erallab.builder.phenotype.*;
 import it.units.erallab.builder.robot.*;
 import it.units.erallab.hmsrobots.core.controllers.MultiLayerPerceptron;
 import it.units.erallab.hmsrobots.core.controllers.PruningMultiLayerPerceptron;
@@ -116,8 +113,8 @@ public class LocomotionEvolution extends Worker {
     int nEvals = i(a("nEvals", "1000"));
     int[] seeds = ri(a("seed", "0:1"));
     String experimentName = a("expName", "short");
-    List<String> terrainNames = l(a("terrain", "flat"));//"hilly-1-10-rnd"));
-    List<String> targetShapeNames = l(a("shape", "biped-4x2"));
+    List<String> terrainNames = l(a("terrain", "hilly-1-10-rnd"));
+    List<String> targetShapeNames = l(a("shape", "biped-4x3"));
     List<String> targetSensorConfigNames = l(a("sensorConfig", "spinedTouchSighted-f-f-0.01"));
     List<String> transformationNames = l(a("transformation", "identity"));
     List<String> evolverNames = l(a("evolver", "ES-40-0.35"));
@@ -238,6 +235,7 @@ public class LocomotionEvolution extends Worker {
     }
     //summarize params
     L.info("Experiment name: " + experimentName);
+    L.info("N evaluations: " + nEvals);
     L.info("Evolvers: " + evolverNames);
     L.info("Mappers: " + mapperNames);
     L.info("Fitness metrics: " + fitnessMetrics);
@@ -279,6 +277,7 @@ public class LocomotionEvolution extends Worker {
                   try {
                     evolver = buildEvolver(evolverName, mapperName, target, fitnessFunction);
                   } catch (ClassCastException | IllegalArgumentException e) {
+                    e.printStackTrace();
                     L.warning(String.format(
                         "Cannot instantiate %s for %s: %s",
                         evolverName,
@@ -375,7 +374,7 @@ public class LocomotionEvolution extends Worker {
     throw new IllegalArgumentException(String.format("Unknown evolver builder name: %s", name));
   }
 
-  private static Function<Outcome, Double> getFitnessFunctionFromName(String name){
+  private static Function<Outcome, Double> getFitnessFunctionFromName(String name) {
     String velocity = "velocity";
     String efficiency = "efficiency";
     if (params(velocity, name) != null) {
@@ -393,6 +392,10 @@ public class LocomotionEvolution extends Worker {
     String fixedCentralizedDoubleOutput = "fixedCentralizedDoubleOutput";
     String fixedHomoDistributed = "fixedHomoDist-(?<nSignals>\\d+)";
     String fixedHeteroDistributed = "fixedHeteroDist-(?<nSignals>\\d+)";
+    String fixedHomoSpikingDistributed = "fixedHomoSpikeDist-(?<nSignals>\\d+)" +
+        "-(?<iConv>(unif|unif_mem))-(?<iFreq>\\d+(\\.\\d+)?)-(?<oConv>(avg|avg_mem))(-(?<oMem>\\d+))?-(?<oFreq>\\d+(\\.\\d+)?)";
+    String fixedHeteroSpikingDistributed = "fixedHeteroSpikeDist-(?<nSignals>\\d+)" +
+        "-(?<iConv>(unif|unif_mem))-(?<iFreq>\\d+(\\.\\d+)?)-(?<oConv>(avg|avg_mem))(-(?<oMem>\\d+))?-(?<oFreq>\\d+(\\.\\d+)?)";
     String fixedPhasesFunction = "fixedPhasesFunct-(?<f>\\d+)";
     String fixedPhases = "fixedPhases-(?<f>\\d+)";
     String fixedPhasesAndFrequencies = "fixedPhasesAndFrequencies";
@@ -402,10 +405,13 @@ public class LocomotionEvolution extends Worker {
     String sensorCentralized = "sensorCentralized-(?<nLayers>\\d+)";
     String mlp = "MLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)(-(?<actFun>(sin|tanh|sigmoid|relu)))?";
     String pruningMlp = "pMLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<actFun>(sin|tanh|sigmoid|relu))-(?<pruningTime>\\d+(\\.\\d+)?)-(?<pruningRate>0(\\.\\d+)?)-(?<criterion>(weight|abs_signal_mean|random))";
-    String msn = "MSN-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<spikeType>(lif|iz|lif_h|lif_h_output|lif_h_io))" +
+    String msnWithConverter = "MSN-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<spikeType>(lif|iz|lif_h|lif_h_output|lif_h_io))" +
         "(-(?<lRestPot>-?\\d+(\\.\\d+)?)-(?<lThreshPot>-?\\d+(\\.\\d+)?)-(?<lambda>\\d+(\\.\\d+)?)(-(?<theta>\\d+(\\.\\d+)?))?)?" +
         "(-(?<izParams>(regular_spiking_params)))?" +
         "-(?<iConv>(unif|unif_mem))-(?<iFreq>\\d+(\\.\\d+)?)-(?<oConv>(avg|avg_mem))(-(?<oMem>\\d+))?-(?<oFreq>\\d+(\\.\\d+)?)";
+    String msn = "MSNd-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<spikeType>(lif|iz|lif_h))" +
+        "(-(?<lRestPot>-?\\d+(\\.\\d+)?)-(?<lThreshPot>-?\\d+(\\.\\d+)?)-(?<lambda>\\d+(\\.\\d+)?)(-(?<theta>\\d+(\\.\\d+)?))?)?" +
+        "(-(?<izParams>(regular_spiking_params)))?";
     String directNumGrid = "directNumGrid";
     String functionNumGrid = "functionNumGrid";
     String fgraph = "fGraph";
@@ -426,6 +432,114 @@ public class LocomotionEvolution extends Worker {
     if ((params = params(fixedHeteroDistributed, name)) != null) {
       return new FixedHeteroDistributed(
           Integer.parseInt(params.get("nSignals"))
+      );
+    }
+    if ((params = params(fixedHomoSpikingDistributed, name)) != null) {
+      ValueToSpikeTrainConverter valueToSpikeTrainConverter = new UniformValueToSpikeTrainConverter();
+      SpikeTrainToValueConverter spikeTrainToValueConverter = new AverageFrequencySpikeTrainToValueConverter();
+      if (params.containsKey("iConv")) {
+        switch (params.get("iConv")) {
+          case "unif":
+            if (params.containsKey("iFreq")) {
+              valueToSpikeTrainConverter = new UniformValueToSpikeTrainConverter(Double.parseDouble(params.get("iFreq")));
+            } else {
+              valueToSpikeTrainConverter = new UniformValueToSpikeTrainConverter();
+            }
+            break;
+          case "unif_mem":
+            if (params.containsKey("iFreq")) {
+              valueToSpikeTrainConverter = new UniformWithMemoryValueToSpikeTrainConverter(Double.parseDouble(params.get("iFreq")));
+            } else {
+              valueToSpikeTrainConverter = new UniformWithMemoryValueToSpikeTrainConverter();
+            }
+            break;
+        }
+      }
+      if (params.containsKey("oConv")) {
+        switch (params.get("oConv")) {
+          case "avg":
+            if (params.containsKey("oFreq")) {
+              spikeTrainToValueConverter = new AverageFrequencySpikeTrainToValueConverter(Double.parseDouble(params.get("oFreq")));
+            } else {
+              spikeTrainToValueConverter = new AverageFrequencySpikeTrainToValueConverter();
+            }
+            break;
+          case "avg_mem":
+            if (params.containsKey("oFreq")) {
+              if (params.containsKey("oMem")) {
+                spikeTrainToValueConverter = new MovingAverageSpikeTrainToValueConverter(Double.parseDouble(params.get("oFreq")),
+                    Integer.parseInt(params.get("oMem")));
+              } else {
+                spikeTrainToValueConverter = new MovingAverageSpikeTrainToValueConverter(Double.parseDouble(params.get("oFreq")));
+              }
+            } else {
+              if (params.containsKey("oMem")) {
+                spikeTrainToValueConverter = new MovingAverageSpikeTrainToValueConverter(Integer.parseInt(params.get("oMem")));
+              } else {
+                spikeTrainToValueConverter = new MovingAverageSpikeTrainToValueConverter();
+              }
+            }
+            break;
+        }
+      }
+      return new FixedHomoSpikingDistributed(
+          Integer.parseInt(params.get("nSignals")),
+          valueToSpikeTrainConverter,
+          spikeTrainToValueConverter
+      );
+    }
+    if ((params = params(fixedHeteroSpikingDistributed, name)) != null) {
+      ValueToSpikeTrainConverter valueToSpikeTrainConverter = new UniformValueToSpikeTrainConverter();
+      SpikeTrainToValueConverter spikeTrainToValueConverter = new AverageFrequencySpikeTrainToValueConverter();
+      if (params.containsKey("iConv")) {
+        switch (params.get("iConv")) {
+          case "unif":
+            if (params.containsKey("iFreq")) {
+              valueToSpikeTrainConverter = new UniformValueToSpikeTrainConverter(Double.parseDouble(params.get("iFreq")));
+            } else {
+              valueToSpikeTrainConverter = new UniformValueToSpikeTrainConverter();
+            }
+            break;
+          case "unif_mem":
+            if (params.containsKey("iFreq")) {
+              valueToSpikeTrainConverter = new UniformWithMemoryValueToSpikeTrainConverter(Double.parseDouble(params.get("iFreq")));
+            } else {
+              valueToSpikeTrainConverter = new UniformWithMemoryValueToSpikeTrainConverter();
+            }
+            break;
+        }
+      }
+      if (params.containsKey("oConv")) {
+        switch (params.get("oConv")) {
+          case "avg":
+            if (params.containsKey("oFreq")) {
+              spikeTrainToValueConverter = new AverageFrequencySpikeTrainToValueConverter(Double.parseDouble(params.get("oFreq")));
+            } else {
+              spikeTrainToValueConverter = new AverageFrequencySpikeTrainToValueConverter();
+            }
+            break;
+          case "avg_mem":
+            if (params.containsKey("oFreq")) {
+              if (params.containsKey("oMem")) {
+                spikeTrainToValueConverter = new MovingAverageSpikeTrainToValueConverter(Double.parseDouble(params.get("oFreq")),
+                    Integer.parseInt(params.get("oMem")));
+              } else {
+                spikeTrainToValueConverter = new MovingAverageSpikeTrainToValueConverter(Double.parseDouble(params.get("oFreq")));
+              }
+            } else {
+              if (params.containsKey("oMem")) {
+                spikeTrainToValueConverter = new MovingAverageSpikeTrainToValueConverter(Integer.parseInt(params.get("oMem")));
+              } else {
+                spikeTrainToValueConverter = new MovingAverageSpikeTrainToValueConverter();
+              }
+            }
+            break;
+        }
+      }
+      return new FixedHeteroSpikingDistributed(
+          Integer.parseInt(params.get("nSignals")),
+          valueToSpikeTrainConverter,
+          spikeTrainToValueConverter
       );
     }
     if ((params = params(fixedPhasesFunction, name)) != null) {
@@ -476,11 +590,6 @@ public class LocomotionEvolution extends Worker {
           Set.of(BodyAndSinusoidal.Component.FREQUENCY, BodyAndSinusoidal.Component.PHASE, BodyAndSinusoidal.Component.AMPLITUDE)
       );
     }
-    if ((params = params(fixedHomoDistributed, name)) != null) {
-      return new FixedHomoDistributed(
-          Integer.parseInt(params.get("nSignals"))
-      );
-    }
     if ((params = params(sensorCentralized, name)) != null) {
       return new SensorCentralized()
           .compose(PrototypedFunctionBuilder.of(List.of(
@@ -508,7 +617,7 @@ public class LocomotionEvolution extends Worker {
           PruningMultiLayerPerceptron.Criterion.valueOf(params.get("criterion").toUpperCase())
       );
     }
-    if ((params = params(msn, name)) != null) {
+    if ((params = params(msnWithConverter, name)) != null) {
       BiFunction<Integer, Integer, SpikingFunction> neuronBuilder = null;
       ValueToSpikeTrainConverter valueToSpikeTrainConverter = new UniformValueToSpikeTrainConverter();
       SpikeTrainToValueConverter spikeTrainToValueConverter = new AverageFrequencySpikeTrainToValueConverter();
@@ -610,12 +719,73 @@ public class LocomotionEvolution extends Worker {
             break;
         }
       }
-      return new MSN(
+      return new MSNWithConverter(
           Double.parseDouble(params.get("ratio")),
           Integer.parseInt(params.get("nLayers")),
           neuronBuilder,
           valueToSpikeTrainConverter,
           spikeTrainToValueConverter
+      );
+    }
+    if ((params = params(msn, name)) != null) {
+      BiFunction<Integer, Integer, SpikingFunction> neuronBuilder = null;
+      if (params.containsKey("spikeType") && params.get("spikeType").equals("lif")) {
+        if (params.containsKey("lRestPot") && params.containsKey("lThreshPot") && params.containsKey("lambda")) {
+          double restingPotential = Double.parseDouble(params.get("lRestPot"));
+          double thresholdPotential = Double.parseDouble(params.get("lThreshPot"));
+          double lambda = Double.parseDouble(params.get("lambda"));
+          neuronBuilder = (l, n) -> new LIFNeuron(restingPotential, thresholdPotential, lambda);
+        } else {
+          neuronBuilder = (l, n) -> new LIFNeuron();
+        }
+      }
+      if (params.containsKey("spikeType") && params.get("spikeType").equals("lif_h")) {
+        if (params.containsKey("lRestPot") && params.containsKey("lThreshPot") && params.containsKey("lambda") && params.containsKey("theta")) {
+          double restingPotential = Double.parseDouble(params.get("lRestPot"));
+          double thresholdPotential = Double.parseDouble(params.get("lThreshPot"));
+          double lambda = Double.parseDouble(params.get("lambda"));
+          double theta = Double.parseDouble(params.get("theta"));
+          neuronBuilder = (l, n) -> new LIFNeuronWithHomeostasis(restingPotential, thresholdPotential, lambda, theta);
+        } else {
+          neuronBuilder = (l, n) -> new LIFNeuronWithHomeostasis();
+        }
+      }
+      if (params.containsKey("spikeType") && params.get("spikeType").equals("lif_h_output")) {
+        int outputLayerIndex = Integer.parseInt(params.get("nLayers")) + 1;
+        if (params.containsKey("lRestPot") && params.containsKey("lThreshPot") && params.containsKey("lambda") && params.containsKey("theta")) {
+          double restingPotential = Double.parseDouble(params.get("lRestPot"));
+          double thresholdPotential = Double.parseDouble(params.get("lThreshPot"));
+          double lambda = Double.parseDouble(params.get("lambda"));
+          double theta = Double.parseDouble(params.get("theta"));
+          neuronBuilder = (l, n) -> (l == outputLayerIndex) ? new LIFNeuronWithHomeostasis(restingPotential, thresholdPotential, lambda, theta) : new LIFNeuron(restingPotential, thresholdPotential, lambda);
+        } else {
+          neuronBuilder = (l, n) -> (l == outputLayerIndex) ? new LIFNeuronWithHomeostasis() : new LIFNeuron();
+        }
+      }
+      if (params.containsKey("spikeType") && params.get("spikeType").equals("lif_h_io")) {
+        int outputLayerIndex = Integer.parseInt(params.get("nLayers")) + 1;
+        if (params.containsKey("lRestPot") && params.containsKey("lThreshPot") && params.containsKey("lambda") && params.containsKey("theta")) {
+          double restingPotential = Double.parseDouble(params.get("lRestPot"));
+          double thresholdPotential = Double.parseDouble(params.get("lThreshPot"));
+          double lambda = Double.parseDouble(params.get("lambda"));
+          double theta = Double.parseDouble(params.get("theta"));
+          neuronBuilder = (l, n) -> (l == outputLayerIndex || l == 0) ? new LIFNeuronWithHomeostasis(restingPotential, thresholdPotential, lambda, theta) : new LIFNeuron(restingPotential, thresholdPotential, lambda);
+        } else {
+          neuronBuilder = (l, n) -> (l == outputLayerIndex || l == 0) ? new LIFNeuronWithHomeostasis() : new LIFNeuron();
+        }
+      }
+      if (params.containsKey("spikeType") && params.get("spikeType").equals("iz")) {
+        if (params.containsKey("izParams")) {
+          IzhikevicNeuron.IzhikevicParameters izhikevicParameters = IzhikevicNeuron.IzhikevicParameters.valueOf(params.get("izParams").toUpperCase());
+          neuronBuilder = (l, n) -> new IzhikevicNeuron(izhikevicParameters);
+        } else {
+          neuronBuilder = (l, n) -> new IzhikevicNeuron();
+        }
+      }
+      return new MSN(
+          Double.parseDouble(params.get("ratio")),
+          Integer.parseInt(params.get("nLayers")),
+          neuronBuilder
       );
     }
     if ((params = params(fgraph, name)) != null) {
