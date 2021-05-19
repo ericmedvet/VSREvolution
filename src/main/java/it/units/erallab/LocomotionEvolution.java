@@ -37,6 +37,16 @@ import it.units.erallab.hmsrobots.core.controllers.snn.converters.stv.SpikeTrain
 import it.units.erallab.hmsrobots.core.controllers.snn.converters.vts.UniformValueToSpikeTrainConverter;
 import it.units.erallab.hmsrobots.core.controllers.snn.converters.vts.UniformWithMemoryValueToSpikeTrainConverter;
 import it.units.erallab.hmsrobots.core.controllers.snn.converters.vts.ValueToSpikeTrainConverter;
+import it.units.erallab.hmsrobots.core.controllers.snndiscr.QuantizedIzhikevicNeuron;
+import it.units.erallab.hmsrobots.core.controllers.snndiscr.QuantizedLIFNeuron;
+import it.units.erallab.hmsrobots.core.controllers.snndiscr.QuantizedLIFNeuronWithHomeostasis;
+import it.units.erallab.hmsrobots.core.controllers.snndiscr.QuantizedSpikingFunction;
+import it.units.erallab.hmsrobots.core.controllers.snndiscr.converters.stv.QuantizedAverageFrequencySpikeTrainToValueConverter;
+import it.units.erallab.hmsrobots.core.controllers.snndiscr.converters.stv.QuantizedMovingAverageSpikeTrainToValueConverter;
+import it.units.erallab.hmsrobots.core.controllers.snndiscr.converters.stv.QuantizedSpikeTrainToValueConverter;
+import it.units.erallab.hmsrobots.core.controllers.snndiscr.converters.vts.QuantizedUniformValueToSpikeTrainConverter;
+import it.units.erallab.hmsrobots.core.controllers.snndiscr.converters.vts.QuantizedUniformWithMemoryValueToSpikeTrainConverter;
+import it.units.erallab.hmsrobots.core.controllers.snndiscr.converters.vts.QuantizedValueToSpikeTrainConverter;
 import it.units.erallab.hmsrobots.core.objects.Robot;
 import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
 import it.units.erallab.hmsrobots.tasks.locomotion.Outcome;
@@ -416,7 +426,17 @@ public class LocomotionEvolution extends Worker {
     String sensorCentralized = "sensorCentralized-(?<nLayers>\\d+)";
     String mlp = "MLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)(-(?<actFun>(sin|tanh|sigmoid|relu)))?";
     String pruningMlp = "pMLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<actFun>(sin|tanh|sigmoid|relu))-(?<pruningTime>\\d+(\\.\\d+)?)-(?<pruningRate>0(\\.\\d+)?)-(?<criterion>(weight|abs_signal_mean|random))";
+    String msn = "MSNd-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<spikeType>(lif|iz|lif_h))" +
+        "(-(?<lRestPot>-?\\d+(\\.\\d+)?)-(?<lThreshPot>-?\\d+(\\.\\d+)?)-(?<lambda>\\d+(\\.\\d+)?)(-(?<theta>\\d+(\\.\\d+)?))?)?" +
+        "(-(?<izParams>(regular_spiking_params)))?";
+    String quantizedMsn = "QMSNd-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<spikeType>(lif|iz|lif_h))" +
+        "(-(?<lRestPot>-?\\d+(\\.\\d+)?)-(?<lThreshPot>-?\\d+(\\.\\d+)?)-(?<lambda>\\d+(\\.\\d+)?)(-(?<theta>\\d+(\\.\\d+)?))?)?" +
+        "(-(?<izParams>(regular_spiking_params)))?";
     String msnWithConverter = "MSN-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<spikeType>(lif|iz|lif_h|lif_h_output|lif_h_io))" +
+        "(-(?<lRestPot>-?\\d+(\\.\\d+)?)-(?<lThreshPot>-?\\d+(\\.\\d+)?)-(?<lambda>\\d+(\\.\\d+)?)(-(?<theta>\\d+(\\.\\d+)?))?)?" +
+        "(-(?<izParams>(regular_spiking_params)))?" +
+        "-(?<iConv>(unif|unif_mem))-(?<iFreq>\\d+(\\.\\d+)?)-(?<oConv>(avg|avg_mem))(-(?<oMem>\\d+))?-(?<oFreq>\\d+(\\.\\d+)?)";
+    String quantizedMsnWithConverter = "QMSN-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<spikeType>(lif|iz|lif_h|lif_h_output|lif_h_io))" +
         "(-(?<lRestPot>-?\\d+(\\.\\d+)?)-(?<lThreshPot>-?\\d+(\\.\\d+)?)-(?<lambda>\\d+(\\.\\d+)?)(-(?<theta>\\d+(\\.\\d+)?))?)?" +
         "(-(?<izParams>(regular_spiking_params)))?" +
         "-(?<iConv>(unif|unif_mem))-(?<iFreq>\\d+(\\.\\d+)?)-(?<oConv>(avg|avg_mem))(-(?<oMem>\\d+))?-(?<oFreq>\\d+(\\.\\d+)?)";
@@ -424,9 +444,6 @@ public class LocomotionEvolution extends Worker {
         "(-(?<lRestPot>-?\\d+(\\.\\d+)?)-(?<lThreshPot>-?\\d+(\\.\\d+)?)-(?<lambda>\\d+(\\.\\d+)?)(-(?<theta>\\d+(\\.\\d+)?))?)?" +
         "(-(?<izParams>(regular_spiking_params)))?" +
         "-(?<iConv>(unif|unif_mem))-(?<iFreq>\\d+(\\.\\d+)?)-(?<oConv>(avg|avg_mem))(-(?<oMem>\\d+))?-(?<oFreq>\\d+(\\.\\d+)?)";
-    String msn = "MSNd-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<spikeType>(lif|iz|lif_h))" +
-        "(-(?<lRestPot>-?\\d+(\\.\\d+)?)-(?<lThreshPot>-?\\d+(\\.\\d+)?)-(?<lambda>\\d+(\\.\\d+)?)(-(?<theta>\\d+(\\.\\d+)?))?)?" +
-        "(-(?<izParams>(regular_spiking_params)))?";
     String directNumGrid = "directNumGrid";
     String functionNumGrid = "functionNumGrid";
     String fgraph = "fGraph";
@@ -742,6 +759,116 @@ public class LocomotionEvolution extends Worker {
           spikeTrainToValueConverter
       );
     }
+    if ((params = params(quantizedMsnWithConverter, name)) != null) {
+      BiFunction<Integer, Integer, QuantizedSpikingFunction> neuronBuilder = null;
+      QuantizedValueToSpikeTrainConverter valueToSpikeTrainConverter = new QuantizedUniformValueToSpikeTrainConverter();
+      QuantizedSpikeTrainToValueConverter spikeTrainToValueConverter = new QuantizedAverageFrequencySpikeTrainToValueConverter();
+      if (params.containsKey("spikeType") && params.get("spikeType").equals("lif")) {
+        if (params.containsKey("lRestPot") && params.containsKey("lThreshPot") && params.containsKey("lambda")) {
+          double restingPotential = Double.parseDouble(params.get("lRestPot"));
+          double thresholdPotential = Double.parseDouble(params.get("lThreshPot"));
+          double lambda = Double.parseDouble(params.get("lambda"));
+          neuronBuilder = (l, n) -> new QuantizedLIFNeuron(restingPotential, thresholdPotential, lambda);
+        } else {
+          neuronBuilder = (l, n) -> new QuantizedLIFNeuron();
+        }
+      }
+      if (params.containsKey("spikeType") && params.get("spikeType").equals("lif_h")) {
+        if (params.containsKey("lRestPot") && params.containsKey("lThreshPot") && params.containsKey("lambda") && params.containsKey("theta")) {
+          double restingPotential = Double.parseDouble(params.get("lRestPot"));
+          double thresholdPotential = Double.parseDouble(params.get("lThreshPot"));
+          double lambda = Double.parseDouble(params.get("lambda"));
+          double theta = Double.parseDouble(params.get("theta"));
+          neuronBuilder = (l, n) -> new QuantizedLIFNeuronWithHomeostasis(restingPotential, thresholdPotential, lambda, theta);
+        } else {
+          neuronBuilder = (l, n) -> new QuantizedLIFNeuronWithHomeostasis();
+        }
+      }
+      if (params.containsKey("spikeType") && params.get("spikeType").equals("lif_h_output")) {
+        int outputLayerIndex = Integer.parseInt(params.get("nLayers")) + 1;
+        if (params.containsKey("lRestPot") && params.containsKey("lThreshPot") && params.containsKey("lambda") && params.containsKey("theta")) {
+          double restingPotential = Double.parseDouble(params.get("lRestPot"));
+          double thresholdPotential = Double.parseDouble(params.get("lThreshPot"));
+          double lambda = Double.parseDouble(params.get("lambda"));
+          double theta = Double.parseDouble(params.get("theta"));
+          neuronBuilder = (l, n) -> (l == outputLayerIndex) ? new QuantizedLIFNeuronWithHomeostasis(restingPotential, thresholdPotential, lambda, theta) : new QuantizedLIFNeuron(restingPotential, thresholdPotential, lambda);
+        } else {
+          neuronBuilder = (l, n) -> (l == outputLayerIndex) ? new QuantizedLIFNeuronWithHomeostasis() : new QuantizedLIFNeuron();
+        }
+      }
+      if (params.containsKey("spikeType") && params.get("spikeType").equals("lif_h_io")) {
+        int outputLayerIndex = Integer.parseInt(params.get("nLayers")) + 1;
+        if (params.containsKey("lRestPot") && params.containsKey("lThreshPot") && params.containsKey("lambda") && params.containsKey("theta")) {
+          double restingPotential = Double.parseDouble(params.get("lRestPot"));
+          double thresholdPotential = Double.parseDouble(params.get("lThreshPot"));
+          double lambda = Double.parseDouble(params.get("lambda"));
+          double theta = Double.parseDouble(params.get("theta"));
+          neuronBuilder = (l, n) -> (l == outputLayerIndex || l == 0) ? new QuantizedLIFNeuronWithHomeostasis(restingPotential, thresholdPotential, lambda, theta) : new QuantizedLIFNeuron(restingPotential, thresholdPotential, lambda);
+        } else {
+          neuronBuilder = (l, n) -> (l == outputLayerIndex || l == 0) ? new QuantizedLIFNeuronWithHomeostasis() : new QuantizedLIFNeuron();
+        }
+      }
+      if (params.containsKey("spikeType") && params.get("spikeType").equals("iz")) {
+        if (params.containsKey("izParams")) {
+          QuantizedIzhikevicNeuron.IzhikevicParameters izhikevicParameters = QuantizedIzhikevicNeuron.IzhikevicParameters.valueOf(params.get("izParams").toUpperCase());
+          neuronBuilder = (l, n) -> new QuantizedIzhikevicNeuron(izhikevicParameters);
+        } else {
+          neuronBuilder = (l, n) -> new QuantizedIzhikevicNeuron();
+        }
+      }
+      if (params.containsKey("iConv")) {
+        switch (params.get("iConv")) {
+          case "unif":
+            if (params.containsKey("iFreq")) {
+              valueToSpikeTrainConverter = new QuantizedUniformValueToSpikeTrainConverter(Double.parseDouble(params.get("iFreq")));
+            } else {
+              valueToSpikeTrainConverter = new QuantizedUniformValueToSpikeTrainConverter();
+            }
+            break;
+          case "unif_mem":
+            if (params.containsKey("iFreq")) {
+              valueToSpikeTrainConverter = new QuantizedUniformWithMemoryValueToSpikeTrainConverter(Double.parseDouble(params.get("iFreq")));
+            } else {
+              valueToSpikeTrainConverter = new QuantizedUniformWithMemoryValueToSpikeTrainConverter();
+            }
+            break;
+        }
+      }
+      if (params.containsKey("oConv")) {
+        switch (params.get("oConv")) {
+          case "avg":
+            if (params.containsKey("oFreq")) {
+              spikeTrainToValueConverter = new QuantizedAverageFrequencySpikeTrainToValueConverter(Double.parseDouble(params.get("oFreq")));
+            } else {
+              spikeTrainToValueConverter = new QuantizedAverageFrequencySpikeTrainToValueConverter();
+            }
+            break;
+          case "avg_mem":
+            if (params.containsKey("oFreq")) {
+              if (params.containsKey("oMem")) {
+                spikeTrainToValueConverter = new QuantizedMovingAverageSpikeTrainToValueConverter(Double.parseDouble(params.get("oFreq")),
+                    Integer.parseInt(params.get("oMem")));
+              } else {
+                spikeTrainToValueConverter = new QuantizedMovingAverageSpikeTrainToValueConverter(Double.parseDouble(params.get("oFreq")));
+              }
+            } else {
+              if (params.containsKey("oMem")) {
+                spikeTrainToValueConverter = new QuantizedMovingAverageSpikeTrainToValueConverter(Integer.parseInt(params.get("oMem")));
+              } else {
+                spikeTrainToValueConverter = new QuantizedMovingAverageSpikeTrainToValueConverter();
+              }
+            }
+            break;
+        }
+      }
+      return new QuantizedMSNWithConverter(
+          Double.parseDouble(params.get("ratio")),
+          Integer.parseInt(params.get("nLayers")),
+          neuronBuilder,
+          valueToSpikeTrainConverter,
+          spikeTrainToValueConverter
+      );
+    }
     if ((params = params(learningMsnWithConverter, name)) != null) {
       BiFunction<Integer, Integer, SpikingFunction> neuronBuilder = null;
       ValueToSpikeTrainConverter valueToSpikeTrainConverter = new UniformValueToSpikeTrainConverter();
@@ -884,6 +1011,67 @@ public class LocomotionEvolution extends Worker {
         }
       }
       return new MSN(
+          Double.parseDouble(params.get("ratio")),
+          Integer.parseInt(params.get("nLayers")),
+          neuronBuilder
+      );
+    }
+    if ((params = params(quantizedMsn, name)) != null) {
+      BiFunction<Integer, Integer, QuantizedSpikingFunction> neuronBuilder = null;
+      if (params.containsKey("spikeType") && params.get("spikeType").equals("lif")) {
+        if (params.containsKey("lRestPot") && params.containsKey("lThreshPot") && params.containsKey("lambda")) {
+          double restingPotential = Double.parseDouble(params.get("lRestPot"));
+          double thresholdPotential = Double.parseDouble(params.get("lThreshPot"));
+          double lambda = Double.parseDouble(params.get("lambda"));
+          neuronBuilder = (l, n) -> new QuantizedLIFNeuron(restingPotential, thresholdPotential, lambda);
+        } else {
+          neuronBuilder = (l, n) -> new QuantizedLIFNeuron();
+        }
+      }
+      if (params.containsKey("spikeType") && params.get("spikeType").equals("lif_h")) {
+        if (params.containsKey("lRestPot") && params.containsKey("lThreshPot") && params.containsKey("lambda") && params.containsKey("theta")) {
+          double restingPotential = Double.parseDouble(params.get("lRestPot"));
+          double thresholdPotential = Double.parseDouble(params.get("lThreshPot"));
+          double lambda = Double.parseDouble(params.get("lambda"));
+          double theta = Double.parseDouble(params.get("theta"));
+          neuronBuilder = (l, n) -> new QuantizedLIFNeuronWithHomeostasis(restingPotential, thresholdPotential, lambda, theta);
+        } else {
+          neuronBuilder = (l, n) -> new QuantizedLIFNeuronWithHomeostasis();
+        }
+      }
+      if (params.containsKey("spikeType") && params.get("spikeType").equals("lif_h_output")) {
+        int outputLayerIndex = Integer.parseInt(params.get("nLayers")) + 1;
+        if (params.containsKey("lRestPot") && params.containsKey("lThreshPot") && params.containsKey("lambda") && params.containsKey("theta")) {
+          double restingPotential = Double.parseDouble(params.get("lRestPot"));
+          double thresholdPotential = Double.parseDouble(params.get("lThreshPot"));
+          double lambda = Double.parseDouble(params.get("lambda"));
+          double theta = Double.parseDouble(params.get("theta"));
+          neuronBuilder = (l, n) -> (l == outputLayerIndex) ? new QuantizedLIFNeuronWithHomeostasis(restingPotential, thresholdPotential, lambda, theta) : new QuantizedLIFNeuron(restingPotential, thresholdPotential, lambda);
+        } else {
+          neuronBuilder = (l, n) -> (l == outputLayerIndex) ? new QuantizedLIFNeuronWithHomeostasis() : new QuantizedLIFNeuron();
+        }
+      }
+      if (params.containsKey("spikeType") && params.get("spikeType").equals("lif_h_io")) {
+        int outputLayerIndex = Integer.parseInt(params.get("nLayers")) + 1;
+        if (params.containsKey("lRestPot") && params.containsKey("lThreshPot") && params.containsKey("lambda") && params.containsKey("theta")) {
+          double restingPotential = Double.parseDouble(params.get("lRestPot"));
+          double thresholdPotential = Double.parseDouble(params.get("lThreshPot"));
+          double lambda = Double.parseDouble(params.get("lambda"));
+          double theta = Double.parseDouble(params.get("theta"));
+          neuronBuilder = (l, n) -> (l == outputLayerIndex || l == 0) ? new QuantizedLIFNeuronWithHomeostasis(restingPotential, thresholdPotential, lambda, theta) : new QuantizedLIFNeuron(restingPotential, thresholdPotential, lambda);
+        } else {
+          neuronBuilder = (l, n) -> (l == outputLayerIndex || l == 0) ? new QuantizedLIFNeuronWithHomeostasis() : new QuantizedLIFNeuron();
+        }
+      }
+      if (params.containsKey("spikeType") && params.get("spikeType").equals("iz")) {
+        if (params.containsKey("izParams")) {
+          QuantizedIzhikevicNeuron.IzhikevicParameters izhikevicParameters = QuantizedIzhikevicNeuron.IzhikevicParameters.valueOf(params.get("izParams").toUpperCase());
+          neuronBuilder = (l, n) -> new QuantizedIzhikevicNeuron(izhikevicParameters);
+        } else {
+          neuronBuilder = (l, n) -> new QuantizedIzhikevicNeuron();
+        }
+      }
+      return new QuantizedMSN(
           Double.parseDouble(params.get("ratio")),
           Integer.parseInt(params.get("nLayers")),
           neuronBuilder
