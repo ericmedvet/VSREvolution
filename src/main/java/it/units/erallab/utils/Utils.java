@@ -70,11 +70,12 @@ public class Utils {
   }
 
   public static List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> basicFunctions() {
+    NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?> elapsedSeconds = elapsedSeconds();
     return List.of(
         iterations(),
         births(),
         fitnessEvaluations(),
-        elapsedSeconds()
+        elapsedSeconds.reformat("%6.0f")
     );
   }
 
@@ -115,6 +116,16 @@ public class Utils {
         uniqueness().of(each(fitness())).of(all()),
         min.reformat("%+4.1f"),
         median.reformat("%5.1f")
+    );
+  }
+
+  public static List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> computationTimeFunctions( ) {
+    Function<Outcome, Double> computationTimeFunction = Outcome::getComputationTime;
+    NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?> min = min(Double::compare).of(each(f("computation.time", computationTimeFunction).of(fitness()))).of(all());
+    NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?> max = max(Double::compare).of(each(f("computation.time", computationTimeFunction).of(fitness()))).of(all());
+    return List.of(
+        min.reformat("%4.1f"),
+        max.reformat("%5.1f")
     );
   }
 

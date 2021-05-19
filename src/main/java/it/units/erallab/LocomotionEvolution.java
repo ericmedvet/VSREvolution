@@ -137,6 +137,7 @@ public class LocomotionEvolution extends Worker {
     List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> basicFunctions = Utils.basicFunctions();
     List<NamedFunction<Individual<?, ? extends Robot<?>, ? extends Outcome>, ?>> basicIndividualFunctions = Utils.individualFunctions(fitnessFunction);
     List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> populationFunctions = Utils.populationFunctions(fitnessFunction);
+    List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> computationTimeFunctions = Utils.computationTimeFunctions();
     List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> visualFunctions = Utils.visualFunctions(fitnessFunction);
     List<NamedFunction<Outcome, ?>> basicOutcomeFunctions = Utils.basicOutcomeFunctions();
     List<NamedFunction<Outcome, ?>> detailedOutcomeFunctions = Utils.detailedOutcomeFunctions(spectrumMinFreq, spectrumMaxFreq, spectrumSize);
@@ -147,6 +148,7 @@ public class LocomotionEvolution extends Worker {
           basicFunctions,
           populationFunctions,
           visualFunctions,
+          computationTimeFunctions,
           NamedFunction.then(best(), basicIndividualFunctions),
           NamedFunction.then(as(Outcome.class).of(fitness()).of(best()), basicOutcomeFunctions),
           NamedFunction.then(as(Outcome.class).of(fitness()).of(best()), visualOutcomeFunctions)
@@ -338,6 +340,7 @@ public class LocomotionEvolution extends Worker {
     String cmaES = "CMAES";
     String eS = "ES-(?<nPop>\\d+)-(?<sigma>\\d+(\\.\\d+)?)";
     String sparseGA = "sparse-(?<nPop>\\d+)-(?<p>\\d+(\\.\\d+)?)";
+    String STDPstandardGA = "STDP_GA-(?<nPop>\\d+)-(?<diversity>(t|f))";
     Map<String, String> params;
     if ((params = params(numGA, name)) != null) {
       return new DoublesStandard(
@@ -369,6 +372,14 @@ public class LocomotionEvolution extends Worker {
           Integer.parseInt(params.get("nPop")),
           (int) Math.max(Math.round((double) Integer.parseInt(params.get("nPop")) / 10d), 3),
           Double.parseDouble(params.get("p"))
+      );
+    }
+    if ((params = params(STDPstandardGA, name)) != null) {
+      return new STDPStandard(
+          Integer.parseInt(params.get("nPop")),
+          (int) Math.max(Math.round((double) Integer.parseInt(params.get("nPop")) / 10d), 3),
+          0d,
+          params.get("diversity").equals("t")
       );
     }
     throw new IllegalArgumentException(String.format("Unknown evolver builder name: %s", name));
@@ -406,6 +417,10 @@ public class LocomotionEvolution extends Worker {
     String mlp = "MLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)(-(?<actFun>(sin|tanh|sigmoid|relu)))?";
     String pruningMlp = "pMLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<actFun>(sin|tanh|sigmoid|relu))-(?<pruningTime>\\d+(\\.\\d+)?)-(?<pruningRate>0(\\.\\d+)?)-(?<criterion>(weight|abs_signal_mean|random))";
     String msnWithConverter = "MSN-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<spikeType>(lif|iz|lif_h|lif_h_output|lif_h_io))" +
+        "(-(?<lRestPot>-?\\d+(\\.\\d+)?)-(?<lThreshPot>-?\\d+(\\.\\d+)?)-(?<lambda>\\d+(\\.\\d+)?)(-(?<theta>\\d+(\\.\\d+)?))?)?" +
+        "(-(?<izParams>(regular_spiking_params)))?" +
+        "-(?<iConv>(unif|unif_mem))-(?<iFreq>\\d+(\\.\\d+)?)-(?<oConv>(avg|avg_mem))(-(?<oMem>\\d+))?-(?<oFreq>\\d+(\\.\\d+)?)";
+    String learningMsnWithConverter = "LMSN-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<spikeType>(lif|iz|lif_h))" +
         "(-(?<lRestPot>-?\\d+(\\.\\d+)?)-(?<lThreshPot>-?\\d+(\\.\\d+)?)-(?<lambda>\\d+(\\.\\d+)?)(-(?<theta>\\d+(\\.\\d+)?))?)?" +
         "(-(?<izParams>(regular_spiking_params)))?" +
         "-(?<iConv>(unif|unif_mem))-(?<iFreq>\\d+(\\.\\d+)?)-(?<oConv>(avg|avg_mem))(-(?<oMem>\\d+))?-(?<oFreq>\\d+(\\.\\d+)?)";
@@ -720,6 +735,92 @@ public class LocomotionEvolution extends Worker {
         }
       }
       return new MSNWithConverter(
+          Double.parseDouble(params.get("ratio")),
+          Integer.parseInt(params.get("nLayers")),
+          neuronBuilder,
+          valueToSpikeTrainConverter,
+          spikeTrainToValueConverter
+      );
+    }
+    if ((params = params(learningMsnWithConverter, name)) != null) {
+      BiFunction<Integer, Integer, SpikingFunction> neuronBuilder = null;
+      ValueToSpikeTrainConverter valueToSpikeTrainConverter = new UniformValueToSpikeTrainConverter();
+      SpikeTrainToValueConverter spikeTrainToValueConverter = new AverageFrequencySpikeTrainToValueConverter();
+      if (params.containsKey("spikeType") && params.get("spikeType").equals("lif")) {
+        if (params.containsKey("lRestPot") && params.containsKey("lThreshPot") && params.containsKey("lambda")) {
+          double restingPotential = Double.parseDouble(params.get("lRestPot"));
+          double thresholdPotential = Double.parseDouble(params.get("lThreshPot"));
+          double lambda = Double.parseDouble(params.get("lambda"));
+          neuronBuilder = (l, n) -> new LIFNeuron(restingPotential, thresholdPotential, lambda);
+        } else {
+          neuronBuilder = (l, n) -> new LIFNeuron();
+        }
+      }
+      if (params.containsKey("spikeType") && params.get("spikeType").equals("lif_h")) {
+        if (params.containsKey("lRestPot") && params.containsKey("lThreshPot") && params.containsKey("lambda") && params.containsKey("theta")) {
+          double restingPotential = Double.parseDouble(params.get("lRestPot"));
+          double thresholdPotential = Double.parseDouble(params.get("lThreshPot"));
+          double lambda = Double.parseDouble(params.get("lambda"));
+          double theta = Double.parseDouble(params.get("theta"));
+          neuronBuilder = (l, n) -> new LIFNeuronWithHomeostasis(restingPotential, thresholdPotential, lambda, theta);
+        } else {
+          neuronBuilder = (l, n) -> new LIFNeuronWithHomeostasis();
+        }
+      }
+      if (params.containsKey("spikeType") && params.get("spikeType").equals("iz")) {
+        if (params.containsKey("izParams")) {
+          IzhikevicNeuron.IzhikevicParameters izhikevicParameters = IzhikevicNeuron.IzhikevicParameters.valueOf(params.get("izParams").toUpperCase());
+          neuronBuilder = (l, n) -> new IzhikevicNeuron(izhikevicParameters);
+        } else {
+          neuronBuilder = (l, n) -> new IzhikevicNeuron();
+        }
+      }
+      if (params.containsKey("iConv")) {
+        switch (params.get("iConv")) {
+          case "unif":
+            if (params.containsKey("iFreq")) {
+              valueToSpikeTrainConverter = new UniformValueToSpikeTrainConverter(Double.parseDouble(params.get("iFreq")));
+            } else {
+              valueToSpikeTrainConverter = new UniformValueToSpikeTrainConverter();
+            }
+            break;
+          case "unif_mem":
+            if (params.containsKey("iFreq")) {
+              valueToSpikeTrainConverter = new UniformWithMemoryValueToSpikeTrainConverter(Double.parseDouble(params.get("iFreq")));
+            } else {
+              valueToSpikeTrainConverter = new UniformWithMemoryValueToSpikeTrainConverter();
+            }
+            break;
+        }
+      }
+      if (params.containsKey("oConv")) {
+        switch (params.get("oConv")) {
+          case "avg":
+            if (params.containsKey("oFreq")) {
+              spikeTrainToValueConverter = new AverageFrequencySpikeTrainToValueConverter(Double.parseDouble(params.get("oFreq")));
+            } else {
+              spikeTrainToValueConverter = new AverageFrequencySpikeTrainToValueConverter();
+            }
+            break;
+          case "avg_mem":
+            if (params.containsKey("oFreq")) {
+              if (params.containsKey("oMem")) {
+                spikeTrainToValueConverter = new MovingAverageSpikeTrainToValueConverter(Double.parseDouble(params.get("oFreq")),
+                    Integer.parseInt(params.get("oMem")));
+              } else {
+                spikeTrainToValueConverter = new MovingAverageSpikeTrainToValueConverter(Double.parseDouble(params.get("oFreq")));
+              }
+            } else {
+              if (params.containsKey("oMem")) {
+                spikeTrainToValueConverter = new MovingAverageSpikeTrainToValueConverter(Integer.parseInt(params.get("oMem")));
+              } else {
+                spikeTrainToValueConverter = new MovingAverageSpikeTrainToValueConverter();
+              }
+            }
+            break;
+        }
+      }
+      return new LearningMSNWithConverters(
           Double.parseDouble(params.get("ratio")),
           Integer.parseInt(params.get("nLayers")),
           neuronBuilder,

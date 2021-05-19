@@ -3,21 +3,22 @@ package it.units.erallab.builder.phenotype;
 import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.erallab.hmsrobots.core.controllers.MultiLayerPerceptron;
 import it.units.erallab.hmsrobots.core.controllers.TimedRealFunction;
-import it.units.erallab.hmsrobots.core.controllers.snn.MultilayerSpikingNetwork;
-import it.units.erallab.hmsrobots.core.controllers.snn.MultilayerSpikingNetworkWithConverters;
-import it.units.erallab.hmsrobots.core.controllers.snn.SpikingFunction;
+import it.units.erallab.hmsrobots.core.controllers.snn.*;
 import it.units.erallab.hmsrobots.core.controllers.snn.converters.stv.SpikeTrainToValueConverter;
 import it.units.erallab.hmsrobots.core.controllers.snn.converters.vts.ValueToSpikeTrainConverter;
+import it.units.erallab.hmsrobots.core.controllers.snn.learning.STDPLearningRule;
+import it.units.erallab.hmsrobots.core.controllers.snn.learning.SymmetricAntiHebbianLearningRule;
+import it.units.malelab.jgea.core.IndependentFactory;
+import it.units.malelab.jgea.representation.sequence.FixedLengthListFactory;
+import it.units.malelab.jgea.representation.sequence.numeric.UniformDoubleFactory;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Random;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
-/**
- * @author eric
- */
-public class MSNWithConverter implements PrototypedFunctionBuilder<List<Double>, TimedRealFunction> {
+public class LearningMSNWithConverters implements PrototypedFunctionBuilder<List<STDPLearningRule>, TimedRealFunction> {
 
   private final double innerLayerRatio;
   private final int nOfInnerLayers;
@@ -25,7 +26,7 @@ public class MSNWithConverter implements PrototypedFunctionBuilder<List<Double>,
   private final ValueToSpikeTrainConverter valueToSpikeTrainConverter;
   private final SpikeTrainToValueConverter spikeTrainToValueConverter;
 
-  public MSNWithConverter(double innerLayerRatio, int nOfInnerLayers, BiFunction<Integer, Integer, SpikingFunction> neuronBuilder, ValueToSpikeTrainConverter valueToSpikeTrainConverter, SpikeTrainToValueConverter spikeTrainToValueConverter) {
+  public LearningMSNWithConverters(double innerLayerRatio, int nOfInnerLayers, BiFunction<Integer, Integer, SpikingFunction> neuronBuilder, ValueToSpikeTrainConverter valueToSpikeTrainConverter, SpikeTrainToValueConverter spikeTrainToValueConverter) {
     this.innerLayerRatio = innerLayerRatio;
     this.nOfInnerLayers = nOfInnerLayers;
     this.neuronBuilder = neuronBuilder;
@@ -50,7 +51,7 @@ public class MSNWithConverter implements PrototypedFunctionBuilder<List<Double>,
   }
 
   @Override
-  public Function<List<Double>, TimedRealFunction> buildFor(TimedRealFunction function) {
+  public Function<List<STDPLearningRule>, TimedRealFunction> buildFor(TimedRealFunction function) {
     return values -> {
       int nOfInputs = function.getInputDimension();
       int nOfOutputs = function.getOutputDimension();
@@ -58,16 +59,18 @@ public class MSNWithConverter implements PrototypedFunctionBuilder<List<Double>,
       int nOfWeights = MultilayerSpikingNetwork.countWeights(nOfInputs, innerNeurons, nOfOutputs);
       if (nOfWeights != values.size()) {
         throw new IllegalArgumentException(String.format(
-            "Wrong number of values for weights: %d expected, %d found",
+            "Wrong number of values for learning rules: %d expected, %d found",
             nOfWeights,
             values.size()
         ));
       }
-      return new MultilayerSpikingNetworkWithConverters(
+      IndependentFactory<List<Double>> weightsFactory = new FixedLengthListFactory<>(nOfWeights, new UniformDoubleFactory(-1d, 1d));
+      return new LearningMultilayerSpikingNetworkWithConverters(
           nOfInputs,
           innerNeurons,
           nOfOutputs,
-          values.stream().mapToDouble(d -> d).toArray(),
+          weightsFactory.build(new Random()).stream().mapToDouble(Double::doubleValue).toArray(),
+          values.toArray(new STDPLearningRule[0]),
           neuronBuilder,
           valueToSpikeTrainConverter,
           spikeTrainToValueConverter
@@ -76,7 +79,7 @@ public class MSNWithConverter implements PrototypedFunctionBuilder<List<Double>,
   }
 
   @Override
-  public List<Double> exampleFor(TimedRealFunction function) {
+  public List<STDPLearningRule> exampleFor(TimedRealFunction function) {
     return Collections.nCopies(
         MultilayerSpikingNetwork.countWeights(
             MultiLayerPerceptron.countNeurons(
@@ -84,7 +87,7 @@ public class MSNWithConverter implements PrototypedFunctionBuilder<List<Double>,
                 innerNeurons(function.getInputDimension(), function.getOutputDimension()),
                 function.getOutputDimension())
         ),
-        0d
+        new SymmetricAntiHebbianLearningRule()
     );
   }
 
