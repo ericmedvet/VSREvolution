@@ -18,10 +18,7 @@ package it.units.erallab;
 
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.Lists;
-import it.units.erallab.builder.DirectNumbersGrid;
-import it.units.erallab.builder.FunctionGrid;
-import it.units.erallab.builder.FunctionNumbersGrid;
-import it.units.erallab.builder.PrototypedFunctionBuilder;
+import it.units.erallab.builder.*;
 import it.units.erallab.builder.evolver.*;
 import it.units.erallab.builder.phenotype.*;
 import it.units.erallab.builder.robot.*;
@@ -417,6 +414,10 @@ public class LocomotionEvolution extends Worker {
         "-(?<iConv>(unif|unif_mem))-(?<iFreq>\\d+(\\.\\d+)?)-(?<oConv>(avg|avg_mem))(-(?<oMem>\\d+))?-(?<oFreq>\\d+(\\.\\d+)?)";
     String fixedHeteroSpikingDistributed = "fixedHeteroSpikeDist-(?<nSignals>\\d+)" +
         "-(?<iConv>(unif|unif_mem))-(?<iFreq>\\d+(\\.\\d+)?)-(?<oConv>(avg|avg_mem))(-(?<oMem>\\d+))?-(?<oFreq>\\d+(\\.\\d+)?)";
+    String fixedHomoQuantizedSpikingDistributed = "fixedHomoQuantSpikeDist-(?<nSignals>\\d+)" +
+        "-(?<iConv>(unif|unif_mem))-(?<iFreq>\\d+(\\.\\d+)?)-(?<oConv>(avg|avg_mem))(-(?<oMem>\\d+))?-(?<oFreq>\\d+(\\.\\d+)?)";
+    String fixedHeteroQuantizedSpikingDistributed = "fixedHeteroQuantSpikeDist-(?<nSignals>\\d+)" +
+        "-(?<iConv>(unif|unif_mem))-(?<iFreq>\\d+(\\.\\d+)?)-(?<oConv>(avg|avg_mem))(-(?<oMem>\\d+))?-(?<oFreq>\\d+(\\.\\d+)?)";
     String fixedPhasesFunction = "fixedPhasesFunct-(?<f>\\d+)";
     String fixedPhases = "fixedPhases-(?<f>\\d+)";
     String fixedPhasesAndFrequencies = "fixedPhasesAndFrequencies";
@@ -448,6 +449,8 @@ public class LocomotionEvolution extends Worker {
     String functionNumGrid = "functionNumGrid";
     String fgraph = "fGraph";
     String functionGrid = "fGrid-(?<innerMapper>.*)";
+    String spikingFunctionGrid = "snnFuncGrid-(?<innerMapper>.*)";
+    String spikingQuantizedFunctionGrid = "snnQuantFuncGrid-(?<innerMapper>.*)";
     Map<String, String> params;
     //robot mappers
     if ((params = params(fixedCentralized, name)) != null) {
@@ -569,6 +572,114 @@ public class LocomotionEvolution extends Worker {
         }
       }
       return new FixedHeteroSpikingDistributed(
+          Integer.parseInt(params.get("nSignals")),
+          valueToSpikeTrainConverter,
+          spikeTrainToValueConverter
+      );
+    }
+    if ((params = params(fixedHomoQuantizedSpikingDistributed, name)) != null) {
+      QuantizedValueToSpikeTrainConverter valueToSpikeTrainConverter = new QuantizedUniformValueToSpikeTrainConverter();
+      QuantizedSpikeTrainToValueConverter spikeTrainToValueConverter = new QuantizedAverageFrequencySpikeTrainToValueConverter();
+      if (params.containsKey("iConv")) {
+        switch (params.get("iConv")) {
+          case "unif":
+            if (params.containsKey("iFreq")) {
+              valueToSpikeTrainConverter = new QuantizedUniformValueToSpikeTrainConverter(Double.parseDouble(params.get("iFreq")));
+            } else {
+              valueToSpikeTrainConverter = new QuantizedUniformValueToSpikeTrainConverter();
+            }
+            break;
+          case "unif_mem":
+            if (params.containsKey("iFreq")) {
+              valueToSpikeTrainConverter = new QuantizedUniformWithMemoryValueToSpikeTrainConverter(Double.parseDouble(params.get("iFreq")));
+            } else {
+              valueToSpikeTrainConverter = new QuantizedUniformWithMemoryValueToSpikeTrainConverter();
+            }
+            break;
+        }
+      }
+      if (params.containsKey("oConv")) {
+        switch (params.get("oConv")) {
+          case "avg":
+            if (params.containsKey("oFreq")) {
+              spikeTrainToValueConverter = new QuantizedAverageFrequencySpikeTrainToValueConverter(Double.parseDouble(params.get("oFreq")));
+            } else {
+              spikeTrainToValueConverter = new QuantizedAverageFrequencySpikeTrainToValueConverter();
+            }
+            break;
+          case "avg_mem":
+            if (params.containsKey("oFreq")) {
+              if (params.containsKey("oMem")) {
+                spikeTrainToValueConverter = new QuantizedMovingAverageSpikeTrainToValueConverter(Double.parseDouble(params.get("oFreq")),
+                    Integer.parseInt(params.get("oMem")));
+              } else {
+                spikeTrainToValueConverter = new QuantizedMovingAverageSpikeTrainToValueConverter(Double.parseDouble(params.get("oFreq")));
+              }
+            } else {
+              if (params.containsKey("oMem")) {
+                spikeTrainToValueConverter = new QuantizedMovingAverageSpikeTrainToValueConverter(Integer.parseInt(params.get("oMem")));
+              } else {
+                spikeTrainToValueConverter = new QuantizedMovingAverageSpikeTrainToValueConverter();
+              }
+            }
+            break;
+        }
+      }
+      return new FixedHomoQuantizedSpikingDistributed(
+          Integer.parseInt(params.get("nSignals")),
+          valueToSpikeTrainConverter,
+          spikeTrainToValueConverter
+      );
+    }
+    if ((params = params(fixedHeteroQuantizedSpikingDistributed, name)) != null) {
+      QuantizedValueToSpikeTrainConverter valueToSpikeTrainConverter = new QuantizedUniformValueToSpikeTrainConverter();
+      QuantizedSpikeTrainToValueConverter spikeTrainToValueConverter = new QuantizedAverageFrequencySpikeTrainToValueConverter();
+      if (params.containsKey("iConv")) {
+        switch (params.get("iConv")) {
+          case "unif":
+            if (params.containsKey("iFreq")) {
+              valueToSpikeTrainConverter = new QuantizedUniformValueToSpikeTrainConverter(Double.parseDouble(params.get("iFreq")));
+            } else {
+              valueToSpikeTrainConverter = new QuantizedUniformValueToSpikeTrainConverter();
+            }
+            break;
+          case "unif_mem":
+            if (params.containsKey("iFreq")) {
+              valueToSpikeTrainConverter = new QuantizedUniformWithMemoryValueToSpikeTrainConverter(Double.parseDouble(params.get("iFreq")));
+            } else {
+              valueToSpikeTrainConverter = new QuantizedUniformWithMemoryValueToSpikeTrainConverter();
+            }
+            break;
+        }
+      }
+      if (params.containsKey("oConv")) {
+        switch (params.get("oConv")) {
+          case "avg":
+            if (params.containsKey("oFreq")) {
+              spikeTrainToValueConverter = new QuantizedAverageFrequencySpikeTrainToValueConverter(Double.parseDouble(params.get("oFreq")));
+            } else {
+              spikeTrainToValueConverter = new QuantizedAverageFrequencySpikeTrainToValueConverter();
+            }
+            break;
+          case "avg_mem":
+            if (params.containsKey("oFreq")) {
+              if (params.containsKey("oMem")) {
+                spikeTrainToValueConverter = new QuantizedMovingAverageSpikeTrainToValueConverter(Double.parseDouble(params.get("oFreq")),
+                    Integer.parseInt(params.get("oMem")));
+              } else {
+                spikeTrainToValueConverter = new QuantizedMovingAverageSpikeTrainToValueConverter(Double.parseDouble(params.get("oFreq")));
+              }
+            } else {
+              if (params.containsKey("oMem")) {
+                spikeTrainToValueConverter = new QuantizedMovingAverageSpikeTrainToValueConverter(Integer.parseInt(params.get("oMem")));
+              } else {
+                spikeTrainToValueConverter = new QuantizedMovingAverageSpikeTrainToValueConverter();
+              }
+            }
+            break;
+        }
+      }
+      return new FixedHeteroQuantizedSpikingDistributed(
           Integer.parseInt(params.get("nSignals")),
           valueToSpikeTrainConverter,
           spikeTrainToValueConverter
@@ -861,7 +972,7 @@ public class LocomotionEvolution extends Worker {
             break;
         }
       }
-      return new QuantizedMSNWithConverter(
+      return new QuantizedMSNWithConverters(
           Double.parseDouble(params.get("ratio")),
           Integer.parseInt(params.get("nLayers")),
           neuronBuilder,
@@ -1083,6 +1194,12 @@ public class LocomotionEvolution extends Worker {
     //misc
     if ((params = params(functionGrid, name)) != null) {
       return new FunctionGrid((PrototypedFunctionBuilder) getMapperBuilderFromName(params.get("innerMapper")));
+    }
+    if ((params = params(spikingFunctionGrid, name)) != null) {
+      return new FunctionGrid((PrototypedFunctionBuilder) getMapperBuilderFromName(params.get("innerMapper")));
+    }
+    if ((params = params(spikingQuantizedFunctionGrid, name)) != null) {
+      return new SpikingQuantizedFunctionGrid((PrototypedFunctionBuilder) getMapperBuilderFromName(params.get("innerMapper")));
     }
     if ((params = params(directNumGrid, name)) != null) {
       return new DirectNumbersGrid();
