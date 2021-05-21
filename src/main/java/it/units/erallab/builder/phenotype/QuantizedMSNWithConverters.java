@@ -17,7 +17,7 @@ import java.util.function.Function;
 /**
  * @author eric
  */
-public class QuantizedMSNWithConverter implements PrototypedFunctionBuilder<List<Double>, TimedRealFunction> {
+public class QuantizedMSNWithConverters implements PrototypedFunctionBuilder<List<Double>, TimedRealFunction> {
 
   private final double innerLayerRatio;
   private final int nOfInnerLayers;
@@ -25,7 +25,7 @@ public class QuantizedMSNWithConverter implements PrototypedFunctionBuilder<List
   private final QuantizedValueToSpikeTrainConverter valueToSpikeTrainConverter;
   private final QuantizedSpikeTrainToValueConverter spikeTrainToValueConverter;
 
-  public QuantizedMSNWithConverter(double innerLayerRatio, int nOfInnerLayers, BiFunction<Integer, Integer, QuantizedSpikingFunction> neuronBuilder, QuantizedValueToSpikeTrainConverter valueToSpikeTrainConverter, QuantizedSpikeTrainToValueConverter spikeTrainToValueConverter) {
+  public QuantizedMSNWithConverters(double innerLayerRatio, int nOfInnerLayers, BiFunction<Integer, Integer, QuantizedSpikingFunction> neuronBuilder, QuantizedValueToSpikeTrainConverter valueToSpikeTrainConverter, QuantizedSpikeTrainToValueConverter spikeTrainToValueConverter) {
     this.innerLayerRatio = innerLayerRatio;
     this.nOfInnerLayers = nOfInnerLayers;
     this.neuronBuilder = neuronBuilder;
