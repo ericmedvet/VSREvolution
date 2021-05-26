@@ -36,14 +36,15 @@ public class RasterPlotCreator {
   }
 
   private static List<Double>[][] simulateAndGetSpikes(Robot<?> robot, Task<Robot<?>, ?> task) {
-    if (robot.getController() instanceof CentralizedSensing centralizedSensing && centralizedSensing.getFunction() instanceof MultilayerSpikingNetwork multilayerSpikingNetwork) {
+    if (robot.getController() instanceof CentralizedSensing && ((CentralizedSensing) robot.getController()).getFunction() instanceof MultilayerSpikingNetwork) {
+      MultilayerSpikingNetwork multilayerSpikingNetwork = (MultilayerSpikingNetwork) ((CentralizedSensing) robot.getController()).getFunction();
       multilayerSpikingNetwork.setSpikesTracker(true);
       multilayerSpikingNetwork.reset();
+      task.apply(robot);
+      return multilayerSpikingNetwork.getSpikes();
     } else {
       throw new IllegalArgumentException("Robot controller does not spike");
     }
-    task.apply(robot);
-    return multilayerSpikingNetwork.getSpikes();
   }
 
 }

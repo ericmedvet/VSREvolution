@@ -2,6 +2,7 @@ package it.units.erallab.utils;
 
 import it.units.erallab.hmsrobots.core.controllers.CentralizedSensing;
 import it.units.erallab.hmsrobots.core.controllers.snn.LIFNeuronWithHomeostasis;
+import it.units.erallab.hmsrobots.core.controllers.snn.MultilayerSpikingNetwork;
 import it.units.erallab.hmsrobots.core.controllers.snn.MultilayerSpikingNetworkWithConverters;
 import it.units.erallab.hmsrobots.core.controllers.snn.SpikingFunction;
 import it.units.erallab.hmsrobots.core.objects.Robot;
@@ -39,15 +40,17 @@ public class ThresholdEvolutionPlotter {
 
   @SuppressWarnings("unchecked")
   private static SortedMap<Double,Double>[][] simulateAndGetThresholdEvolution(Robot<?> robot, Task<Robot<?>, ?> task) {
-    if (robot.getController() instanceof CentralizedSensing centralizedSensing && centralizedSensing.getFunction() instanceof MultilayerSpikingNetworkWithConverters multilayerSpikingNetwork) {
-      multilayerSpikingNetwork.setSpikesTracker(true);
-      multilayerSpikingNetwork.setPlotMode(true);
-      multilayerSpikingNetwork.reset();
+    MultilayerSpikingNetworkWithConverters multilayerSpikingNetworkWithConverters;
+    if (robot.getController() instanceof CentralizedSensing && ((CentralizedSensing)robot.getController()).getFunction() instanceof MultilayerSpikingNetworkWithConverters ) {
+      multilayerSpikingNetworkWithConverters = (MultilayerSpikingNetworkWithConverters)((CentralizedSensing)robot.getController()).getFunction();
+      multilayerSpikingNetworkWithConverters.setSpikesTracker(true);
+      multilayerSpikingNetworkWithConverters.setPlotMode(true);
+      multilayerSpikingNetworkWithConverters.reset();
     } else {
       throw new IllegalArgumentException("Robot controller does not have variable threshold");
     }
     task.apply(robot);
-    SpikingFunction[][] neurons = multilayerSpikingNetwork.getMultilayerSpikingNetwork().getNeurons();
+    SpikingFunction[][] neurons = multilayerSpikingNetworkWithConverters.getMultilayerSpikingNetwork().getNeurons();
     SortedMap<Double, Double>[][] thresholdValues = new SortedMap[neurons.length][];
     for (int layer = 0; layer < neurons.length; layer++) {
       thresholdValues[layer] = new SortedMap[neurons[layer].length];

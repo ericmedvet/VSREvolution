@@ -58,18 +58,21 @@ public class VideoMaker {
 
   public static void main(String[] args) {
     //get params
-    List<String> terrainNames = l(a(args,"terrainNames", "flat,hilly-1-10-0"));
-    String robotFileName = a(args, "robotFile", "last.txt");
+    List<String> terrainNames = l(a(args, "terrainNames", "flat"));
+    String robotFileName = a(args, "robotFile", "files/last-homo-MLP.txt");
     String serializedRobotColumn = a(args, "serializedRobotColumnName", "best→solution→serialized");
-    String descriptionColumn = a(args, "descriptionColumnName", "mapper");
-    String outputFileName = a(args, "outputFile", "video.mov");
+    String descriptionColumn = a(args, "descriptionColumnName", "desc");
+    String outputFileName = a(args, "outputFile", "files/homo-MLP-uniform-500gen.mov");
     SerializationUtils.Mode mode = SerializationUtils.Mode.valueOf(a(args, "deserializationMode", SerializationUtils.Mode.GZIPPED_JSON.name()).toUpperCase());
+    boolean specifyRowsAndCols = a(args, "specifyRowsAndCols", "true").startsWith("t");
+    String colNum = a(args, "nCol", "10");
+    String rowNum = a(args, "nRow", "1");
 
     // video features
-    double startTime = d(a(args, "startTime", "0.0"));
-    double endTime = d(a(args, "endTime", "10.0"));
-    int w = i(a(args, "w", "1200"));
-    int h = i(a(args, "h", "800"));
+    double startTime = d(a(args, "startTime", "10.0"));
+    double endTime = d(a(args, "endTime", "30.0"));
+    int w = i(a(args, "w", "300"));
+    int h = i(a(args, "h", "300"));
     int frameRate = i(a(args, "frameRate", "30"));
     String encoderName = a(args, "encoder", VideoUtils.EncoderFacility.JCODEC.name());
 
@@ -105,20 +108,31 @@ public class VideoMaker {
     }
 
     int nCols, nRows;
-    if (records.size() == 1) {
-      nRows = (int) Math.floor(Math.sqrt(terrainNames.size()));
-      nCols = (int) Math.ceil((double) terrainNames.size() / nRows);
-    } else if (terrainNames.size() == 1) {
-      nRows = (int) Math.floor(Math.sqrt(records.size()));
-      nCols = (int) Math.ceil((double) records.size() / nRows);
+    if (specifyRowsAndCols) {
+      nCols = Integer.parseInt(colNum);
+      nRows = Integer.parseInt(rowNum);
+      if (nCols * nRows != terrainNames.size() * records.size()) {
+        L.severe(String.format("Cannot use the specified grid size of %d cells for creating %d videos", nCols * nRows, terrainNames.size() * records.size()));
+        System.exit(-1);
+      }
     } else {
-      nCols = records.size();
-      nRows = terrainNames.size();
+      if (records.size() == 1) {
+        nRows = (int) Math.floor(Math.sqrt(terrainNames.size()));
+        nCols = (int) Math.ceil((double) terrainNames.size() / nRows);
+      } else if (terrainNames.size() == 1) {
+        nRows = (int) Math.floor(Math.sqrt(records.size()));
+        nCols = (int) Math.ceil((double) records.size() / nRows);
+      } else {
+        nCols = records.size();
+        nRows = terrainNames.size();
+      }
     }
+    w = w*nCols;
+    h = h*nRows;
 
     List<Robot<?>> readRobots = new ArrayList<>();
     List<String> readRobotDescriptions = new ArrayList<>();
-    records.stream().forEach(
+    records.forEach(
         record -> {
           readRobots.add(SerializationUtils.deserialize(record.get(serializedRobotColumn), Robot.class, mode));
           readRobotDescriptions.add(record.get(descriptionColumn));
