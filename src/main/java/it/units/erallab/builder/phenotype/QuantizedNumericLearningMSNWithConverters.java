@@ -3,9 +3,8 @@ package it.units.erallab.builder.phenotype;
 import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.erallab.hmsrobots.core.controllers.MultiLayerPerceptron;
 import it.units.erallab.hmsrobots.core.controllers.TimedRealFunction;
-import it.units.erallab.hmsrobots.core.controllers.snndiscr.QuantizedMultilayerSpikingNetwork;
-import it.units.erallab.hmsrobots.core.controllers.snndiscr.QuantizedMultilayerSpikingNetworkWithConverters;
-import it.units.erallab.hmsrobots.core.controllers.snndiscr.QuantizedSpikingFunction;
+import it.units.erallab.hmsrobots.core.controllers.snn.learning.STDPLearningRule;
+import it.units.erallab.hmsrobots.core.controllers.snndiscr.*;
 import it.units.erallab.hmsrobots.core.controllers.snndiscr.converters.stv.QuantizedSpikeTrainToValueConverter;
 import it.units.erallab.hmsrobots.core.controllers.snndiscr.converters.vts.QuantizedValueToSpikeTrainConverter;
 
@@ -14,10 +13,7 @@ import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
-/**
- * @author eric
- */
-public class QuantizedMSNWithConverters implements PrototypedFunctionBuilder<List<Double>, TimedRealFunction> {
+public class QuantizedNumericLearningMSNWithConverters implements PrototypedFunctionBuilder<List<Double>, TimedRealFunction> {
 
   private final double innerLayerRatio;
   private final int nOfInnerLayers;
@@ -25,7 +21,7 @@ public class QuantizedMSNWithConverters implements PrototypedFunctionBuilder<Lis
   private final QuantizedValueToSpikeTrainConverter valueToSpikeTrainConverter;
   private final QuantizedSpikeTrainToValueConverter spikeTrainToValueConverter;
 
-  public QuantizedMSNWithConverters(double innerLayerRatio, int nOfInnerLayers, BiFunction<Integer, Integer, QuantizedSpikingFunction> neuronBuilder, QuantizedValueToSpikeTrainConverter valueToSpikeTrainConverter, QuantizedSpikeTrainToValueConverter spikeTrainToValueConverter) {
+  public QuantizedNumericLearningMSNWithConverters(double innerLayerRatio, int nOfInnerLayers, BiFunction<Integer, Integer, QuantizedSpikingFunction> neuronBuilder, QuantizedValueToSpikeTrainConverter valueToSpikeTrainConverter, QuantizedSpikeTrainToValueConverter spikeTrainToValueConverter) {
     this.innerLayerRatio = innerLayerRatio;
     this.nOfInnerLayers = nOfInnerLayers;
     this.neuronBuilder = neuronBuilder;
@@ -56,21 +52,28 @@ public class QuantizedMSNWithConverters implements PrototypedFunctionBuilder<Lis
       int nOfOutputs = function.getOutputDimension();
       int[] innerNeurons = innerNeurons(nOfInputs, nOfOutputs);
       int nOfWeights = QuantizedMultilayerSpikingNetwork.countWeights(nOfInputs, innerNeurons, nOfOutputs);
-      if (nOfWeights != values.size()) {
+      if (7 * nOfWeights != values.size()) {
         throw new IllegalArgumentException(String.format(
-            "Wrong number of values for weights: %d expected, %d found",
-            nOfWeights,
+            "Wrong number of values for learning rules: %d expected, %d found",
+            7 * nOfWeights,
             values.size()
         ));
       }
-      QuantizedMultilayerSpikingNetwork quantizedMultilayerSpikingNetwork = new QuantizedMultilayerSpikingNetwork(nOfInputs,
-          innerNeurons,
-          nOfOutputs,
-          values.stream().mapToDouble(d -> d).toArray(),
-          neuronBuilder
-      );
+      double[] weights = values.subList(0, values.size() / 7).stream().mapToDouble(d -> d).toArray();
+      List<Double> flatRulesGenerator = values.subList(values.size() / 7, values.size());
+      double[][] rulesGenerator = new double[flatRulesGenerator.size() / 6][6];
+      int j = 0;
+      for (int i = 0; i < flatRulesGenerator.size(); i++) {
+        int pos = i % 6;
+        rulesGenerator[j][pos] = flatRulesGenerator.get(i);
+        if (pos == 5) {
+          j++;
+        }
+      }
+      STDPLearningRule[] flatLearningRules = STDPLearningRule.createLearningRules(rulesGenerator);
+      QuantizedLearningMultilayerSpikingNetwork quantizedLearningMultilayerSpikingNetwork = new QuantizedLearningMultilayerSpikingNetwork(nOfInputs, innerNeurons, nOfOutputs,weights, flatLearningRules, neuronBuilder);
       return new QuantizedMultilayerSpikingNetworkWithConverters<>(
-          quantizedMultilayerSpikingNetwork,
+          quantizedLearningMultilayerSpikingNetwork,
           valueToSpikeTrainConverter,
           spikeTrainToValueConverter
       );
@@ -80,7 +83,7 @@ public class QuantizedMSNWithConverters implements PrototypedFunctionBuilder<Lis
   @Override
   public List<Double> exampleFor(TimedRealFunction function) {
     return Collections.nCopies(
-        QuantizedMultilayerSpikingNetwork.countWeights(
+        7 * QuantizedMultilayerSpikingNetwork.countWeights(
             MultiLayerPerceptron.countNeurons(
                 function.getInputDimension(),
                 innerNeurons(function.getInputDimension(), function.getOutputDimension()),

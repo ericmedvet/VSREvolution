@@ -63,12 +63,15 @@ public class MSNWithConverter implements PrototypedFunctionBuilder<List<Double>,
             values.size()
         ));
       }
-      return new MultilayerSpikingNetworkWithConverters(
+      MultilayerSpikingNetwork multilayerSpikingNetwork = new MultilayerSpikingNetwork(
           nOfInputs,
           innerNeurons,
           nOfOutputs,
           values.stream().mapToDouble(d -> d).toArray(),
-          neuronBuilder,
+          neuronBuilder
+      );
+      return new MultilayerSpikingNetworkWithConverters<>(
+          multilayerSpikingNetwork,
           valueToSpikeTrainConverter,
           spikeTrainToValueConverter
       );

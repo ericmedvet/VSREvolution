@@ -65,13 +65,15 @@ public class LearningMSNWithConverters implements PrototypedFunctionBuilder<List
         ));
       }
       IndependentFactory<List<Double>> weightsFactory = new FixedLengthListFactory<>(nOfWeights, new UniformDoubleFactory(-1d, 1d));
-      return new LearningMultilayerSpikingNetworkWithConverters(
+      LearningMultilayerSpikingNetwork learningMultilayerSpikingNetwork = new LearningMultilayerSpikingNetwork(
           nOfInputs,
           innerNeurons,
           nOfOutputs,
           weightsFactory.build(new Random()).stream().mapToDouble(Double::doubleValue).toArray(),
           values.toArray(new STDPLearningRule[0]),
-          neuronBuilder,
+          neuronBuilder);
+      return new MultilayerSpikingNetworkWithConverters<>(
+          learningMultilayerSpikingNetwork,
           valueToSpikeTrainConverter,
           spikeTrainToValueConverter
       );
