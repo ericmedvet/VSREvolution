@@ -59,19 +59,19 @@ public class VideoMaker {
   public static void main(String[] args) {
     //get params
     List<String> terrainNames = l(a(args, "terrainNames", "flat"));
-    String robotFileName = a(args, "robotFile", "files/last-homo-MLP.txt");
+    String robotFileName = a(args, "robotFile", "last.txt");
     String serializedRobotColumn = a(args, "serializedRobotColumnName", "best→solution→serialized");
     String descriptionColumn = a(args, "descriptionColumnName", "desc");
-    String outputFileName = a(args, "outputFile", "files/homo-MLP-uniform-500gen.mov");
+    String outputFileName = a(args, "outputFile", "video.mov");
     SerializationUtils.Mode mode = SerializationUtils.Mode.valueOf(a(args, "deserializationMode", SerializationUtils.Mode.GZIPPED_JSON.name()).toUpperCase());
-    boolean specifyRowsAndCols = a(args, "specifyRowsAndCols", "true").startsWith("t");
+    boolean specifyRowsAndCols = a(args, "specifyRowsAndCols", "f").startsWith("t");
     String colNum = a(args, "nCol", "10");
     String rowNum = a(args, "nRow", "1");
 
     // video features
     double startTime = d(a(args, "startTime", "10.0"));
     double endTime = d(a(args, "endTime", "30.0"));
-    int w = i(a(args, "w", "300"));
+    int w = i(a(args, "w", "400"));
     int h = i(a(args, "h", "300"));
     int frameRate = i(a(args, "frameRate", "30"));
     String encoderName = a(args, "encoder", VideoUtils.EncoderFacility.JCODEC.name());

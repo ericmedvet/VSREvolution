@@ -449,6 +449,10 @@ public class LocomotionEvolution extends Worker {
         "(-(?<lRestPot>-?\\d+(\\.\\d+)?)-(?<lThreshPot>-?\\d+(\\.\\d+)?)-(?<lambda>\\d+(\\.\\d+)?)(-(?<theta>\\d+(\\.\\d+)?))?)?" +
         "(-(?<izParams>(regular_spiking_params)))?" +
         "-(?<iConv>(unif|unif_mem))-(?<iFreq>\\d+(\\.\\d+)?)-(?<oConv>(avg|avg_mem))(-(?<oMem>\\d+))?-(?<oFreq>\\d+(\\.\\d+)?)";
+    String quantizedNumericLearningFixedPoolMsnWithConverter = "QNLFMSN-(?<nRules>\\d+)-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<spikeType>(lif|iz|lif_h))" +
+        "(-(?<lRestPot>-?\\d+(\\.\\d+)?)-(?<lThreshPot>-?\\d+(\\.\\d+)?)-(?<lambda>\\d+(\\.\\d+)?)(-(?<theta>\\d+(\\.\\d+)?))?)?" +
+        "(-(?<izParams>(regular_spiking_params)))?" +
+        "-(?<iConv>(unif|unif_mem))-(?<iFreq>\\d+(\\.\\d+)?)-(?<oConv>(avg|avg_mem))(-(?<oMem>\\d+))?-(?<oFreq>\\d+(\\.\\d+)?)";
     String directNumGrid = "directNumGrid";
     String functionNumGrid = "functionNumGrid";
     String fgraph = "fGraph";
@@ -1149,6 +1153,93 @@ public class LocomotionEvolution extends Worker {
         }
       }
       return new QuantizedNumericLearningMSNWithConverters(
+          Double.parseDouble(params.get("ratio")),
+          Integer.parseInt(params.get("nLayers")),
+          neuronBuilder,
+          valueToSpikeTrainConverter,
+          spikeTrainToValueConverter
+      );
+    }
+    if ((params = params(quantizedNumericLearningFixedPoolMsnWithConverter, name)) != null) {
+      BiFunction<Integer, Integer, QuantizedSpikingFunction> neuronBuilder = null;
+      QuantizedValueToSpikeTrainConverter valueToSpikeTrainConverter = new QuantizedUniformValueToSpikeTrainConverter();
+      QuantizedSpikeTrainToValueConverter spikeTrainToValueConverter = new QuantizedAverageFrequencySpikeTrainToValueConverter();
+      if (params.containsKey("spikeType") && params.get("spikeType").equals("lif")) {
+        if (params.containsKey("lRestPot") && params.containsKey("lThreshPot") && params.containsKey("lambda")) {
+          double restingPotential = Double.parseDouble(params.get("lRestPot"));
+          double thresholdPotential = Double.parseDouble(params.get("lThreshPot"));
+          double lambda = Double.parseDouble(params.get("lambda"));
+          neuronBuilder = (l, n) -> new QuantizedLIFNeuron(restingPotential, thresholdPotential, lambda);
+        } else {
+          neuronBuilder = (l, n) -> new QuantizedLIFNeuron();
+        }
+      }
+      if (params.containsKey("spikeType") && params.get("spikeType").equals("lif_h")) {
+        if (params.containsKey("lRestPot") && params.containsKey("lThreshPot") && params.containsKey("lambda") && params.containsKey("theta")) {
+          double restingPotential = Double.parseDouble(params.get("lRestPot"));
+          double thresholdPotential = Double.parseDouble(params.get("lThreshPot"));
+          double lambda = Double.parseDouble(params.get("lambda"));
+          double theta = Double.parseDouble(params.get("theta"));
+          neuronBuilder = (l, n) -> new QuantizedLIFNeuronWithHomeostasis(restingPotential, thresholdPotential, lambda, theta);
+        } else {
+          neuronBuilder = (l, n) -> new QuantizedLIFNeuronWithHomeostasis();
+        }
+      }
+      if (params.containsKey("spikeType") && params.get("spikeType").equals("iz")) {
+        if (params.containsKey("izParams")) {
+          QuantizedIzhikevicNeuron.IzhikevicParameters izhikevicParameters = QuantizedIzhikevicNeuron.IzhikevicParameters.valueOf(params.get("izParams").toUpperCase());
+          neuronBuilder = (l, n) -> new QuantizedIzhikevicNeuron(izhikevicParameters);
+        } else {
+          neuronBuilder = (l, n) -> new QuantizedIzhikevicNeuron();
+        }
+      }
+      if (params.containsKey("iConv")) {
+        switch (params.get("iConv")) {
+          case "unif":
+            if (params.containsKey("iFreq")) {
+              valueToSpikeTrainConverter = new QuantizedUniformValueToSpikeTrainConverter(Double.parseDouble(params.get("iFreq")));
+            } else {
+              valueToSpikeTrainConverter = new QuantizedUniformValueToSpikeTrainConverter();
+            }
+            break;
+          case "unif_mem":
+            if (params.containsKey("iFreq")) {
+              valueToSpikeTrainConverter = new QuantizedUniformWithMemoryValueToSpikeTrainConverter(Double.parseDouble(params.get("iFreq")));
+            } else {
+              valueToSpikeTrainConverter = new QuantizedUniformWithMemoryValueToSpikeTrainConverter();
+            }
+            break;
+        }
+      }
+      if (params.containsKey("oConv")) {
+        switch (params.get("oConv")) {
+          case "avg":
+            if (params.containsKey("oFreq")) {
+              spikeTrainToValueConverter = new QuantizedAverageFrequencySpikeTrainToValueConverter(Double.parseDouble(params.get("oFreq")));
+            } else {
+              spikeTrainToValueConverter = new QuantizedAverageFrequencySpikeTrainToValueConverter();
+            }
+            break;
+          case "avg_mem":
+            if (params.containsKey("oFreq")) {
+              if (params.containsKey("oMem")) {
+                spikeTrainToValueConverter = new QuantizedMovingAverageSpikeTrainToValueConverter(Double.parseDouble(params.get("oFreq")),
+                    Integer.parseInt(params.get("oMem")));
+              } else {
+                spikeTrainToValueConverter = new QuantizedMovingAverageSpikeTrainToValueConverter(Double.parseDouble(params.get("oFreq")));
+              }
+            } else {
+              if (params.containsKey("oMem")) {
+                spikeTrainToValueConverter = new QuantizedMovingAverageSpikeTrainToValueConverter(Integer.parseInt(params.get("oMem")));
+              } else {
+                spikeTrainToValueConverter = new QuantizedMovingAverageSpikeTrainToValueConverter();
+              }
+            }
+            break;
+        }
+      }
+      return new QuantizedNumericLearningFixedPoolMSNWithConverters(
+          Integer.parseInt(params.get("nRules")),
           Double.parseDouble(params.get("ratio")),
           Integer.parseInt(params.get("nLayers")),
           neuronBuilder,
