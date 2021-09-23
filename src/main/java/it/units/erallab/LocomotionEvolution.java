@@ -27,11 +27,14 @@ import it.units.erallab.builder.phenotype.FGraph;
 import it.units.erallab.builder.phenotype.MLP;
 import it.units.erallab.builder.phenotype.PruningMLP;
 import it.units.erallab.builder.robot.*;
+import it.units.erallab.hmsrobots.core.controllers.Controller;
 import it.units.erallab.hmsrobots.core.controllers.MultiLayerPerceptron;
 import it.units.erallab.hmsrobots.core.controllers.PruningMultiLayerPerceptron;
 import it.units.erallab.hmsrobots.core.objects.Robot;
+import it.units.erallab.hmsrobots.core.objects.SensingVoxel;
 import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
 import it.units.erallab.hmsrobots.tasks.locomotion.Outcome;
+import it.units.erallab.hmsrobots.util.Grid;
 import it.units.erallab.hmsrobots.util.RobotUtils;
 import it.units.malelab.jgea.Worker;
 import it.units.malelab.jgea.core.Individual;
@@ -257,7 +260,7 @@ public class LocomotionEvolution extends Worker {
                       Map.entry("evolver", evolverName)
                   );
                   Robot<?> target = new Robot<>(
-                      null,
+                      Controller.empty(),
                       RobotUtils.buildSensorizingFunction(targetSensorConfigName).apply(RobotUtils.buildShape(targetShapeName))
                   );
                   //build evolver
@@ -269,7 +272,7 @@ public class LocomotionEvolution extends Worker {
                         "Cannot instantiate %s for %s: %s",
                         evolverName,
                         mapperName,
-                        e.toString()
+                        e
                     ));
                     continue;
                   }
@@ -503,8 +506,8 @@ public class LocomotionEvolution extends Worker {
     if (transformationSequenceName.contains(SEQUENCE_SEPARATOR_CHAR)) {
       transformation = new SequentialFunction<>(getSequence(transformationSequenceName).entrySet().stream()
           .collect(Collectors.toMap(
-              Map.Entry::getKey,
-              e -> RobotUtils.buildRobotTransformation(e.getValue(), random)
+                  Map.Entry::getKey,
+                  e -> RobotUtils.buildRobotTransformation(e.getValue(), random)
               )
           ));
     } else {
@@ -515,8 +518,8 @@ public class LocomotionEvolution extends Worker {
     if (terrainSequenceName.contains(SEQUENCE_SEPARATOR_CHAR)) {
       task = new SequentialFunction<>(getSequence(terrainSequenceName).entrySet().stream()
           .collect(Collectors.toMap(
-              Map.Entry::getKey,
-              e -> buildLocomotionTask(e.getValue(), episodeT, random)
+                  Map.Entry::getKey,
+                  e -> buildLocomotionTask(e.getValue(), episodeT, random)
               )
           ));
     } else {

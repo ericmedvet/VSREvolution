@@ -22,10 +22,7 @@ import it.units.erallab.hmsrobots.util.Grid;
 import it.units.erallab.hmsrobots.util.RobotUtils;
 import it.units.erallab.hmsrobots.util.SerializationUtils;
 import it.units.erallab.hmsrobots.viewers.*;
-import it.units.erallab.hmsrobots.viewers.drawers.Ground;
-import it.units.erallab.hmsrobots.viewers.drawers.Lidar;
-import it.units.erallab.hmsrobots.viewers.drawers.SensorReading;
-import it.units.erallab.hmsrobots.viewers.drawers.Voxel;
+import it.units.erallab.hmsrobots.viewers.drawers.Drawers;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
@@ -148,6 +145,7 @@ public class VideoMaker {
     if (outputFileName == null) {
       gridSnapshotListener = new GridOnlineViewer(
           Grid.create(namedRobotGrid, p -> p == null ? null : p.getLeft()),
+          Grid.create(namedRobotGrid, p -> p == null ? null : Drawers.basicWithMiniWorld(p.getLeft())),
           uiExecutor
       );
       ((GridOnlineViewer) gridSnapshotListener).start(3);
@@ -157,16 +155,7 @@ public class VideoMaker {
             w, h, startTime, frameRate, VideoUtils.EncoderFacility.valueOf(encoderName.toUpperCase()),
             new File(outputFileName),
             Grid.create(namedRobotGrid, p -> p == null ? null : p.getLeft()),
-            GraphicsDrawer.build().setConfigurable("drawers", List.of(
-                it.units.erallab.hmsrobots.viewers.drawers.Robot.build(),
-                Voxel.build(),
-                Ground.build(),
-                SensorReading.build(),
-                Lidar.build()
-            )).setConfigurable("generalRenderingModes", Set.of(
-                GraphicsDrawer.GeneralRenderingMode.TIME_INFO,
-                GraphicsDrawer.GeneralRenderingMode.VOXEL_COMPOUND_CENTERS_INFO
-            ))
+            Grid.create(namedRobotGrid, p -> p == null ? null : Drawers.basicWithMiniWorld(p.getLeft()))
         );
       } catch (IOException e) {
         L.severe(String.format("Cannot build grid file writer: %s", e));

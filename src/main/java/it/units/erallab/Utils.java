@@ -16,7 +16,9 @@
 
 package it.units.erallab;
 
+import it.units.erallab.hmsrobots.behavior.BehaviorUtils;
 import it.units.erallab.hmsrobots.core.objects.Robot;
+import it.units.erallab.hmsrobots.core.snapshots.VoxelPoly;
 import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
 import it.units.erallab.hmsrobots.tasks.locomotion.Outcome;
 import it.units.erallab.hmsrobots.util.Grid;
@@ -132,7 +134,7 @@ public class Utils {
             (int) Math.min(Math.ceil((float) g.getW() / (float) g.getH() * 2f), 4)))
             .of(f("shape", (Function<Robot<?>, Grid<?>>) Robot::getVoxels))
             .of(solution()).of(best()),
-        f("average.posture.minimap", "%2s", (Function<Outcome, String>) o -> TextPlotter.binaryMap(o.getAveragePosture().toArray(b -> b), 2))
+        f("average.posture.minimap", "%2s", (Function<Outcome, String>) o -> TextPlotter.binaryMap(o.getAveragePosture(8).toArray(b -> b), 2))
             .of(fitness()).of(best())
     );
   }
@@ -150,41 +152,57 @@ public class Utils {
 
   public static List<NamedFunction<Outcome, ?>> detailedOutcomeFunctions(double spectrumMinFreq, double spectrumMaxFreq, int spectrumSize) {
     return Misc.concat(List.of(
-        NamedFunction.then(cachedF("gait", Outcome::getMainGait), List.of(
-            f("avg.touch.area", "%4.2f", g -> g == null ? null : g.getAvgTouchArea()),
-            f("coverage", "%4.2f", g -> g == null ? null : g.getCoverage()),
-            f("num.footprints", "%2d", g -> g == null ? null : g.getFootprints().size()),
-            f("mode.interval", "%3.1f", g -> g == null ? null : g.getModeInterval()),
-            f("purity", "%4.2f", g -> g == null ? null : g.getPurity()),
-            f("num.unique.footprints", "%2d", g -> g == null ? null : g.getFootprints().stream().distinct().count()),
-            f("footprints", g -> g == null ? null : g.getFootprints().stream().map(Objects::toString).collect(Collectors.joining(",")))
-        )),
-        NamedFunction.then(cachedF("center.spectrum.x",
-            o -> o.getCenterPowerSpectrum(Outcome.Component.X, spectrumMinFreq, spectrumMaxFreq, spectrumSize).stream()
-                .map(Outcome.Mode::getStrength)
-                .collect(Collectors.toList())),
+        NamedFunction.then(cachedF(
+                "center.x.spectrum",
+                (Outcome o) -> new ArrayList<>(o.getCenterXVelocitySpectrum(spectrumMinFreq, spectrumMaxFreq, spectrumSize).values())
+            ),
             IntStream.range(0, spectrumSize).mapToObj(NamedFunctions::nth).collect(Collectors.toList())
         ),
-        NamedFunction.then(cachedF("center.spectrum.y",
-            o -> o.getCenterPowerSpectrum(Outcome.Component.Y, spectrumMinFreq, spectrumMaxFreq, spectrumSize).stream()
-                .map(Outcome.Mode::getStrength)
-                .collect(Collectors.toList())),
+        NamedFunction.then(cachedF(
+                "center.y.spectrum",
+                (Outcome o) -> new ArrayList<>(o.getCenterYVelocitySpectrum(spectrumMinFreq, spectrumMaxFreq, spectrumSize).values())
+            ),
             IntStream.range(0, spectrumSize).mapToObj(NamedFunctions::nth).collect(Collectors.toList())
+        ),
+        NamedFunction.then(cachedF(
+                "center.angle.spectrum",
+                (Outcome o) -> new ArrayList<>(o.getCenterAngleSpectrum(spectrumMinFreq, spectrumMaxFreq, spectrumSize).values())
+            ),
+            IntStream.range(0, spectrumSize).mapToObj(NamedFunctions::nth).collect(Collectors.toList())
+        ),
+        NamedFunction.then(cachedF(
+                "footprints.spectra",
+                (Outcome o) -> o.getFootprintsSpectra(4, spectrumMinFreq, spectrumMaxFreq, spectrumSize).stream()
+                    .map(SortedMap::values)
+                    .flatMap(Collection::stream)
+                    .collect(Collectors.toList())
+            ),
+            IntStream.range(0, 4 * spectrumSize).mapToObj(NamedFunctions::nth).collect(Collectors.toList())
         )
     ));
   }
 
   public static List<NamedFunction<Outcome, ?>> visualOutcomeFunctions(double spectrumMinFreq, double spectrumMaxFreq) {
-    return List.of(
-        cachedF("center.spectrum.x", "%8.8s", o -> TextPlotter.barplot(
-            o.getCenterPowerSpectrum(Outcome.Component.X, spectrumMinFreq, spectrumMaxFreq, 8).stream()
-                .mapToDouble(Outcome.Mode::getStrength)
-                .toArray())),
-        cachedF("center.spectrum.y", "%8.8s", o -> TextPlotter.barplot(
-            o.getCenterPowerSpectrum(Outcome.Component.Y, spectrumMinFreq, spectrumMaxFreq, 8).stream()
-                .mapToDouble(Outcome.Mode::getStrength)
-                .toArray()))
-    );
+    return Misc.concat(List.of(
+        List.of(
+            cachedF("center.x.spectrum", "%4.4s", o -> TextPlotter.barplot(
+                new ArrayList<>(o.getCenterXVelocitySpectrum(spectrumMinFreq, spectrumMaxFreq, 4).values())
+            )),
+            cachedF("center.y.spectrum", "%4.4s", o -> TextPlotter.barplot(
+                new ArrayList<>(o.getCenterYVelocitySpectrum(spectrumMinFreq, spectrumMaxFreq, 4).values())
+            )),
+            cachedF("center.angle.spectrum", "%4.4s", o -> TextPlotter.barplot(
+                new ArrayList<>(o.getCenterAngleSpectrum(spectrumMinFreq, spectrumMaxFreq, 4).values())
+            ))
+        ),
+        NamedFunction.then(cachedF("footprints", o -> o.getFootprintsSpectra(3, spectrumMinFreq, spectrumMaxFreq, 4)),
+            List.of(
+                cachedF("left.spectrum", "%4.4s", l -> TextPlotter.barplot(new ArrayList<>(l.get(0).values()))),
+                cachedF("center.spectrum", "%4.4s", l -> TextPlotter.barplot(new ArrayList<>(l.get(1).values()))),
+                cachedF("right.spectrum", "%4.4s", l -> TextPlotter.barplot(new ArrayList<>(l.get(2).values())))
+            )
+        )
+    ));
   }
 
   public static Accumulator.Factory<Event<?, ? extends Robot<?>, ? extends Outcome>, String> lastEventToString(Function<Outcome, Double> fitnessFunction) {
@@ -213,17 +231,21 @@ public class Utils {
 
   public static Accumulator.Factory<Event<?, ? extends Robot<?>, ? extends Outcome>, BufferedImage> centerPositionPlot() {
     return Accumulator.Factory.<Event<?, ? extends Robot<?>, ? extends Outcome>>last().then(
-        event -> {
-          Outcome o = Misc.first(event.getOrderedPopulation().firsts()).getFitness();
-          Table<Number> table = new ArrayTable<>(List.of("x", "y", "terrain.y"));
-          o.getObservations().forEach(obs -> table.addRow(List.of(
-              obs.getCenterPosition().x,
-              obs.getCenterPosition().y,
-              obs.getTerrainHeight()
-          )));
-          return table;
-        }
-    ).then(ImagePlotters.xyLines(600, 400));
+            event -> {
+              Outcome o = Misc.first(event.getOrderedPopulation().firsts()).getFitness();
+              Table<Number> table = new ArrayTable<>(List.of("x", "y", "terrain.y"));
+              o.getObservations().values().forEach(obs -> {
+                VoxelPoly poly = BehaviorUtils.getCentralElement(obs.getVoxelPolies());
+                table.addRow(List.of(
+                    poly.center().x,
+                    poly.center().y,
+                    obs.getTerrainHeight()
+                ));
+              });
+              return table;
+            }
+        )
+        .then(ImagePlotters.xyLines(600, 400));
   }
 
   public static Accumulator.Factory<Event<?, ? extends Robot<?>, ? extends Outcome>, File> bestVideo(double transientTime, double episodeTime, Settings settings) {
