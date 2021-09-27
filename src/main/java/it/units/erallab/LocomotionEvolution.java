@@ -94,9 +94,9 @@ public class LocomotionEvolution extends Worker {
 
   @Override
   public void run() {
-    int spectrumSize = 10;
+    int spectrumSize = 8;
     double spectrumMinFreq = 0d;
-    double spectrumMaxFreq = 5d;
+    double spectrumMaxFreq = 4d;
     double episodeTime = d(a("episodeTime", "10"));
     double episodeTransientTime = d(a("episodeTransientTime", "1"));
     double validationEpisodeTime = d(a("validationEpisodeTime", Double.toString(episodeTime)));
