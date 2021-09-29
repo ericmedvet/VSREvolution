@@ -182,7 +182,7 @@ public class VideoMaker {
     if (outputFileName == null) {
       gridSnapshotListener = new GridOnlineViewer(
           Grid.create(pairsGrid, p -> null),
-          Grid.create(descriptionsGrid, s -> drawerSupplier.apply(s)),
+          Grid.create(descriptionsGrid, drawerSupplier),
           uiExecutor
       );
       ((GridOnlineViewer) gridSnapshotListener).start(3);
@@ -192,7 +192,7 @@ public class VideoMaker {
             w, h, startTime, frameRate, VideoUtils.EncoderFacility.valueOf(encoderName.toUpperCase()),
             new File(outputFileName),
             Grid.create(descriptionsGrid, p -> p),
-            Grid.create(descriptionsGrid, s -> drawerSupplier.apply(s))
+            Grid.create(descriptionsGrid, drawerSupplier)
         );
       } catch (IOException e) {
         L.severe(String.format("Cannot build grid file writer: %s", e));
