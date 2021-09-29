@@ -18,6 +18,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.stream.IntStream;
 
 public class QuantizedHebbianNumericLearningMSNWithConverters implements PrototypedFunctionBuilder<List<Double>, TimedRealFunction> {
 
@@ -65,7 +66,7 @@ public class QuantizedHebbianNumericLearningMSNWithConverters implements Prototy
             values.size()
         ));
       }
-      double[] weights = new double[nOfWeights];
+      double[] weights = IntStream.range(0, nOfWeights).mapToDouble(i -> Math.random() * 2 - 1).toArray();
       double[][] rulesGenerator = new double[values.size() / 4][4];
       int j = 0;
       for (int i = 0; i < values.size(); i++) {

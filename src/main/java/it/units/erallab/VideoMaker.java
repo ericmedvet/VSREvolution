@@ -61,7 +61,7 @@ public class VideoMaker {
     List<String> terrainNames = l(a(args, "terrainNames", "flat"));
     String robotFileName = a(args, "robotFile", "last.txt");
     String serializedRobotColumn = a(args, "serializedRobotColumnName", "best→solution→serialized");
-    String descriptionColumn = a(args, "descriptionColumnName", "desc");
+    String descriptionColumn = a(args, "descriptionColumnName", "mapper");
     String outputFileName = a(args, "outputFile", "video.mov");
     SerializationUtils.Mode mode = SerializationUtils.Mode.valueOf(a(args, "deserializationMode", SerializationUtils.Mode.GZIPPED_JSON.name()).toUpperCase());
     boolean specifyRowsAndCols = a(args, "specifyRowsAndCols", "f").startsWith("t");
@@ -69,8 +69,8 @@ public class VideoMaker {
     String rowNum = a(args, "nRow", "1");
 
     // video features
-    double startTime = d(a(args, "startTime", "10.0"));
-    double endTime = d(a(args, "endTime", "30.0"));
+    double startTime = d(a(args, "startTime", "0.0"));
+    double endTime = d(a(args, "endTime", "15.0"));
     int w = i(a(args, "w", "400"));
     int h = i(a(args, "h", "300"));
     int frameRate = i(a(args, "frameRate", "30"));
