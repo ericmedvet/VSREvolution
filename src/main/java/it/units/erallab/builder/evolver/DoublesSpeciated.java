@@ -44,6 +44,7 @@ public class DoublesSpeciated implements EvolverBuilder<List<Double>> {
 
   @Override
   public <T, F> Evolver<List<Double>, T, F> build(PrototypedFunctionBuilder<List<Double>, T> builder, T target, PartialComparator<F> comparator) {
+    /*
     Function<Individual<List<Double>, T, F>, double[]> converter = switch (criterion) {
       case GENOTYPE -> i -> i.getGenotype().stream().mapToDouble(Double::doubleValue).toArray();
       case POSTURE -> i -> {
@@ -106,6 +107,7 @@ public class DoublesSpeciated implements EvolverBuilder<List<Double>> {
         0.75d,
         true
     );
+     */
+    return null;
   }
-
 }

@@ -16,16 +16,18 @@
 
 package it.units.erallab;
 
+import it.units.erallab.hmsrobots.core.geometry.BoundingBox;
 import it.units.erallab.hmsrobots.core.objects.Robot;
+import it.units.erallab.hmsrobots.core.snapshots.SNNState;
 import it.units.erallab.hmsrobots.tasks.Task;
 import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
 import it.units.erallab.hmsrobots.util.Grid;
 import it.units.erallab.hmsrobots.util.SerializationUtils;
 import it.units.erallab.hmsrobots.viewers.*;
-import it.units.erallab.hmsrobots.viewers.drawers.Ground;
-import it.units.erallab.hmsrobots.viewers.drawers.Lidar;
-import it.units.erallab.hmsrobots.viewers.drawers.SensorReading;
-import it.units.erallab.hmsrobots.viewers.drawers.Voxel;
+import it.units.erallab.hmsrobots.viewers.drawers.Drawer;
+import it.units.erallab.hmsrobots.viewers.drawers.Drawers;
+import it.units.erallab.hmsrobots.viewers.drawers.MLPDrawer;
+import it.units.erallab.hmsrobots.viewers.drawers.SubtreeDrawer;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
@@ -34,13 +36,11 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.dyn4j.dynamics.Settings;
 
 import java.io.*;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.function.Function;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -75,6 +75,21 @@ public class VideoMaker {
     int h = i(a(args, "h", "300"));
     int frameRate = i(a(args, "frameRate", "30"));
     String encoderName = a(args, "encoder", VideoUtils.EncoderFacility.JCODEC.name());
+
+    // type of representation
+    Function<String, Drawer> drawerSupplier = s -> Drawer.of(
+        Drawer.clip(
+            BoundingBox.of(0d, 0d, 1d, 0.5d),
+            Drawers.basicWithMiniWorld(s)
+        ),
+        Drawer.clip(
+            BoundingBox.of(0d, 0.5d, 1d, 1d),
+            Drawer.of(
+                Drawer.clear(),
+                new MLPDrawer(SubtreeDrawer.Extractor.matches(SNNState.class, null, null), 15d, EnumSet.allOf(MLPDrawer.Part.class))
+            )
+        )
+    );
 
     //read data
     Reader reader = null;
@@ -167,6 +182,7 @@ public class VideoMaker {
     if (outputFileName == null) {
       gridSnapshotListener = new GridOnlineViewer(
           Grid.create(pairsGrid, p -> null),
+          Grid.create(descriptionsGrid, s -> drawerSupplier.apply(s)),
           uiExecutor
       );
       ((GridOnlineViewer) gridSnapshotListener).start(3);
@@ -176,16 +192,7 @@ public class VideoMaker {
             w, h, startTime, frameRate, VideoUtils.EncoderFacility.valueOf(encoderName.toUpperCase()),
             new File(outputFileName),
             Grid.create(descriptionsGrid, p -> p),
-            GraphicsDrawer.build().setConfigurable("drawers", List.of(
-                it.units.erallab.hmsrobots.viewers.drawers.Robot.build(),
-                Voxel.build(),
-                Ground.build(),
-                SensorReading.build(),
-                Lidar.build()
-            )).setConfigurable("generalRenderingModes", Set.of(
-                GraphicsDrawer.GeneralRenderingMode.TIME_INFO,
-                GraphicsDrawer.GeneralRenderingMode.VOXEL_COMPOUND_CENTERS_INFO
-            ))
+            Grid.create(descriptionsGrid, s -> drawerSupplier.apply(s))
         );
       } catch (IOException e) {
         L.severe(String.format("Cannot build grid file writer: %s", e));
