@@ -16,8 +16,8 @@
 
 package it.units.erallab.utils;
 
-import it.units.erallab.hmsrobots.behavior.BehaviorUtils;
 import it.units.erallab.LocomotionEvolution;
+import it.units.erallab.hmsrobots.behavior.BehaviorUtils;
 import it.units.erallab.hmsrobots.core.objects.Robot;
 import it.units.erallab.hmsrobots.core.snapshots.VoxelPoly;
 import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
@@ -27,6 +27,7 @@ import it.units.erallab.hmsrobots.util.RobotUtils;
 import it.units.erallab.hmsrobots.util.SerializationUtils;
 import it.units.erallab.hmsrobots.viewers.GridFileWriter;
 import it.units.erallab.hmsrobots.viewers.VideoUtils;
+import it.units.erallab.hmsrobots.viewers.drawers.Drawer;
 import it.units.malelab.jgea.core.Individual;
 import it.units.malelab.jgea.core.evolver.Event;
 import it.units.malelab.jgea.core.listener.Accumulator;
@@ -122,7 +123,7 @@ public class Utils {
     );
   }
 
-  public static List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> computationTimeFunctions( ) {
+  public static List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> computationTimeFunctions() {
     Function<Outcome, Double> computationTimeFunction = Outcome::getComputationTime;
     NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?> min = min(Double::compare).of(each(f("computation.time", computationTimeFunction).of(fitness()))).of(all());
     NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?> max = max(Double::compare).of(each(f("computation.time", computationTimeFunction).of(fitness()))).of(all());
@@ -166,29 +167,29 @@ public class Utils {
   public static List<NamedFunction<Outcome, ?>> detailedOutcomeFunctions(double spectrumMinFreq, double spectrumMaxFreq, int spectrumSize) {
     return Misc.concat(List.of(
         NamedFunction.then(cachedF(
-                "center.x.spectrum",
-                (Outcome o) -> new ArrayList<>(o.getCenterXVelocitySpectrum(spectrumMinFreq, spectrumMaxFreq, spectrumSize).values())
+            "center.x.spectrum",
+            (Outcome o) -> new ArrayList<>(o.getCenterXVelocitySpectrum(spectrumMinFreq, spectrumMaxFreq, spectrumSize).values())
             ),
             IntStream.range(0, spectrumSize).mapToObj(NamedFunctions::nth).collect(Collectors.toList())
         ),
         NamedFunction.then(cachedF(
-                "center.y.spectrum",
-                (Outcome o) -> new ArrayList<>(o.getCenterYVelocitySpectrum(spectrumMinFreq, spectrumMaxFreq, spectrumSize).values())
+            "center.y.spectrum",
+            (Outcome o) -> new ArrayList<>(o.getCenterYVelocitySpectrum(spectrumMinFreq, spectrumMaxFreq, spectrumSize).values())
             ),
             IntStream.range(0, spectrumSize).mapToObj(NamedFunctions::nth).collect(Collectors.toList())
         ),
         NamedFunction.then(cachedF(
-                "center.angle.spectrum",
-                (Outcome o) -> new ArrayList<>(o.getCenterAngleSpectrum(spectrumMinFreq, spectrumMaxFreq, spectrumSize).values())
+            "center.angle.spectrum",
+            (Outcome o) -> new ArrayList<>(o.getCenterAngleSpectrum(spectrumMinFreq, spectrumMaxFreq, spectrumSize).values())
             ),
             IntStream.range(0, spectrumSize).mapToObj(NamedFunctions::nth).collect(Collectors.toList())
         ),
         NamedFunction.then(cachedF(
-                "footprints.spectra",
-                (Outcome o) -> o.getFootprintsSpectra(4, spectrumMinFreq, spectrumMaxFreq, spectrumSize).stream()
-                    .map(SortedMap::values)
-                    .flatMap(Collection::stream)
-                    .collect(Collectors.toList())
+            "footprints.spectra",
+            (Outcome o) -> o.getFootprintsSpectra(4, spectrumMinFreq, spectrumMaxFreq, spectrumSize).stream()
+                .map(SortedMap::values)
+                .flatMap(Collection::stream)
+                .collect(Collectors.toList())
             ),
             IntStream.range(0, 4 * spectrumSize).mapToObj(NamedFunctions::nth).collect(Collectors.toList())
         )
@@ -244,24 +245,27 @@ public class Utils {
 
   public static Accumulator.Factory<Event<?, ? extends Robot<?>, ? extends Outcome>, BufferedImage> centerPositionPlot() {
     return Accumulator.Factory.<Event<?, ? extends Robot<?>, ? extends Outcome>>last().then(
-            event -> {
-              Outcome o = Misc.first(event.getOrderedPopulation().firsts()).getFitness();
-              Table<Number> table = new ArrayTable<>(List.of("x", "y", "terrain.y"));
-              o.getObservations().values().forEach(obs -> {
-                VoxelPoly poly = BehaviorUtils.getCentralElement(obs.getVoxelPolies());
-                table.addRow(List.of(
-                    poly.center().x,
-                    poly.center().y,
-                    obs.getTerrainHeight()
-                ));
-              });
-              return table;
-            }
-        )
+        event -> {
+          Outcome o = Misc.first(event.getOrderedPopulation().firsts()).getFitness();
+          Table<Number> table = new ArrayTable<>(List.of("x", "y", "terrain.y"));
+          o.getObservations().values().forEach(obs -> {
+            VoxelPoly poly = BehaviorUtils.getCentralElement(obs.getVoxelPolies());
+            table.addRow(List.of(
+                poly.center().x,
+                poly.center().y,
+                obs.getTerrainHeight()
+            ));
+          });
+          return table;
+        }
+    )
         .then(ImagePlotters.xyLines(600, 400));
   }
 
-  public static Accumulator.Factory<Event<?, ? extends Robot<?>, ? extends Outcome>, File> bestVideo(double transientTime, double episodeTime, Settings settings) {
+  public static Accumulator.Factory<Event<?, ? extends Robot<?>, ? extends Outcome>, File> bestVideo(double transientTime, double episodeTime, Settings settings, Pair<Pair<Integer, Integer>, Drawer> drawerSupplier) {
+    int widthMultiplier = drawerSupplier.first().first();
+    int heightMultiplier = drawerSupplier.first().second();
+    Drawer drawer = drawerSupplier.second();
     return Accumulator.Factory.<Event<?, ? extends Robot<?>, ? extends Outcome>>last().then(
         event -> {
           Random random = new Random(0);
@@ -279,7 +283,7 @@ public class Utils {
           File file;
           try {
             file = File.createTempFile("robot-video", ".mp4");
-            GridFileWriter.save(locomotion, robot, 300, 200, transientTime, 25, VideoUtils.EncoderFacility.JCODEC, file);
+            GridFileWriter.save(locomotion, robot, widthMultiplier * 300, heightMultiplier * 200, transientTime, 25, VideoUtils.EncoderFacility.JCODEC, file, s -> drawer);
             file.deleteOnExit();
           } catch (IOException ioException) {
             L.warning(String.format("Cannot save video of best: %s", ioException));

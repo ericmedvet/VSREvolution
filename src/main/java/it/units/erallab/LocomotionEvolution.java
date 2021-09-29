@@ -45,10 +45,16 @@ import it.units.erallab.hmsrobots.core.controllers.snndiscr.converters.stv.Quant
 import it.units.erallab.hmsrobots.core.controllers.snndiscr.converters.vts.QuantizedUniformValueToSpikeTrainConverter;
 import it.units.erallab.hmsrobots.core.controllers.snndiscr.converters.vts.QuantizedUniformWithMemoryValueToSpikeTrainConverter;
 import it.units.erallab.hmsrobots.core.controllers.snndiscr.converters.vts.QuantizedValueToSpikeTrainConverter;
+import it.units.erallab.hmsrobots.core.geometry.BoundingBox;
 import it.units.erallab.hmsrobots.core.objects.Robot;
+import it.units.erallab.hmsrobots.core.snapshots.SNNState;
 import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
 import it.units.erallab.hmsrobots.tasks.locomotion.Outcome;
 import it.units.erallab.hmsrobots.util.RobotUtils;
+import it.units.erallab.hmsrobots.viewers.drawers.Drawer;
+import it.units.erallab.hmsrobots.viewers.drawers.Drawers;
+import it.units.erallab.hmsrobots.viewers.drawers.MLPDrawer;
+import it.units.erallab.hmsrobots.viewers.drawers.SubtreeDrawer;
 import it.units.erallab.utils.Utils;
 import it.units.malelab.jgea.Worker;
 import it.units.malelab.jgea.core.Individual;
@@ -139,6 +145,8 @@ public class LocomotionEvolution extends Worker {
     List<String> validationTransformationNames = l(a("validationTransformation", "")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
     List<String> validationTerrainNames = l(a("validationTerrain", "flat")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
     String fitnessMetrics = a("fitness", "velocity");
+    String videoConfiguration = a("videoConfiguration", "basicWithMiniWorldAndBrain");
+    Pair<Pair<Integer,Integer>,Drawer> drawerSupplier = getDrawerSupplierFromName(videoConfiguration);
     Function<Outcome, Double> fitnessFunction = getFitnessFunctionFromName(fitnessMetrics);
     //consumers
     List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> keysFunctions = Utils.keysFunctions();
@@ -240,7 +248,7 @@ public class LocomotionEvolution extends Worker {
           Utils.lastEventToString(fitnessFunction),
           Utils.fitnessPlot(fitnessFunction),
           Utils.centerPositionPlot(),
-          Utils.bestVideo(videoEpisodeTransientTime, videoEpisodeTime, PHYSICS_SETTINGS)
+          Utils.bestVideo(videoEpisodeTransientTime, videoEpisodeTime, PHYSICS_SETTINGS, drawerSupplier)
       ), telegramBotId, telegramChatId));
     }
     //summarize params
@@ -403,6 +411,35 @@ public class LocomotionEvolution extends Worker {
       return Outcome::getCorrectedEfficiency;
     }
     throw new IllegalArgumentException(String.format("Unknown fitness function name: %s", name));
+  }
+
+  private static Pair<Pair<Integer,Integer>,Drawer> getDrawerSupplierFromName(String name) {
+    String basic = "basic";
+    String basicWithMiniWorld = "basicWithMiniWorld";
+    String basicWithMiniWorldAndBrain="basicWithMiniWorldAndBrain";
+    if (params(basic, name) != null) {
+      return Pair.of(Pair.of(1,1),Drawers.basic());
+    }
+    if (params(basicWithMiniWorld, name) != null) {
+      return Pair.of(Pair.of(1,1),Drawers.basicWithMiniWorld());
+    }
+    if(params(basicWithMiniWorldAndBrain,name)!=null){
+      Drawer basicWithMiniWorldAndBrainDrawer =  Drawer.of(
+          Drawer.clip(
+              BoundingBox.of(0d, 0d, 1d, 0.5d),
+              Drawers.basicWithMiniWorld()
+          ),
+          Drawer.clip(
+              BoundingBox.of(0d, 0.5d, 1d, 1d),
+              Drawer.of(
+                  Drawer.clear(),
+                  new MLPDrawer(SubtreeDrawer.Extractor.matches(SNNState.class, null, null), 15d, EnumSet.allOf(MLPDrawer.Part.class))
+              )
+          )
+      );
+      return Pair.of(Pair.of(1,2),basicWithMiniWorldAndBrainDrawer);
+    }
+    throw new IllegalArgumentException(String.format("Unknown video configuration name: %s", name));
   }
 
   @SuppressWarnings({"unchecked", "rawtypes"})
@@ -1129,8 +1166,8 @@ public class LocomotionEvolution extends Worker {
     if (transformationSequenceName.contains(SEQUENCE_SEPARATOR_CHAR)) {
       transformation = new SequentialFunction<>(getSequence(transformationSequenceName).entrySet().stream()
           .collect(Collectors.toMap(
-                  Map.Entry::getKey,
-                  e -> RobotUtils.buildRobotTransformation(e.getValue(), random)
+              Map.Entry::getKey,
+              e -> RobotUtils.buildRobotTransformation(e.getValue(), random)
               )
           ));
     } else {
@@ -1141,8 +1178,8 @@ public class LocomotionEvolution extends Worker {
     if (terrainSequenceName.contains(SEQUENCE_SEPARATOR_CHAR)) {
       task = new SequentialFunction<>(getSequence(terrainSequenceName).entrySet().stream()
           .collect(Collectors.toMap(
-                  Map.Entry::getKey,
-                  e -> buildLocomotionTask(e.getValue(), episodeT, random)
+              Map.Entry::getKey,
+              e -> buildLocomotionTask(e.getValue(), episodeT, random)
               )
           ));
     } else {

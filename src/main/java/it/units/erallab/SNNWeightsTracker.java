@@ -17,7 +17,7 @@ import java.io.PrintStream;
 import java.util.Arrays;
 import java.util.Map;
 
-public class Exp {
+public class SNNWeightsTracker {
 
   public static void main(String[] args) throws IOException {
     String inputFileName = "last.txt";
