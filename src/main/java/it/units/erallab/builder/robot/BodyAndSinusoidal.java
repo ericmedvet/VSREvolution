@@ -52,10 +52,10 @@ public class BodyAndSinusoidal implements PrototypedFunctionBuilder<Grid<double[
       if (grid.values().stream().anyMatch(v -> v.length != 1 + components.size())) {
         Grid.Entry<double[]> firstWrong = grid.stream().filter(e -> e.getValue().length != 1 + components.size()).findFirst().orElse(null);
         if (firstWrong == null) {
-          throw new NullPointerException("Unexpected empty wrong grid item");
+          throw new IllegalArgumentException("Unexpected empty wrong grid item");
         }
         throw new IllegalArgumentException(String.format(
-            "Wrong number of values in grid at %d,%d size: %d expected, %d found",
+            "Wrong number of values in grid at %d,%d: %d expected, %d found",
             firstWrong.getX(), firstWrong.getY(),
             1 + components.size(),
             firstWrong.getValue().length

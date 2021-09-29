@@ -65,7 +65,7 @@ import static it.units.malelab.jgea.core.util.Args.*;
  */
 public class LocomotionEvolution extends Worker {
 
-  private final static Settings PHYSICS_SETTINGS = new Settings();
+  public final static Settings PHYSICS_SETTINGS = new Settings();
 
   public static class ValidationOutcome {
     private final Event<?, ? extends Robot<?>, ? extends Outcome> event;
@@ -259,6 +259,7 @@ public class LocomotionEvolution extends Worker {
                       Map.entry("transformation", transformationName),
                       Map.entry("evolver", evolverName)
                   );
+                  //prepare target
                   Robot<?> target = new Robot<>(
                       Controller.empty(),
                       RobotUtils.buildSensorizingFunction(targetSensorConfigName).apply(RobotUtils.buildShape(targetShapeName))
@@ -322,7 +323,7 @@ public class LocomotionEvolution extends Worker {
     factory.shutdown();
   }
 
-  private static EvolverBuilder<?> getEvolverBuilderFromName(String name) {
+  public static EvolverBuilder<?> getEvolverBuilderFromName(String name) {
     String numGA = "numGA-(?<nPop>\\d+)-(?<diversity>(t|f))";
     String numGASpeciated = "numGASpec-(?<nPop>\\d+)-(?<nSpecies>\\d+)-(?<criterion>(" + Arrays.stream(DoublesSpeciated.SpeciationCriterion.values()).map(c -> c.name().toLowerCase(Locale.ROOT)).collect(Collectors.joining("|")) + "))";
     String cmaES = "CMAES";
@@ -362,7 +363,7 @@ public class LocomotionEvolution extends Worker {
     String fixedHomoDistributed = "fixedHomoDist-(?<nSignals>\\d+)";
     String fixedHeteroDistributed = "fixedHeteroDist-(?<nSignals>\\d+)";
     String fixedPhasesFunction = "fixedPhasesFunct-(?<f>\\d+)";
-    String fixedPhases = "fixedPhases-(?<f>\\d+)";
+    String fixedPhases = "fixedPhases-(?<f>\\d+(\\.\\d+)?)";
     String bodySin = "bodySin-(?<fullness>\\d+(\\.\\d+)?)-(?<minF>\\d+(\\.\\d+)?)-(?<maxF>\\d+(\\.\\d+)?)";
     String bodyAndHomoDistributed = "bodyAndHomoDist-(?<fullness>\\d+(\\.\\d+)?)-(?<nSignals>\\d+)-(?<nLayers>\\d+)";
     String sensorAndBodyAndHomoDistributed = "sensorAndBodyAndHomoDist-(?<fullness>\\d+(\\.\\d+)?)-(?<nSignals>\\d+)-(?<nLayers>\\d+)-(?<position>(t|f))";
@@ -481,8 +482,7 @@ public class LocomotionEvolution extends Worker {
   }
 
   @SuppressWarnings({"unchecked", "rawtypes"})
-  private static Evolver<?, Robot<?>, Outcome> buildEvolver(String evolverName, String robotMapperName, Robot<?>
-      target, Function<Outcome, Double> outcomeMeasure) {
+  private static Evolver<?, Robot<?>, Outcome> buildEvolver(String evolverName, String robotMapperName, Robot<?> target, Function<Outcome, Double> outcomeMeasure) {
     PrototypedFunctionBuilder<?, ?> mapperBuilder = null;
     for (String piece : robotMapperName.split(MAPPER_PIPE_CHAR)) {
       if (mapperBuilder == null) {
@@ -498,8 +498,7 @@ public class LocomotionEvolution extends Worker {
     );
   }
 
-  private static Function<Robot<?>, Outcome> buildTaskFromName(String transformationSequenceName, String
-      terrainSequenceName, double episodeT, Random random) {
+  private static Function<Robot<?>, Outcome> buildTaskFromName(String transformationSequenceName, String terrainSequenceName, double episodeT, Random random) {
     //for sequence, assume format '99:name>99:name'
     //transformations
     Function<Robot<?>, Robot<?>> transformation;
