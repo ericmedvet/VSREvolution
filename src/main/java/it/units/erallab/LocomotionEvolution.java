@@ -219,6 +219,7 @@ public class LocomotionEvolution extends Worker {
       ).onLast();
       factory = factory.and(validationFactory);
     }
+    //telegram listner
     if (telegramBotId != null && telegramChatId != 0) {
       factory = factory.and(new TelegramUpdater<>(List.of(
           Utils.lastEventToString(fitnessFunction),

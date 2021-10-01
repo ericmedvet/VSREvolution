@@ -1,7 +1,6 @@
 package it.units.erallab.devo;
 
 import it.units.erallab.builder.PrototypedFunctionBuilder;
-import it.units.erallab.builder.robot.BodyAndSinusoidal;
 import it.units.erallab.hmsrobots.core.controllers.TimeFunctions;
 import it.units.erallab.hmsrobots.core.objects.ControllableVoxel;
 import it.units.erallab.hmsrobots.core.objects.Robot;
@@ -19,15 +18,17 @@ import java.util.stream.Collectors;
 /**
  * @author "Eric Medvet" on 2021/09/29 for VSREvolution
  */
-public class DevoFixedPhasesValues implements PrototypedFunctionBuilder<Grid<double[]>, UnaryOperator<Robot<?>>> {
+public class DevoPhasesValues implements PrototypedFunctionBuilder<Grid<double[]>, UnaryOperator<Robot<?>>> {
 
   private final double frequency;
   private final double amplitude;
+  private final int nInitial;
   private final int nStep;
 
-  public DevoFixedPhasesValues(double frequency, double amplitude, int nStep) {
+  public DevoPhasesValues(double frequency, double amplitude, int nInitial, int nStep) {
     this.frequency = frequency;
     this.amplitude = amplitude;
+    this.nInitial = nInitial;
     this.nStep = nStep;
   }
 
@@ -62,12 +63,17 @@ public class DevoFixedPhasesValues implements PrototypedFunctionBuilder<Grid<dou
             firstWrong.getValue().length
         ));
       }
-      Grid<Double> strenghts = Grid.create(targetW, targetH, (x, y) -> grid.get(x, y)[0]);
+      Grid<Double> strengths = Grid.create(targetW, targetH, (x, y) -> grid.get(x, y)[0]);
       Grid<Double> phases = Grid.create(targetW, targetH, (x, y) -> grid.get(x, y)[1]);
       return previous -> {
-        int previousN = previous == null ? 0 : (int) previous.getVoxels().stream().filter(Objects::nonNull).count();
-        int n = Math.min(previousN + nStep, targetW * targetH);
-        Grid<Double> cropped = Utils.cropGrid(gridConnected(strenghts, Double::compareTo, n), Objects::nonNull);
+        int n;
+        if (previous==null) {
+          n = nInitial;
+        } else {
+          n = (int) previous.getVoxels().values().stream().filter(Objects::nonNull).count()+nStep;
+        }
+        Grid<Double> selected = gridConnected(strengths, Double::compareTo, n);
+        Grid<Double> cropped = Utils.cropGrid(selected, Objects::nonNull);
         Grid<ControllableVoxel> body = Grid.create(cropped, v -> (v != null) ? SerializationUtils.clone(voxelPrototype) : null);
         if (body.values().stream().noneMatch(Objects::nonNull)) {
           body = Grid.create(1, 1, SerializationUtils.clone(voxelPrototype));
@@ -113,6 +119,13 @@ public class DevoFixedPhasesValues implements PrototypedFunctionBuilder<Grid<dou
     Grid<K> outGrid = Grid.create(kGrid.getW(), kGrid.getH());
     selected.forEach(e -> outGrid.set(e.getX(), e.getY(), e.getValue()));
     return outGrid;
+  }
+
+  public static void main(String[] args) {
+    Random r = new Random();
+    Grid<Integer> g = Grid.create(10,10, (x,y) -> x+y+r.nextInt(50));
+    System.out.println(Grid.toString(g,"%2d "));
+    System.out.println(Grid.toString(gridConnected(g,Integer::compareTo, 8),"%2d "));
   }
 
 }

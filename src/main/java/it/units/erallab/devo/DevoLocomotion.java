@@ -1,5 +1,6 @@
 package it.units.erallab.devo;
 
+import it.units.erallab.hmsrobots.core.controllers.Controller;
 import it.units.erallab.hmsrobots.core.controllers.TimeFunctions;
 import it.units.erallab.hmsrobots.core.objects.Ground;
 import it.units.erallab.hmsrobots.core.objects.Robot;
@@ -11,6 +12,7 @@ import it.units.erallab.hmsrobots.tasks.locomotion.Outcome;
 import it.units.erallab.hmsrobots.util.Grid;
 import it.units.erallab.hmsrobots.util.RobotUtils;
 import it.units.erallab.hmsrobots.viewers.GridFileWriter;
+import it.units.erallab.hmsrobots.viewers.GridOnlineViewer;
 import it.units.erallab.hmsrobots.viewers.VideoUtils;
 import it.units.erallab.hmsrobots.viewers.drawers.Drawers;
 import org.apache.commons.lang3.time.StopWatch;
@@ -112,7 +114,7 @@ public class DevoLocomotion extends AbstractTask<UnaryOperator<Robot<?>>, List<O
   }
 
   public static void main(String[] args) throws IOException {
-    UnaryOperator<Robot<?>> devoFunction = youngerRobot -> {
+    UnaryOperator<Robot<?>> devoComb = youngerRobot -> {
       int w = youngerRobot == null ? 2 : youngerRobot.getVoxels().getW() + 1;
       double f = -0.75d;
       Grid<Boolean> body = Grid.create(w, 2, (x, y) -> y == 1 || (x % 2 == 0));
@@ -127,13 +129,21 @@ public class DevoLocomotion extends AbstractTask<UnaryOperator<Robot<?>>, List<O
           RobotUtils.buildSensorizingFunction("uniform-a-0.01").apply(body)
       );
     };
+    UnaryOperator<Robot<?>> target = r -> new Robot<>(
+        Controller.empty(),
+        RobotUtils.buildSensorizingFunction("uniform-a-0.01").apply(RobotUtils.buildShape("box-10x10"))
+    );
+    UnaryOperator<Robot<?>> devoPhases = new DevoPhasesValues(1, 1, 5, 1)
+        .buildFor(target)
+        .apply(Grid.create(10, 10, (x, y) -> new double[]{x + y, x * y / 10d}));
     DevoLocomotion devoLocomotion = new DevoLocomotion(
-        10, 10, 60,
+        10, 20, 60,
         Locomotion.createTerrain("downhill-30"),
         new Settings()
     );
-    //GridOnlineViewer.run(devoLocomotion, devoFunction);
-    System.out.println(devoLocomotion.apply(devoFunction));
+    System.out.println(devoLocomotion.apply(devoPhases));
+    //GridOnlineViewer.run(devoLocomotion, devoPhases);
+    /*System.out.println(devoLocomotion.apply(devoFunction));
     GridFileWriter.save(
         devoLocomotion,
         Grid.create(1, 1, Pair.of("devo",devoFunction)),
@@ -141,6 +151,6 @@ public class DevoLocomotion extends AbstractTask<UnaryOperator<Robot<?>>, List<O
         VideoUtils.EncoderFacility.FFMPEG_SMALL,
         new File("/home/eric/devo-comb.mp4"),
         Drawers::basicWithMiniWorldAndFootprintsAndPosture
-    );
+    );*/
   }
 }

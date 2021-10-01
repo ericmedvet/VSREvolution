@@ -2,6 +2,7 @@ package it.units.erallab.devo;
 
 import com.google.common.base.Stopwatch;
 import it.units.erallab.LocomotionEvolution;
+import it.units.erallab.Utils;
 import it.units.erallab.builder.DirectNumbersGrid;
 import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.erallab.hmsrobots.core.controllers.Controller;
@@ -10,7 +11,6 @@ import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
 import it.units.erallab.hmsrobots.tasks.locomotion.Outcome;
 import it.units.erallab.hmsrobots.util.Grid;
 import it.units.erallab.hmsrobots.util.RobotUtils;
-import it.units.erallab.hmsrobots.util.SerializationUtils;
 import it.units.erallab.hmsrobots.viewers.GridFileWriter;
 import it.units.erallab.hmsrobots.viewers.VideoUtils;
 import it.units.malelab.jgea.Worker;
@@ -54,22 +54,22 @@ public class DevoLocomotionEvolution extends Worker {
   public void run() {
     //main params
     double episodeTime = d(a("episodeTime", "60"));
-    double stageMaxTime = d(a("stageMaxTime", "10"));
-    double stageMinDistance = d(a("stageMinDistance", "10"));
-    double episodeTransientTime = d(a("episodeTransientTime", "1"));
-    int nEvals = i(a("nEvals", "1000"));
+    double stageMaxTime = d(a("stageMaxTime", "20"));
+    double stageMinDistance = d(a("stageMinDistance", "20"));
+    int nEvals = i(a("nEvals", "800"));
     int[] seeds = ri(a("seed", "0:1"));
     String experimentName = a("expName", "short");
     int gridW = i(a("gridW", "10"));
     int gridH = i(a("gridH", "10"));
     List<String> terrainNames = l(a("terrain", "flat"));
-    List<String> devoFunctionNames = l(a("devoFunction", "devoFixedPhases-1.0-3<directNumGrid"));
+    List<String> devoFunctionNames = l(a("devoFunction", "devoPhases-1.0-5-1<directNumGrid"));
     List<String> targetSensorConfigNames = l(a("sensorConfig", "uniform-t+a-0.01"));
     List<String> evolverNames = l(a("evolver", "ES-16-0.35"));
     String lastFileName = a("lastFile", null);
     String bestFileName = a("bestFile", null);
-    String allFileName = a("allFile", null);
     boolean deferred = a("deferred", "true").startsWith("t");
+    List<String> serializationFlags = l(a("serialization", "")); //last,best,all TODO currently disabled
+    boolean output = a("output", "false").startsWith("t");
     String telegramBotId = a("telegramBotId", null);
     long telegramChatId = Long.parseLong(a("telegramChatId", "0"));
     //fitness function
@@ -84,7 +84,7 @@ public class DevoLocomotionEvolution extends Worker {
     Listener.Factory<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>> factory = Listener.Factory.deaf();
     NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, List<Outcome>> bestFitness = f("best.fitness", event -> Misc.first(event.getOrderedPopulation().firsts()).getFitness());
     //screen listener
-    if (bestFileName == null) {
+    if ((bestFileName == null) || output) {
       factory = factory.and(new TabularPrinter<>(Misc.concat(List.of(
           basicFunctions,
           populationFunctions,
@@ -93,6 +93,28 @@ public class DevoLocomotionEvolution extends Worker {
           NamedFunction.then(bestFitness, outcomesFunctions)
       ))));
     }
+    //file listeners
+    if (lastFileName != null) {
+      factory = factory.and(new CSVPrinter<>(Misc.concat(List.of(
+          keysFunctions,
+          basicFunctions,
+          populationFunctions,
+          NamedFunction.then(best(), basicIndividualFunctions),
+          NamedFunction.then(bestFitness, outcomesFunctions)
+      )), new File(lastFileName)
+      ).onLast());
+    }
+    if (bestFileName != null) {
+      factory = factory.and(new CSVPrinter<>(Misc.concat(List.of(
+          keysFunctions,
+          basicFunctions,
+          populationFunctions,
+          NamedFunction.then(best(), basicIndividualFunctions),
+          NamedFunction.then(bestFitness, outcomesFunctions)
+      )), new File(bestFileName)
+      ));
+    }
+    //telegram listener
     if (telegramBotId != null && telegramChatId != 0) {
       factory = factory.and(new TelegramUpdater<>(List.of(
           fitnessPlot(fitnessFunction),
@@ -159,7 +181,7 @@ public class DevoLocomotionEvolution extends Worker {
               //build task
               try {
                 Collection<UnaryOperator<Robot<?>>> solutions = evolver.solve(
-                    buildLocomotionTask(terrainName,stageMinDistance,stageMaxTime,episodeTime,random),
+                    buildLocomotionTask(terrainName, stageMinDistance, stageMaxTime, episodeTime, random),
                     new FitnessEvaluations(nEvals),
                     random,
                     executorService,
@@ -302,15 +324,16 @@ public class DevoLocomotionEvolution extends Worker {
   }
 
   private static PrototypedFunctionBuilder<?, ?> getDevoFunctionByName(String name) {
-    String fixedPhases = "devoFixedPhases-(?<f>\\d+(\\.\\d+)?)-(?<n>\\d+)";
+    String fixedPhases = "devoPhases-(?<f>\\d+(\\.\\d+)?)-(?<nInitial>\\d+)-(?<nStep>\\d+)";
     String directNumGrid = "directNumGrid";
     Map<String, String> params;
     //devo functions
     if ((params = params(fixedPhases, name)) != null) {
-      return new DevoFixedPhasesValues(
+      return new DevoPhasesValues(
           Double.parseDouble(params.get("f")),
           1d,
-          Integer.parseInt(params.get("n"))
+          Integer.parseInt(params.get("nInitial")),
+          Integer.parseInt(params.get("nStep"))
       );
     }
     //misc
