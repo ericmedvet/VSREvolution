@@ -146,7 +146,7 @@ public class LocomotionEvolution extends Worker {
     List<String> validationTerrainNames = l(a("validationTerrain", "flat")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
     String fitnessMetrics = a("fitness", "velocity");
     String videoConfiguration = a("videoConfiguration", "basicWithMiniWorldAndBrain");
-    Pair<Pair<Integer,Integer>,Drawer> drawerSupplier = getDrawerSupplierFromName(videoConfiguration);
+    Pair<Pair<Integer, Integer>, Drawer> drawerSupplier = getDrawerSupplierFromName(videoConfiguration);
     Function<Outcome, Double> fitnessFunction = getFitnessFunctionFromName(fitnessMetrics);
     //consumers
     List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> keysFunctions = Utils.keysFunctions();
@@ -413,18 +413,18 @@ public class LocomotionEvolution extends Worker {
     throw new IllegalArgumentException(String.format("Unknown fitness function name: %s", name));
   }
 
-  private static Pair<Pair<Integer,Integer>,Drawer> getDrawerSupplierFromName(String name) {
+  private static Pair<Pair<Integer, Integer>, Drawer> getDrawerSupplierFromName(String name) {
     String basic = "basic";
     String basicWithMiniWorld = "basicWithMiniWorld";
-    String basicWithMiniWorldAndBrain="basicWithMiniWorldAndBrain";
+    String basicWithMiniWorldAndBrain = "basicWithMiniWorldAndBrain";
     if (params(basic, name) != null) {
-      return Pair.of(Pair.of(1,1),Drawers.basic());
+      return Pair.of(Pair.of(1, 1), Drawers.basic());
     }
     if (params(basicWithMiniWorld, name) != null) {
-      return Pair.of(Pair.of(1,1),Drawers.basicWithMiniWorld());
+      return Pair.of(Pair.of(1, 1), Drawers.basicWithMiniWorld());
     }
-    if(params(basicWithMiniWorldAndBrain,name)!=null){
-      Drawer basicWithMiniWorldAndBrainDrawer =  Drawer.of(
+    if (params(basicWithMiniWorldAndBrain, name) != null) {
+      Drawer basicWithMiniWorldAndBrainDrawer = Drawer.of(
           Drawer.clip(
               BoundingBox.of(0d, 0d, 1d, 0.5d),
               Drawers.basicWithMiniWorld()
@@ -437,7 +437,7 @@ public class LocomotionEvolution extends Worker {
               )
           )
       );
-      return Pair.of(Pair.of(1,2),basicWithMiniWorldAndBrainDrawer);
+      return Pair.of(Pair.of(1, 2), basicWithMiniWorldAndBrainDrawer);
     }
     throw new IllegalArgumentException(String.format("Unknown video configuration name: %s", name));
   }
@@ -496,7 +496,11 @@ public class LocomotionEvolution extends Worker {
         "(-(?<lRestPot>-?\\d+(\\.\\d+)?)-(?<lThreshPot>-?\\d+(\\.\\d+)?)-(?<lambda>\\d+(\\.\\d+)?)(-(?<theta>\\d+(\\.\\d+)?))?)?" +
         "(-(?<izParams>(regular_spiking_params)))?" +
         "-(?<iConv>(unif|unif_mem))-(?<iFreq>\\d+(\\.\\d+)?)-(?<oConv>(avg|avg_mem))(-(?<oMem>\\d+))?-(?<oFreq>\\d+(\\.\\d+)?)";
-    String quantizedHebbianNumericLearningFixedPoolMsnWithConverter = "QHLMSN-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<spikeType>(lif|iz|lif_h))" +
+    String quantizedHebbianNumericLearningMsnWithConverter = "QHLMSN-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<spikeType>(lif|iz|lif_h))" +
+        "(-(?<lRestPot>-?\\d+(\\.\\d+)?)-(?<lThreshPot>-?\\d+(\\.\\d+)?)-(?<lambda>\\d+(\\.\\d+)?)(-(?<theta>\\d+(\\.\\d+)?))?)?" +
+        "(-(?<izParams>(regular_spiking_params)))?" +
+        "-(?<iConv>(unif|unif_mem))-(?<iFreq>\\d+(\\.\\d+)?)-(?<oConv>(avg|avg_mem))(-(?<oMem>\\d+))?-(?<oFreq>\\d+(\\.\\d+)?)";
+    String quantizedHebbianNumericLearningWeightsMSNWithConverters = "QHLWMSN-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<spikeType>(lif|iz|lif_h))" +
         "(-(?<lRestPot>-?\\d+(\\.\\d+)?)-(?<lThreshPot>-?\\d+(\\.\\d+)?)-(?<lambda>\\d+(\\.\\d+)?)(-(?<theta>\\d+(\\.\\d+)?))?)?" +
         "(-(?<izParams>(regular_spiking_params)))?" +
         "-(?<iConv>(unif|unif_mem))-(?<iFreq>\\d+(\\.\\d+)?)-(?<oConv>(avg|avg_mem))(-(?<oMem>\\d+))?-(?<oFreq>\\d+(\\.\\d+)?)";
@@ -947,7 +951,8 @@ public class LocomotionEvolution extends Worker {
         (params = params(quantizedMsnWithConverter, name)) != null ||
         (params = params(quantizedNumericLearningMsnWithConverter, name)) != null ||
         (params = params(quantizedNumericLearningFixedPoolMsnWithConverter, name)) != null ||
-        (params = params(quantizedHebbianNumericLearningFixedPoolMsnWithConverter, name)) != null ||
+        (params = params(quantizedHebbianNumericLearningMsnWithConverter, name)) != null||
+        (params = params(quantizedHebbianNumericLearningWeightsMSNWithConverters, name)) != null ||
         (params = params(quantizedNumericLearningWithFixedRuleValuesAnd0WeightsMSNWithConverters, name)) != null
     ) {
       BiFunction<Integer, Integer, QuantizedSpikingFunction> neuronBuilder = null;
@@ -1014,8 +1019,9 @@ public class LocomotionEvolution extends Worker {
       if ((params = params(quantizedMsnWithConverter, name)) != null
           || (params = params(quantizedNumericLearningMsnWithConverter, name)) != null ||
           (params = params(quantizedNumericLearningFixedPoolMsnWithConverter, name)) != null ||
-          (params = params(quantizedHebbianNumericLearningFixedPoolMsnWithConverter, name)) != null ||
-          (params = params(quantizedNumericLearningWithFixedRuleValuesAnd0WeightsMSNWithConverters, name)) != null) {
+          (params = params(quantizedHebbianNumericLearningMsnWithConverter, name)) != null||
+          (params = params(quantizedHebbianNumericLearningWeightsMSNWithConverters, name)) != null ||
+          (params = params(quantizedNumericLearningWithFixedRuleValuesAnd0WeightsMSNWithConverters, name)) != null ) {
         QuantizedValueToSpikeTrainConverter valueToSpikeTrainConverter = new QuantizedUniformValueToSpikeTrainConverter();
         QuantizedSpikeTrainToValueConverter spikeTrainToValueConverter = new QuantizedAverageFrequencySpikeTrainToValueConverter();
         if (params.containsKey("iConv")) {
@@ -1081,7 +1087,7 @@ public class LocomotionEvolution extends Worker {
               spikeTrainToValueConverter
           );
         }
-        if ((params = params(quantizedHebbianNumericLearningFixedPoolMsnWithConverter, name)) != null) {
+        if ((params = params(quantizedHebbianNumericLearningMsnWithConverter, name)) != null) {
           return new QuantizedHebbianNumericLearningMSNWithConverters(
               Double.parseDouble(params.get("ratio")),
               Integer.parseInt(params.get("nLayers")),
@@ -1093,6 +1099,15 @@ public class LocomotionEvolution extends Worker {
         if ((params = params(quantizedNumericLearningFixedPoolMsnWithConverter, name)) != null) {
           return new QuantizedNumericLearningFixedPoolMSNWithConverters(
               Integer.parseInt(params.get("nRules")),
+              Double.parseDouble(params.get("ratio")),
+              Integer.parseInt(params.get("nLayers")),
+              neuronBuilder,
+              valueToSpikeTrainConverter,
+              spikeTrainToValueConverter
+          );
+        }
+        if ((params = params(quantizedHebbianNumericLearningWeightsMSNWithConverters, name)) != null) {
+          return new QuantizedHebbianNumericLearningWeightsMSNWithConverters(
               Double.parseDouble(params.get("ratio")),
               Integer.parseInt(params.get("nLayers")),
               neuronBuilder,
