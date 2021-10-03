@@ -51,10 +51,10 @@ public class NamedFunctions {
             .of(fitness());
     return List.of(
         f("w", "%2d", (Function<Grid<?>, Number>) Grid::getW).of(firstShape),
-        f("h", "%2d", (Function<Grid<?>, Number>) Grid::getW).of(firstShape),
+        f("h", "%2d", (Function<Grid<?>, Number>) Grid::getH).of(firstShape),
         f("num.voxel", "%2d", (Function<Grid<?>, Number>) g -> g.count(Objects::nonNull)).of(firstShape),
         f("w", "%2d", (Function<Grid<?>, Number>) Grid::getW).of(lastShape),
-        f("h", "%2d", (Function<Grid<?>, Number>) Grid::getW).of(lastShape),
+        f("h", "%2d", (Function<Grid<?>, Number>) Grid::getH).of(lastShape),
         f("num.voxel", "%2d", (Function<Grid<?>, Number>) g -> g.count(Objects::nonNull)).of(lastShape),
         f("num.stages", "%2d", i -> i.getFitness().size()),
         size.reformat("%5d"),
@@ -98,7 +98,11 @@ public class NamedFunctions {
   }
 
   public static List<NamedFunction<List<Outcome>, ?>> outcomesFunctions() {
-    return List.of();
+    return List.of(
+        f("speed.average", "%4.1f", (List<Outcome> os) -> os.stream().mapToDouble(Outcome::getVelocity).average().orElse(Double.NaN)),
+        f("speed.min", "%4.1f", (List<Outcome> os) -> os.stream().mapToDouble(Outcome::getVelocity).min().orElse(Double.NaN)),
+        f("speed.max", "%4.1f", (List<Outcome> os) -> os.stream().mapToDouble(Outcome::getVelocity).max().orElse(Double.NaN))
+    );
   }
 
   public static Accumulator.Factory<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, String> lastEventToString(Function<List<Outcome>, Double> fitnessFunction) {
