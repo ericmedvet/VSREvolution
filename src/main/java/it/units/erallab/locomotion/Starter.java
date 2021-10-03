@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package it.units.erallab;
+package it.units.erallab.locomotion;
 
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.Lists;
@@ -31,10 +31,8 @@ import it.units.erallab.hmsrobots.core.controllers.Controller;
 import it.units.erallab.hmsrobots.core.controllers.MultiLayerPerceptron;
 import it.units.erallab.hmsrobots.core.controllers.PruningMultiLayerPerceptron;
 import it.units.erallab.hmsrobots.core.objects.Robot;
-import it.units.erallab.hmsrobots.core.objects.SensingVoxel;
 import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
 import it.units.erallab.hmsrobots.tasks.locomotion.Outcome;
-import it.units.erallab.hmsrobots.util.Grid;
 import it.units.erallab.hmsrobots.util.RobotUtils;
 import it.units.malelab.jgea.Worker;
 import it.units.malelab.jgea.core.Individual;
@@ -63,7 +61,7 @@ import static it.units.malelab.jgea.core.util.Args.*;
 /**
  * @author eric
  */
-public class LocomotionEvolution extends Worker {
+public class Starter extends Worker {
 
   public final static Settings PHYSICS_SETTINGS = new Settings();
 
@@ -84,12 +82,12 @@ public class LocomotionEvolution extends Worker {
   public static final String SEQUENCE_SEPARATOR_CHAR = ">";
   public static final String SEQUENCE_ITERATION_CHAR = ":";
 
-  public LocomotionEvolution(String[] args) {
+  public Starter(String[] args) {
     super(args);
   }
 
   public static void main(String[] args) {
-    new LocomotionEvolution(args);
+    new Starter(args);
   }
 
   @Override
@@ -125,14 +123,14 @@ public class LocomotionEvolution extends Worker {
     List<String> validationTerrainNames = l(a("validationTerrain", "flat,downhill-30")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
     Function<Outcome, Double> fitnessFunction = Outcome::getVelocity;
     //consumers
-    List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> keysFunctions = Utils.keysFunctions();
-    List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> basicFunctions = Utils.basicFunctions();
-    List<NamedFunction<Individual<?, ? extends Robot<?>, ? extends Outcome>, ?>> basicIndividualFunctions = Utils.individualFunctions(fitnessFunction);
-    List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> populationFunctions = Utils.populationFunctions(fitnessFunction);
-    List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> visualFunctions = Utils.visualFunctions(fitnessFunction);
-    List<NamedFunction<Outcome, ?>> basicOutcomeFunctions = Utils.basicOutcomeFunctions();
-    List<NamedFunction<Outcome, ?>> detailedOutcomeFunctions = Utils.detailedOutcomeFunctions(spectrumMinFreq, spectrumMaxFreq, spectrumSize);
-    List<NamedFunction<Outcome, ?>> visualOutcomeFunctions = Utils.visualOutcomeFunctions(spectrumMinFreq, spectrumMaxFreq);
+    List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> keysFunctions = NamedFunctions.keysFunctions();
+    List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> basicFunctions = NamedFunctions.basicFunctions();
+    List<NamedFunction<Individual<?, ? extends Robot<?>, ? extends Outcome>, ?>> basicIndividualFunctions = NamedFunctions.individualFunctions(fitnessFunction);
+    List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> populationFunctions = NamedFunctions.populationFunctions(fitnessFunction);
+    List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> visualFunctions = NamedFunctions.visualFunctions(fitnessFunction);
+    List<NamedFunction<Outcome, ?>> basicOutcomeFunctions = NamedFunctions.basicOutcomeFunctions();
+    List<NamedFunction<Outcome, ?>> detailedOutcomeFunctions = NamedFunctions.detailedOutcomeFunctions(spectrumMinFreq, spectrumMaxFreq, spectrumSize);
+    List<NamedFunction<Outcome, ?>> visualOutcomeFunctions = NamedFunctions.visualOutcomeFunctions(spectrumMinFreq, spectrumMaxFreq);
     Listener.Factory<Event<?, ? extends Robot<?>, ? extends Outcome>> factory = Listener.Factory.deaf();
     //screen listener
     if (bestFileName == null || output) {
@@ -154,7 +152,7 @@ public class LocomotionEvolution extends Worker {
           NamedFunction.then(best(), basicIndividualFunctions),
           NamedFunction.then(as(Outcome.class).of(fitness()).of(best()), basicOutcomeFunctions),
           NamedFunction.then(as(Outcome.class).of(fitness()).of(best()), detailedOutcomeFunctions),
-          NamedFunction.then(best(), Utils.serializationFunction(serializationFlags.contains("last")))
+          NamedFunction.then(best(), NamedFunctions.serializationFunction(serializationFlags.contains("last")))
       )), new File(lastFileName)
       ).onLast());
     }
@@ -166,7 +164,7 @@ public class LocomotionEvolution extends Worker {
           NamedFunction.then(best(), basicIndividualFunctions),
           NamedFunction.then(as(Outcome.class).of(fitness()).of(best()), basicOutcomeFunctions),
           NamedFunction.then(as(Outcome.class).of(fitness()).of(best()), detailedOutcomeFunctions),
-          NamedFunction.then(best(), Utils.serializationFunction(serializationFlags.contains("best")))
+          NamedFunction.then(best(), NamedFunctions.serializationFunction(serializationFlags.contains("best")))
       )), new File(bestFileName)
       ));
     }
@@ -180,7 +178,7 @@ public class LocomotionEvolution extends Worker {
                   NamedFunction.then(f("event", Pair::first), keysFunctions),
                   NamedFunction.then(f("event", Pair::first), basicFunctions),
                   NamedFunction.then(f("individual", Pair::second), basicIndividualFunctions),
-                  NamedFunction.then(f("individual", Pair::second), Utils.serializationFunction(serializationFlags.contains("all")))
+                  NamedFunction.then(f("individual", Pair::second), NamedFunctions.serializationFunction(serializationFlags.contains("all")))
               )),
               new File(allFileName)
           )
@@ -195,7 +193,7 @@ public class LocomotionEvolution extends Worker {
         validationTerrainNames.add(terrainNames.get(0));
       }
       Listener.Factory<Event<?, ? extends Robot<?>, ? extends Outcome>> validationFactory = Listener.Factory.forEach(
-          Utils.validation(validationTerrainNames, validationTransformationNames, List.of(0), validationEpisodeTime),
+          NamedFunctions.validation(validationTerrainNames, validationTransformationNames, List.of(0), validationEpisodeTime),
           new CSVPrinter<>(
               Misc.concat(List.of(
                   NamedFunction.then(f("event", (ValidationOutcome vo) -> vo.event), basicFunctions),
@@ -222,10 +220,10 @@ public class LocomotionEvolution extends Worker {
     //telegram listner
     if (telegramBotId != null && telegramChatId != 0) {
       factory = factory.and(new TelegramUpdater<>(List.of(
-          Utils.lastEventToString(fitnessFunction),
-          Utils.fitnessPlot(fitnessFunction),
-          Utils.centerPositionPlot(),
-          Utils.bestVideo(videoEpisodeTransientTime, videoEpisodeTime, PHYSICS_SETTINGS)
+          NamedFunctions.lastEventToString(fitnessFunction),
+          NamedFunctions.fitnessPlot(fitnessFunction),
+          NamedFunctions.centerPositionPlot(),
+          NamedFunctions.bestVideo(videoEpisodeTransientTime, videoEpisodeTime, PHYSICS_SETTINGS)
       ), telegramBotId, telegramChatId));
     }
     //summarize params

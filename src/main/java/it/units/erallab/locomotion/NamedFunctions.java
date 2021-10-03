@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package it.units.erallab;
+package it.units.erallab.locomotion;
 
 import it.units.erallab.hmsrobots.behavior.BehaviorUtils;
 import it.units.erallab.hmsrobots.core.objects.Robot;
@@ -30,7 +30,6 @@ import it.units.malelab.jgea.core.Individual;
 import it.units.malelab.jgea.core.evolver.Event;
 import it.units.malelab.jgea.core.listener.Accumulator;
 import it.units.malelab.jgea.core.listener.NamedFunction;
-import it.units.malelab.jgea.core.listener.NamedFunctions;
 import it.units.malelab.jgea.core.listener.TableBuilder;
 import it.units.malelab.jgea.core.util.*;
 import org.dyn4j.dynamics.Settings;
@@ -49,14 +48,27 @@ import static it.units.malelab.jgea.core.listener.NamedFunctions.*;
 /**
  * @author eric
  */
-public class Utils {
+public class NamedFunctions {
 
-  private static final Logger L = Logger.getLogger(Utils.class.getName());
+  private static final Logger L = Logger.getLogger(NamedFunctions.class.getName());
 
-  private Utils() {
+  private NamedFunctions() {
   }
 
   public static List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> keysFunctions() {
+    return List.of(
+        eventAttribute("experiment.name"),
+        eventAttribute("seed", "%2d"),
+        eventAttribute("terrain"),
+        eventAttribute("shape"),
+        eventAttribute("sensor.config"),
+        eventAttribute("mapper"),
+        eventAttribute("transformation"),
+        eventAttribute("evolver")
+    );
+  }
+
+  public static List<NamedFunction<Event<?, ?, ?>, ?>> keysFunctions2() {
     return List.of(
         eventAttribute("experiment.name"),
         eventAttribute("seed", "%2d"),
@@ -156,19 +168,19 @@ public class Utils {
                 "center.x.spectrum",
                 (Outcome o) -> new ArrayList<>(o.getCenterXVelocitySpectrum(spectrumMinFreq, spectrumMaxFreq, spectrumSize).values())
             ),
-            IntStream.range(0, spectrumSize).mapToObj(NamedFunctions::nth).collect(Collectors.toList())
+            IntStream.range(0, spectrumSize).mapToObj(it.units.malelab.jgea.core.listener.NamedFunctions::nth).collect(Collectors.toList())
         ),
         NamedFunction.then(cachedF(
                 "center.y.spectrum",
                 (Outcome o) -> new ArrayList<>(o.getCenterYVelocitySpectrum(spectrumMinFreq, spectrumMaxFreq, spectrumSize).values())
             ),
-            IntStream.range(0, spectrumSize).mapToObj(NamedFunctions::nth).collect(Collectors.toList())
+            IntStream.range(0, spectrumSize).mapToObj(it.units.malelab.jgea.core.listener.NamedFunctions::nth).collect(Collectors.toList())
         ),
         NamedFunction.then(cachedF(
                 "center.angle.spectrum",
                 (Outcome o) -> new ArrayList<>(o.getCenterAngleSpectrum(spectrumMinFreq, spectrumMaxFreq, spectrumSize).values())
             ),
-            IntStream.range(0, spectrumSize).mapToObj(NamedFunctions::nth).collect(Collectors.toList())
+            IntStream.range(0, spectrumSize).mapToObj(it.units.malelab.jgea.core.listener.NamedFunctions::nth).collect(Collectors.toList())
         ),
         NamedFunction.then(cachedF(
                 "footprints.spectra",
@@ -177,7 +189,7 @@ public class Utils {
                     .flatMap(Collection::stream)
                     .collect(Collectors.toList())
             ),
-            IntStream.range(0, 4 * spectrumSize).mapToObj(NamedFunctions::nth).collect(Collectors.toList())
+            IntStream.range(0, 4 * spectrumSize).mapToObj(it.units.malelab.jgea.core.listener.NamedFunctions::nth).collect(Collectors.toList())
         )
     ));
   }
@@ -252,8 +264,8 @@ public class Utils {
     return Accumulator.Factory.<Event<?, ? extends Robot<?>, ? extends Outcome>>last().then(
         event -> {
           Random random = new Random(0);
-          SortedMap<Long, String> terrainSequence = LocomotionEvolution.getSequence((String) event.getAttributes().get("terrain"));
-          SortedMap<Long, String> transformationSequence = LocomotionEvolution.getSequence((String) event.getAttributes().get("transformation"));
+          SortedMap<Long, String> terrainSequence = Starter.getSequence((String) event.getAttributes().get("terrain"));
+          SortedMap<Long, String> transformationSequence = Starter.getSequence((String) event.getAttributes().get("transformation"));
           String terrainName = terrainSequence.get(terrainSequence.lastKey());
           String transformationName = transformationSequence.get(transformationSequence.lastKey());
           Robot<?> robot = SerializationUtils.clone(Misc.first(event.getOrderedPopulation().firsts()).getSolution());
@@ -277,7 +289,7 @@ public class Utils {
     );
   }
 
-  public static Function<Event<?, ? extends Robot<?>, ? extends Outcome>, Collection<LocomotionEvolution.ValidationOutcome>> validation(
+  public static Function<Event<?, ? extends Robot<?>, ? extends Outcome>, Collection<Starter.ValidationOutcome>> validation(
       List<String> validationTerrainNames,
       List<String> validationTransformationNames,
       List<Integer> seeds,
@@ -285,19 +297,19 @@ public class Utils {
   ) {
     return event -> {
       Robot<?> robot = SerializationUtils.clone(Misc.first(event.getOrderedPopulation().firsts()).getSolution());
-      List<LocomotionEvolution.ValidationOutcome> validationOutcomes = new ArrayList<>();
+      List<Starter.ValidationOutcome> validationOutcomes = new ArrayList<>();
       for (String validationTerrainName : validationTerrainNames) {
         for (String validationTransformationName : validationTransformationNames) {
           for (int seed : seeds) {
             Random random = new Random(seed);
             robot = RobotUtils.buildRobotTransformation(validationTransformationName, random).apply(robot);
-            Function<Robot<?>, Outcome> validationLocomotion = LocomotionEvolution.buildLocomotionTask(
+            Function<Robot<?>, Outcome> validationLocomotion = Starter.buildLocomotionTask(
                 validationTerrainName,
                 episodeTime,
                 random
             );
             Outcome outcome = validationLocomotion.apply(robot);
-            validationOutcomes.add(new LocomotionEvolution.ValidationOutcome(
+            validationOutcomes.add(new Starter.ValidationOutcome(
                 event,
                 Map.ofEntries(
                     Map.entry("validation.terrain", validationTerrainName),

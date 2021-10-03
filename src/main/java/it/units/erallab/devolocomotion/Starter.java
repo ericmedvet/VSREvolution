@@ -1,18 +1,15 @@
-package it.units.erallab.devo;
+package it.units.erallab.devolocomotion;
 
 import com.google.common.base.Stopwatch;
-import it.units.erallab.LocomotionEvolution;
-import it.units.erallab.Utils;
 import it.units.erallab.builder.DirectNumbersGrid;
 import it.units.erallab.builder.PrototypedFunctionBuilder;
+import it.units.erallab.builder.devofunction.DevoPhasesValues;
 import it.units.erallab.hmsrobots.core.controllers.Controller;
 import it.units.erallab.hmsrobots.core.objects.Robot;
+import it.units.erallab.hmsrobots.tasks.devolocomotion.DevoLocomotion;
 import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
 import it.units.erallab.hmsrobots.tasks.locomotion.Outcome;
-import it.units.erallab.hmsrobots.util.Grid;
 import it.units.erallab.hmsrobots.util.RobotUtils;
-import it.units.erallab.hmsrobots.viewers.GridFileWriter;
-import it.units.erallab.hmsrobots.viewers.VideoUtils;
 import it.units.malelab.jgea.Worker;
 import it.units.malelab.jgea.core.Individual;
 import it.units.malelab.jgea.core.evolver.Event;
@@ -21,33 +18,34 @@ import it.units.malelab.jgea.core.evolver.stopcondition.FitnessEvaluations;
 import it.units.malelab.jgea.core.listener.*;
 import it.units.malelab.jgea.core.listener.telegram.TelegramUpdater;
 import it.units.malelab.jgea.core.order.PartialComparator;
-import it.units.malelab.jgea.core.util.ImagePlotters;
 import it.units.malelab.jgea.core.util.Misc;
 import it.units.malelab.jgea.core.util.TextPlotter;
 
-import java.awt.image.BufferedImage;
 import java.io.File;
-import java.io.IOException;
-import java.util.*;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
 
 import static it.units.erallab.hmsrobots.util.Utils.params;
-import static it.units.malelab.jgea.core.listener.NamedFunctions.*;
+import static it.units.malelab.jgea.core.listener.NamedFunctions.best;
+import static it.units.malelab.jgea.core.listener.NamedFunctions.f;
 import static it.units.malelab.jgea.core.util.Args.*;
 
 /**
  * @author "Eric Medvet" on 2021/09/27 for VSREvolution
  */
-public class DevoLocomotionEvolution extends Worker {
+public class Starter extends Worker {
 
-  public DevoLocomotionEvolution(String[] args) {
+  public Starter(String[] args) {
     super(args);
   }
 
   public static void main(String[] args) {
-    new DevoLocomotionEvolution(args);
+    new Starter(args);
   }
 
   @Override
@@ -75,12 +73,12 @@ public class DevoLocomotionEvolution extends Worker {
     //fitness function
     Function<List<Outcome>, Double> fitnessFunction = outcomes -> outcomes.stream().mapToDouble(Outcome::getDistance).sum();
     //consumers
-    List<NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, ?>> keysFunctions = keyFunctions();
-    List<NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, ?>> basicFunctions = basicFunctions();
-    List<NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, ?>> populationFunctions = List.of();
-    List<NamedFunction<Individual<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, ?>> basicIndividualFunctions = basicIndividualFunctions(fitnessFunction);
-    List<NamedFunction<List<Outcome>, ?>> outcomesFunctions = List.of();
-    List<NamedFunction<Individual<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, ?>> visualIndividualFunctions = List.of();
+    List<NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, ?>> keysFunctions = NamedFunctions.keysFunctions();
+    List<NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, ?>> basicFunctions = NamedFunctions.basicFunctions();
+    List<NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, ?>> populationFunctions = NamedFunctions.populationFunctions(fitnessFunction);
+    List<NamedFunction<Individual<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, ?>> basicIndividualFunctions = NamedFunctions.basicIndividualFunctions(fitnessFunction);
+    List<NamedFunction<List<Outcome>, ?>> outcomesFunctions = NamedFunctions.outcomesFunctions();
+    List<NamedFunction<Individual<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, ?>> visualIndividualFunctions = NamedFunctions.visualIndividualFunctions();
     Listener.Factory<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>> factory = Listener.Factory.deaf();
     NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, List<Outcome>> bestFitness = f("best.fitness", event -> Misc.first(event.getOrderedPopulation().firsts()).getFitness());
     //screen listener
@@ -117,8 +115,9 @@ public class DevoLocomotionEvolution extends Worker {
     //telegram listener
     if (telegramBotId != null && telegramChatId != 0) {
       factory = factory.and(new TelegramUpdater<>(List.of(
-          fitnessPlot(fitnessFunction),
-          bestVideo(stageMinDistance, stageMaxTime, episodeTime)
+          NamedFunctions.lastEventToString(fitnessFunction),
+          NamedFunctions.fitnessPlot(fitnessFunction),
+          NamedFunctions.bestVideo(stageMinDistance, stageMaxTime, episodeTime)
       ), telegramBotId, telegramChatId));
     }
     //summarize params
@@ -208,119 +207,36 @@ public class DevoLocomotionEvolution extends Worker {
     factory.shutdown();
   }
 
-  private static List<NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, ?>> keyFunctions() {
-    return List.of(
-        eventAttribute("experiment.name"),
-        eventAttribute("seed", "%2d"),
-        eventAttribute("terrain"),
-        eventAttribute("devo.function"),
-        eventAttribute("evolver")
-    );
-  }
-
-  private static List<NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, ?>> basicFunctions() {
-    return List.of(
-        iterations(),
-        births(),
-        fitnessEvaluations(),
-        elapsedSeconds()
-    );
-  }
-
-  public static Accumulator.Factory<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, BufferedImage> fitnessPlot(Function<List<Outcome>, Double> fitnessFunction) {
-    return new TableBuilder<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, Number>(List.of(
-        iterations(),
-        f("fitness", fitnessFunction).of(fitness()).of(best()),
-        min(Double::compare).of(each(f("fitness", fitnessFunction).of(fitness()))).of(all()),
-        median(Double::compare).of(each(f("fitness", fitnessFunction).of(fitness()))).of(all())
-    )).then(ImagePlotters.xyLines(600, 400));
-  }
-
-  public static Accumulator.Factory<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, File> bestVideo(double stageMinDistance, double stageMaxT, double maxT) {
-    return Accumulator.Factory.<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>>last().then(
-        event -> {
-          Random random = new Random(0);
-          SortedMap<Long, String> terrainSequence = LocomotionEvolution.getSequence((String) event.getAttributes().get("terrain"));
-          String terrainName = terrainSequence.get(terrainSequence.lastKey());
-          UnaryOperator<Robot<?>> solution = Misc.first(event.getOrderedPopulation().firsts()).getSolution();
-          DevoLocomotion devoLocomotion = new DevoLocomotion(
-              stageMinDistance, stageMaxT, maxT,
-              Locomotion.createTerrain(terrainName.replace("-rnd", "-" + random.nextInt(10000))),
-              LocomotionEvolution.PHYSICS_SETTINGS
-          );
-          File file;
-          try {
-            file = File.createTempFile("robot-video", ".mp4");
-            GridFileWriter.save(devoLocomotion, solution, 300, 200, 0, 25, VideoUtils.EncoderFacility.JCODEC, file);
-            file.deleteOnExit();
-          } catch (IOException ioException) {
-            L.warning(String.format("Cannot save video of best: %s", ioException));
-            return null;
-          }
-          return file;
-        }
-    );
-  }
-
   public static Function<UnaryOperator<Robot<?>>, List<Outcome>> buildLocomotionTask(String terrainName, double stageMinDistance, double stageMaxT, double maxT, Random random) {
     if (!terrainName.contains("-rnd")) {
       return Misc.cached(new DevoLocomotion(
           stageMinDistance, stageMaxT, maxT,
           Locomotion.createTerrain(terrainName),
-          LocomotionEvolution.PHYSICS_SETTINGS
-      ), LocomotionEvolution.CACHE_SIZE);
+          it.units.erallab.locomotion.Starter.PHYSICS_SETTINGS
+      ), it.units.erallab.locomotion.Starter.CACHE_SIZE);
     }
     return r -> new DevoLocomotion(
         stageMinDistance, stageMaxT, maxT,
         Locomotion.createTerrain(terrainName.replace("-rnd", "-" + random.nextInt(10000))),
-        LocomotionEvolution.PHYSICS_SETTINGS
+        it.units.erallab.locomotion.Starter.PHYSICS_SETTINGS
     ).apply(r);
   }
 
   @SuppressWarnings({"unchecked", "rawtypes"})
   private static Evolver<?, UnaryOperator<Robot<?>>, List<Outcome>> buildEvolver(String evolverName, String devoFunctionName, UnaryOperator<Robot<?>> target, Function<List<Outcome>, Double> outcomeMeasure) {
     PrototypedFunctionBuilder<?, ?> devoFunctionBuilder = null;
-    for (String piece : devoFunctionName.split(LocomotionEvolution.MAPPER_PIPE_CHAR)) {
+    for (String piece : devoFunctionName.split(it.units.erallab.locomotion.Starter.MAPPER_PIPE_CHAR)) {
       if (devoFunctionBuilder == null) {
         devoFunctionBuilder = getDevoFunctionByName(piece);
       } else {
         devoFunctionBuilder = devoFunctionBuilder.compose((PrototypedFunctionBuilder) getDevoFunctionByName(piece));
       }
     }
-    return LocomotionEvolution.getEvolverBuilderFromName(evolverName).build(
+    return it.units.erallab.locomotion.Starter.getEvolverBuilderFromName(evolverName).build(
         (PrototypedFunctionBuilder) devoFunctionBuilder,
         target,
         PartialComparator.from(Double.class).comparing(outcomeMeasure).reversed()
     );
-  }
-
-  private static List<NamedFunction<Individual<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, ?>> basicIndividualFunctions(Function<List<Outcome>, Double> fitnessFunction) {
-    NamedFunction<Individual<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, ?> size = size().of(genotype());
-    NamedFunction<Individual<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, ? extends Grid<?>> firstShape =
-        f("shape", (Function<Outcome, Grid<?>>) o -> o.getObservations().get(o.getObservations().firstKey()).getVoxelPolies())
-            .of(f("first", (Function<List<Outcome>, Outcome>) l -> l.get(0)))
-            .of(fitness());
-    NamedFunction<Individual<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, ? extends Grid<?>> lastShape =
-        f("shape", (Function<Outcome, Grid<?>>) o -> o.getObservations().get(o.getObservations().firstKey()).getVoxelPolies())
-            .of(f("last", (Function<List<Outcome>, Outcome>) l -> l.get(l.size() - 1)))
-            .of(fitness());
-    return List.of(
-        f("w", "%2d", (Function<Grid<?>, Number>) Grid::getW).of(firstShape),
-        f("h", "%2d", (Function<Grid<?>, Number>) Grid::getW).of(firstShape),
-        f("num.voxel", "%2d", (Function<Grid<?>, Number>) g -> g.count(Objects::nonNull)).of(firstShape),
-        f("w", "%2d", (Function<Grid<?>, Number>) Grid::getW).of(lastShape),
-        f("h", "%2d", (Function<Grid<?>, Number>) Grid::getW).of(lastShape),
-        f("num.voxel", "%2d", (Function<Grid<?>, Number>) g -> g.count(Objects::nonNull)).of(lastShape),
-        f("num.stages", "%2d", i -> i.getFitness().size()),
-        size.reformat("%5d"),
-        genotypeBirthIteration(),
-        f("fitness", "%5.1f", fitnessFunction).of(fitness())
-    );
-  }
-
-  private static Evolver<?, List<Robot<?>>, List<Outcome>> buildEvolver(String evolverName, String devoFunctionName, Robot<?>
-      target, Function<Outcome, Double> outcomeMeasure) {
-    return null; // TODO fix
   }
 
   private static PrototypedFunctionBuilder<?, ?> getDevoFunctionByName(String name) {
