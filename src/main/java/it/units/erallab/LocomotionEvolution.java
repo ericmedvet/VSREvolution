@@ -504,6 +504,11 @@ public class LocomotionEvolution extends Worker {
         "(-(?<lRestPot>-?\\d+(\\.\\d+)?)-(?<lThreshPot>-?\\d+(\\.\\d+)?)-(?<lambda>\\d+(\\.\\d+)?)(-(?<theta>\\d+(\\.\\d+)?))?)?" +
         "(-(?<izParams>(regular_spiking_params)))?" +
         "-(?<iConv>(unif|unif_mem))-(?<iFreq>\\d+(\\.\\d+)?)-(?<oConv>(avg|avg_mem))(-(?<oMem>\\d+))?-(?<oFreq>\\d+(\\.\\d+)?)";
+    String quantizedHebbianNumericLearningClippedWeightsMSNWithConverters = "QHLCWMSN-(?<maxWeight>\\d+(\\.\\d+)?)-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<spikeType>(lif|iz|lif_h))" +
+        "(-(?<lRestPot>-?\\d+(\\.\\d+)?)-(?<lThreshPot>-?\\d+(\\.\\d+)?)-(?<lambda>\\d+(\\.\\d+)?)(-(?<theta>\\d+(\\.\\d+)?))?)?" +
+        "(-(?<izParams>(regular_spiking_params)))?" +
+        "-(?<iConv>(unif|unif_mem))-(?<iFreq>\\d+(\\.\\d+)?)-(?<oConv>(avg|avg_mem))(-(?<oMem>\\d+))?-(?<oFreq>\\d+(\\.\\d+)?)";
+
     String directNumGrid = "directNumGrid";
     String functionNumGrid = "functionNumGrid";
     String fgraph = "fGraph";
@@ -953,6 +958,7 @@ public class LocomotionEvolution extends Worker {
         (params = params(quantizedNumericLearningFixedPoolMsnWithConverter, name)) != null ||
         (params = params(quantizedHebbianNumericLearningMsnWithConverter, name)) != null||
         (params = params(quantizedHebbianNumericLearningWeightsMSNWithConverters, name)) != null ||
+        (params = params(quantizedHebbianNumericLearningClippedWeightsMSNWithConverters, name)) != null ||
         (params = params(quantizedNumericLearningWithFixedRuleValuesAnd0WeightsMSNWithConverters, name)) != null
     ) {
       BiFunction<Integer, Integer, QuantizedSpikingFunction> neuronBuilder = null;
@@ -1021,6 +1027,7 @@ public class LocomotionEvolution extends Worker {
           (params = params(quantizedNumericLearningFixedPoolMsnWithConverter, name)) != null ||
           (params = params(quantizedHebbianNumericLearningMsnWithConverter, name)) != null||
           (params = params(quantizedHebbianNumericLearningWeightsMSNWithConverters, name)) != null ||
+          (params = params(quantizedHebbianNumericLearningClippedWeightsMSNWithConverters, name)) != null ||
           (params = params(quantizedNumericLearningWithFixedRuleValuesAnd0WeightsMSNWithConverters, name)) != null ) {
         QuantizedValueToSpikeTrainConverter valueToSpikeTrainConverter = new QuantizedUniformValueToSpikeTrainConverter();
         QuantizedSpikeTrainToValueConverter spikeTrainToValueConverter = new QuantizedAverageFrequencySpikeTrainToValueConverter();
@@ -1111,6 +1118,16 @@ public class LocomotionEvolution extends Worker {
               Double.parseDouble(params.get("ratio")),
               Integer.parseInt(params.get("nLayers")),
               neuronBuilder,
+              valueToSpikeTrainConverter,
+              spikeTrainToValueConverter
+          );
+        }
+        if ((params = params(quantizedHebbianNumericLearningClippedWeightsMSNWithConverters, name)) != null) {
+          return new QuantizedHebbianNumericLearningClippedWeightsMSNWithConverters(
+              Double.parseDouble(params.get("ratio")),
+              Integer.parseInt(params.get("nLayers")),
+              neuronBuilder,
+              Double.parseDouble(params.get("maxWeight")),
               valueToSpikeTrainConverter,
               spikeTrainToValueConverter
           );
