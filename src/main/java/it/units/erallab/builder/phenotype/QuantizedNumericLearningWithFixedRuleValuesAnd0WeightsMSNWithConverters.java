@@ -70,7 +70,8 @@ public class QuantizedNumericLearningWithFixedRuleValuesAnd0WeightsMSNWithConver
       double[] weights = new double[nOfWeights];
       double[][] rulesGenerator = IntStream.range(0, values.size() / 2).map(i -> 2 * i).mapToObj(i -> new double[]{values.get(i), values.get(i + 1)}).toArray(double[][]::new);
       STDPLearningRule[] flatLearningRules = STDPLearningRule.createLearningRules(rulesGenerator, defaultSymmetricParams, defaultAsymmetricParams);
-      QuantizedLearningMultilayerSpikingNetwork quantizedLearningMultilayerSpikingNetwork = new QuantizedLearningMultilayerSpikingNetwork(nOfInputs, innerNeurons, nOfOutputs, weights, flatLearningRules, neuronBuilder);
+      QuantizedLearningMultilayerSpikingNetwork quantizedLearningMultilayerSpikingNetwork = new QuantizedLearningMultilayerSpikingNetwork(
+          nOfInputs, innerNeurons, nOfOutputs, weights, flatLearningRules, neuronBuilder);
       return new QuantizedMultilayerSpikingNetworkWithConverters<>(
           quantizedLearningMultilayerSpikingNetwork,
           valueToSpikeTrainConverter,

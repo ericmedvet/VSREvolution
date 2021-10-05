@@ -79,7 +79,7 @@ public class QuantizedHebbianNumericLearningClippedWeightsMSNWithConverters impl
         }
       }
       STDPLearningRule[] learningRules = Arrays.stream(rulesGenerator).map(params -> {
-        STDPLearningRule rule = new AsymmetricHebbianLearningRule();
+        AsymmetricHebbianLearningRule rule = new AsymmetricHebbianLearningRule();
         rule.setParams(AsymmetricSTDPLearningRule.scaleParameters(params));
         return rule;
       }).toArray(AsymmetricHebbianLearningRule[]::new);

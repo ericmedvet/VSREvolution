@@ -262,10 +262,9 @@ public class Utils {
         .then(ImagePlotters.xyLines(600, 400));
   }
 
-  public static Accumulator.Factory<Event<?, ? extends Robot<?>, ? extends Outcome>, File> bestVideo(double transientTime, double episodeTime, Settings settings, Pair<Pair<Integer, Integer>, Drawer> drawerSupplier) {
+  public static Accumulator.Factory<Event<?, ? extends Robot<?>, ? extends Outcome>, File> bestVideo(double transientTime, double episodeTime, Settings settings, Pair<Pair<Integer, Integer>, Function<String, Drawer>> drawerSupplier) {
     int widthMultiplier = drawerSupplier.first().first();
     int heightMultiplier = drawerSupplier.first().second();
-    Drawer drawer = drawerSupplier.second();
     return Accumulator.Factory.<Event<?, ? extends Robot<?>, ? extends Outcome>>last().then(
         event -> {
           Random random = new Random(0);
@@ -283,7 +282,7 @@ public class Utils {
           File file;
           try {
             file = File.createTempFile("robot-video", ".mp4");
-            GridFileWriter.save(locomotion, robot, widthMultiplier * 300, heightMultiplier * 200, transientTime, 25, VideoUtils.EncoderFacility.JCODEC, file, s -> drawer);
+            GridFileWriter.save(locomotion, robot, widthMultiplier * 300, heightMultiplier * 200, transientTime, 25, VideoUtils.EncoderFacility.JCODEC, file, drawerSupplier.second());
             file.deleteOnExit();
           } catch (IOException ioException) {
             L.warning(String.format("Cannot save video of best: %s", ioException));

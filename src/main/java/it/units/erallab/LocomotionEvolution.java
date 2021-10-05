@@ -146,7 +146,7 @@ public class LocomotionEvolution extends Worker {
     List<String> validationTerrainNames = l(a("validationTerrain", "flat")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
     String fitnessMetrics = a("fitness", "velocity");
     String videoConfiguration = a("videoConfiguration", "basicWithMiniWorldAndBrain");
-    Pair<Pair<Integer, Integer>, Drawer> drawerSupplier = getDrawerSupplierFromName(videoConfiguration);
+    Pair<Pair<Integer, Integer>, Function<String,Drawer>> drawerSupplier = getDrawerSupplierFromName(videoConfiguration);
     Function<Outcome, Double> fitnessFunction = getFitnessFunctionFromName(fitnessMetrics);
     //consumers
     List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> keysFunctions = Utils.keysFunctions();
@@ -413,18 +413,18 @@ public class LocomotionEvolution extends Worker {
     throw new IllegalArgumentException(String.format("Unknown fitness function name: %s", name));
   }
 
-  private static Pair<Pair<Integer, Integer>, Drawer> getDrawerSupplierFromName(String name) {
+  private static Pair<Pair<Integer, Integer>, Function<String,Drawer>> getDrawerSupplierFromName(String name) {
     String basic = "basic";
     String basicWithMiniWorld = "basicWithMiniWorld";
     String basicWithMiniWorldAndBrain = "basicWithMiniWorldAndBrain";
     if (params(basic, name) != null) {
-      return Pair.of(Pair.of(1, 1), Drawers.basic());
+      return Pair.of(Pair.of(1, 1), Drawers::basic);
     }
     if (params(basicWithMiniWorld, name) != null) {
-      return Pair.of(Pair.of(1, 1), Drawers.basicWithMiniWorld());
+      return Pair.of(Pair.of(1, 1), Drawers::basicWithMiniWorld);
     }
     if (params(basicWithMiniWorldAndBrain, name) != null) {
-      Drawer basicWithMiniWorldAndBrainDrawer = Drawer.of(
+      Function<String,Drawer> basicWithMiniWorldAndBrainDrawer = s -> Drawer.of(
           Drawer.clip(
               BoundingBox.of(0d, 0d, 1d, 0.5d),
               Drawers.basicWithMiniWorld()
