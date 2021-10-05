@@ -71,7 +71,8 @@ public class QuantizedNumericLearningMSNWithConverters implements PrototypedFunc
         }
       }
       STDPLearningRule[] flatLearningRules = STDPLearningRule.createLearningRules(rulesGenerator);
-      QuantizedLearningMultilayerSpikingNetwork quantizedLearningMultilayerSpikingNetwork = new QuantizedLearningMultilayerSpikingNetwork(nOfInputs, innerNeurons, nOfOutputs,weights, flatLearningRules, neuronBuilder);
+      QuantizedLearningMultilayerSpikingNetwork quantizedLearningMultilayerSpikingNetwork = new QuantizedLearningMultilayerSpikingNetwork(
+          nOfInputs, innerNeurons, nOfOutputs,weights, flatLearningRules, neuronBuilder, spikeTrainToValueConverter);
       return new QuantizedMultilayerSpikingNetworkWithConverters<>(
           quantizedLearningMultilayerSpikingNetwork,
           valueToSpikeTrainConverter,

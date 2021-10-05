@@ -83,7 +83,8 @@ public class QuantizedHebbianNumericLearningClippedWeightsMSNWithConverters impl
         rule.setParams(AsymmetricSTDPLearningRule.scaleParameters(params));
         return rule;
       }).toArray(AsymmetricHebbianLearningRule[]::new);
-      QuantizedLearningMultilayerSpikingNetwork quantizedLearningMultilayerSpikingNetwork = new QuantizedLearningMultilayerSpikingNetwork(nOfInputs, innerNeurons, nOfOutputs, weights, learningRules, neuronBuilder);
+      QuantizedLearningMultilayerSpikingNetwork quantizedLearningMultilayerSpikingNetwork = new QuantizedLearningMultilayerSpikingNetwork(
+          nOfInputs, innerNeurons, nOfOutputs, weights, learningRules, neuronBuilder, spikeTrainToValueConverter);
       quantizedLearningMultilayerSpikingNetwork.enableWeightsClipping(weightsMaxValue);
       return new QuantizedMultilayerSpikingNetworkWithConverters<>(
           quantizedLearningMultilayerSpikingNetwork,

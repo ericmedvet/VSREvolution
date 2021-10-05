@@ -80,8 +80,9 @@ public class QuantizedHebbianNumericLearningMSNWithConverters implements Prototy
         STDPLearningRule rule = new AsymmetricHebbianLearningRule();
         rule.setParams(AsymmetricSTDPLearningRule.scaleParameters(params));
         return rule;
-      }).toArray(AsymmetricHebbianLearningRule[]::new);
-      QuantizedLearningMultilayerSpikingNetwork quantizedLearningMultilayerSpikingNetwork = new QuantizedLearningMultilayerSpikingNetwork(nOfInputs, innerNeurons, nOfOutputs, weights, learningRules, neuronBuilder);
+      }).toArray(STDPLearningRule[]::new);
+      QuantizedLearningMultilayerSpikingNetwork quantizedLearningMultilayerSpikingNetwork = new QuantizedLearningMultilayerSpikingNetwork(
+          nOfInputs, innerNeurons, nOfOutputs, weights, learningRules, neuronBuilder, spikeTrainToValueConverter);
       return new QuantizedMultilayerSpikingNetworkWithConverters<>(
           quantizedLearningMultilayerSpikingNetwork,
           valueToSpikeTrainConverter,

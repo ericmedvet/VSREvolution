@@ -124,7 +124,7 @@ public class QuantizedNumericLearningFixedPoolMSNWithConverters implements Proto
       STDPLearningRule[] learningRules = Arrays.stream(learningRulesIndexes).mapToObj(i -> fixedLearningRules[i]).toArray(STDPLearningRule[]::new);
 
       QuantizedLearningMultilayerSpikingNetwork quantizedFixedPoolLearningMultilayerSpikingNetwork =
-          new QuantizedLearningMultilayerSpikingNetwork(nOfInputs, innerNeurons, nOfOutputs, weights, learningRules, neuronBuilder);
+          new QuantizedLearningMultilayerSpikingNetwork(nOfInputs, innerNeurons, nOfOutputs, weights, learningRules, neuronBuilder, spikeTrainToValueConverter);
       return new QuantizedMultilayerSpikingNetworkWithConverters<>(
           quantizedFixedPoolLearningMultilayerSpikingNetwork,
           valueToSpikeTrainConverter,

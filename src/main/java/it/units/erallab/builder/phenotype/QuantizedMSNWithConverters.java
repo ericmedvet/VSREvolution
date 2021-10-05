@@ -67,7 +67,8 @@ public class QuantizedMSNWithConverters implements PrototypedFunctionBuilder<Lis
           innerNeurons,
           nOfOutputs,
           values.stream().mapToDouble(d -> d).toArray(),
-          neuronBuilder
+          neuronBuilder,
+          spikeTrainToValueConverter
       );
       return new QuantizedMultilayerSpikingNetworkWithConverters<>(
           quantizedMultilayerSpikingNetwork,
