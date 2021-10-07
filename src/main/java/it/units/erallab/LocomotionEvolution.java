@@ -45,16 +45,12 @@ import it.units.erallab.hmsrobots.core.controllers.snndiscr.converters.stv.Quant
 import it.units.erallab.hmsrobots.core.controllers.snndiscr.converters.vts.QuantizedUniformValueToSpikeTrainConverter;
 import it.units.erallab.hmsrobots.core.controllers.snndiscr.converters.vts.QuantizedUniformWithMemoryValueToSpikeTrainConverter;
 import it.units.erallab.hmsrobots.core.controllers.snndiscr.converters.vts.QuantizedValueToSpikeTrainConverter;
-import it.units.erallab.hmsrobots.core.geometry.BoundingBox;
 import it.units.erallab.hmsrobots.core.objects.Robot;
-import it.units.erallab.hmsrobots.core.snapshots.SNNState;
 import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
 import it.units.erallab.hmsrobots.tasks.locomotion.Outcome;
 import it.units.erallab.hmsrobots.util.RobotUtils;
 import it.units.erallab.hmsrobots.viewers.drawers.Drawer;
 import it.units.erallab.hmsrobots.viewers.drawers.Drawers;
-import it.units.erallab.hmsrobots.viewers.drawers.MLPDrawer;
-import it.units.erallab.hmsrobots.viewers.drawers.SubtreeDrawer;
 import it.units.erallab.utils.Utils;
 import it.units.malelab.jgea.Worker;
 import it.units.malelab.jgea.core.Individual;
@@ -417,6 +413,7 @@ public class LocomotionEvolution extends Worker {
     String basic = "basic";
     String basicWithMiniWorld = "basicWithMiniWorld";
     String basicWithMiniWorldAndBrain = "basicWithMiniWorldAndBrain";
+    String basicWithMiniWorldAndBrainUsage = "basicWithMiniWorldAndBrainUsage";
     if (params(basic, name) != null) {
       return Pair.of(Pair.of(1, 1), Drawers::basic);
     }
@@ -424,20 +421,10 @@ public class LocomotionEvolution extends Worker {
       return Pair.of(Pair.of(1, 1), Drawers::basicWithMiniWorld);
     }
     if (params(basicWithMiniWorldAndBrain, name) != null) {
-      Function<String,Drawer> basicWithMiniWorldAndBrainDrawer = s -> Drawer.of(
-          Drawer.clip(
-              BoundingBox.of(0d, 0d, 1d, 0.5d),
-              Drawers.basicWithMiniWorld()
-          ),
-          Drawer.clip(
-              BoundingBox.of(0d, 0.5d, 1d, 1d),
-              Drawer.of(
-                  Drawer.clear(),
-                  new MLPDrawer(SubtreeDrawer.Extractor.matches(SNNState.class, null, null), 15d, EnumSet.allOf(MLPDrawer.Part.class))
-              )
-          )
-      );
-      return Pair.of(Pair.of(1, 2), basicWithMiniWorldAndBrainDrawer);
+      return Pair.of(Pair.of(1, 2), Drawers::basicWithMiniWorldAndBrain);
+    }
+    if(params(basicWithMiniWorldAndBrain,name)!=null){
+      return Pair.of(Pair.of(1,2), Drawers::basicWithMiniWorldAndBrainUsage);
     }
     throw new IllegalArgumentException(String.format("Unknown video configuration name: %s", name));
   }
