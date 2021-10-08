@@ -1,5 +1,6 @@
 package it.units.erallab.devolocomotion;
 
+import it.units.erallab.devolocomotion.Starter.DevoValidationOutcome;
 import it.units.erallab.hmsrobots.core.objects.Robot;
 import it.units.erallab.hmsrobots.tasks.devolocomotion.DevoLocomotion;
 import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
@@ -19,10 +20,7 @@ import it.units.malelab.jgea.core.util.Misc;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
-import java.util.List;
-import java.util.Objects;
-import java.util.Random;
-import java.util.SortedMap;
+import java.util.*;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
 import java.util.logging.Logger;
@@ -37,7 +35,8 @@ public class NamedFunctions {
 
   private static final Logger L = Logger.getLogger(NamedFunctions.class.getName());
 
-  private NamedFunctions() {}
+  private NamedFunctions() {
+  }
 
   public static List<NamedFunction<Individual<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, ?>> basicIndividualFunctions(Function<List<Outcome>, Double> fitnessFunction) {
     NamedFunction<Individual<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, ?> size = size().of(genotype());
@@ -153,7 +152,41 @@ public class NamedFunctions {
     );
   }
 
-  public static List<NamedFunction<Individual<?,? extends UnaryOperator<Robot<?>>,? extends List<Outcome>>,?>> visualIndividualFunctions() {
+  public static List<NamedFunction<Individual<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, ?>> visualIndividualFunctions() {
     return List.of();
+  }
+
+  public static Function<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, Collection<DevoValidationOutcome>> validation(
+      List<String> validationTerrainNames,
+      List<Integer> seeds,
+      double stageMinDistance,
+      double stageMaxT,
+      double episodeTime
+  ) {
+    return event -> {
+      UnaryOperator<Robot<?>> solution = Misc.first(event.getOrderedPopulation().firsts()).getSolution();
+      List<DevoValidationOutcome> devoValidationOutcomes = new ArrayList<>();
+      for (String validationTerrainName : validationTerrainNames) {
+        for (int seed : seeds) {
+          Random random = new Random(seed);
+          DevoLocomotion devoLocomotion = new DevoLocomotion(
+              stageMinDistance, stageMaxT, episodeTime,
+              Locomotion.createTerrain(validationTerrainName.replace("-rnd", "-" + random.nextInt(10000))),
+              Starter.PHYSICS_SETTINGS
+          );
+
+          List<Outcome> outcomes = devoLocomotion.apply(solution);
+          devoValidationOutcomes.add(new DevoValidationOutcome(
+              event,
+              Map.ofEntries(
+                  Map.entry("validation.terrain", validationTerrainName),
+                  Map.entry("validation.seed", seed)
+              ),
+              outcomes
+          ));
+        }
+      }
+      return devoValidationOutcomes;
+    };
   }
 }

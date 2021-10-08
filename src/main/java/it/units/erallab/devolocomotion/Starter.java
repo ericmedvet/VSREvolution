@@ -30,7 +30,9 @@ import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
+import java.util.stream.Collectors;
 
+import static it.units.erallab.devolocomotion.NamedFunctions.*;
 import static it.units.erallab.hmsrobots.util.Utils.params;
 import static it.units.malelab.jgea.core.listener.NamedFunctions.best;
 import static it.units.malelab.jgea.core.listener.NamedFunctions.f;
@@ -51,12 +53,27 @@ public class Starter extends Worker {
 
   private static final int VOXEL_SIZE = 3;
 
+  public static class DevoValidationOutcome {
+    private final Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>> event;
+    private final Map<String, Object> keys;
+    private final List<Outcome> outcomes;
+
+    public DevoValidationOutcome(Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>> event, Map<String, Object> keys, List<Outcome> outcomes) {
+      this.event = event;
+      this.keys = keys;
+      this.outcomes = outcomes;
+    }
+  }
+
   @Override
   public void run() {
     //main params
     double episodeTime = d(a("episodeTime", "60"));
     double stageMaxTime = d(a("stageMaxTime", "20"));
     double stageMinDistance = d(a("stageMinDistance", "20"));
+    double validationEpisodeTime = d(a("validationEpisodeTime", Double.toString(episodeTime)));
+    double validationStageMaxTime = d(a("validationStageMaxTime", Double.toString(stageMaxTime)));
+    double validationStageMinDistance = d(a("validationStageMinDistance", Double.toString(stageMinDistance)));
     int nEvals = i(a("nEvals", "800"));
     int[] seeds = ri(a("seed", "0:1"));
     String experimentName = a("expName", "short");
@@ -75,20 +92,22 @@ public class Starter extends Worker {
     List<String> evolverNames = l(a("evolver", "ES-16-0.35"));
     String lastFileName = a("lastFile", null);
     String bestFileName = a("bestFile", null);
+    String validationFileName = a("validationFile", null);
     boolean deferred = a("deferred", "true").startsWith("t");
     List<String> serializationFlags = l(a("serialization", "")); //last,best,all TODO currently disabled
     boolean output = a("output", "false").startsWith("t");
     String telegramBotId = a("telegramBotId", null);
     long telegramChatId = Long.parseLong(a("telegramChatId", "0"));
+    List<String> validationTerrainNames = l(a("validationTerrain", "flat,downhill-30")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
     //fitness function
     Function<List<Outcome>, Double> fitnessFunction = outcomes -> outcomes.stream().mapToDouble(Outcome::getDistance).sum();
     //consumers
-    List<NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, ?>> keysFunctions = NamedFunctions.keysFunctions();
-    List<NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, ?>> basicFunctions = NamedFunctions.basicFunctions();
-    List<NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, ?>> populationFunctions = NamedFunctions.populationFunctions(fitnessFunction);
-    List<NamedFunction<Individual<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, ?>> basicIndividualFunctions = NamedFunctions.basicIndividualFunctions(fitnessFunction);
-    List<NamedFunction<List<Outcome>, ?>> outcomesFunctions = NamedFunctions.outcomesFunctions();
-    List<NamedFunction<Individual<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, ?>> visualIndividualFunctions = NamedFunctions.visualIndividualFunctions();
+    List<NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, ?>> keysFunctions = keysFunctions();
+    List<NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, ?>> basicFunctions = basicFunctions();
+    List<NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, ?>> populationFunctions = populationFunctions(fitnessFunction);
+    List<NamedFunction<Individual<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, ?>> basicIndividualFunctions = basicIndividualFunctions(fitnessFunction);
+    List<NamedFunction<List<Outcome>, ?>> outcomesFunctions = outcomesFunctions();
+    List<NamedFunction<Individual<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, ?>> visualIndividualFunctions = visualIndividualFunctions();
     Listener.Factory<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>> factory = Listener.Factory.deaf();
     NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, List<Outcome>> bestFitness = f("best.fitness", event -> Misc.first(event.getOrderedPopulation().firsts()).getFitness());
     //screen listener
@@ -122,12 +141,36 @@ public class Starter extends Worker {
       )), new File(bestFileName)
       ));
     }
+    //validation listener
+    if (validationFileName != null) {
+      if (validationTerrainNames.isEmpty()) {
+        validationTerrainNames.add(terrainNames.get(0));
+      }
+      Listener.Factory<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>> validationFactory = Listener.Factory.forEach(
+          validation(validationTerrainNames, List.of(0), validationStageMinDistance, validationStageMaxTime, validationEpisodeTime),
+          new CSVPrinter<>(
+              Misc.concat(List.of(
+                  NamedFunction.then(f("event", (DevoValidationOutcome vo) -> vo.event), keysFunctions),
+                  NamedFunction.then(f("event", (DevoValidationOutcome vo) -> vo.event), basicFunctions),
+                  NamedFunction.then(f("keys", (DevoValidationOutcome vo) -> vo.keys), List.of(
+                      f("validation.terrain", (Map<String, Object> map) -> map.get("validation.terrain")),
+                      f("validation.seed", "%2d", (Map<String, Object> map) -> map.get("validation.seed"))
+                  )),
+                  NamedFunction.then(f("outcome", (DevoValidationOutcome vo) -> vo.outcomes), outcomesFunctions))
+              ),
+              new File(validationFileName)
+          )
+      ).onLast();
+      factory = factory.and(validationFactory);
+    }
+
+
     //telegram listener
     if (telegramBotId != null && telegramChatId != 0) {
       factory = factory.and(new TelegramUpdater<>(List.of(
-          NamedFunctions.lastEventToString(fitnessFunction),
-          NamedFunctions.fitnessPlot(fitnessFunction),
-          NamedFunctions.bestVideo(stageMinDistance, stageMaxTime, episodeTime)
+          lastEventToString(fitnessFunction),
+          fitnessPlot(fitnessFunction),
+          bestVideo(stageMinDistance, stageMaxTime, episodeTime)
       ), telegramBotId, telegramChatId));
     }
     //summarize params
