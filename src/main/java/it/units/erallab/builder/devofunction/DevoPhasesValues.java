@@ -7,10 +7,7 @@ import it.units.erallab.hmsrobots.core.objects.ControllableVoxel;
 import it.units.erallab.hmsrobots.core.objects.Robot;
 import it.units.erallab.hmsrobots.tasks.devolocomotion.DevoLocomotion;
 import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
-import it.units.erallab.hmsrobots.util.Grid;
-import it.units.erallab.hmsrobots.util.RobotUtils;
-import it.units.erallab.hmsrobots.util.SerializationUtils;
-import it.units.erallab.hmsrobots.util.Utils;
+import it.units.erallab.hmsrobots.util.*;
 import org.dyn4j.dynamics.Settings;
 
 import java.io.IOException;
@@ -82,10 +79,12 @@ public class DevoPhasesValues implements PrototypedFunctionBuilder<Grid<double[]
           body = Grid.create(1, 1, SerializationUtils.clone(voxelPrototype));
         }
         //build controller
+        double localAmplitude = amplitude; // copy needed to enable lambdas serialization
+        double localFrequency = frequency;
         TimeFunctions controller = new TimeFunctions(Grid.create(
             body.getW(),
             body.getH(),
-            (x, y) -> t -> amplitude * Math.sin(2 * Math.PI * frequency * t + phases.get(x, y))
+            (x, y) -> t -> localAmplitude * Math.sin(2 * Math.PI * localFrequency * t + phases.get(x, y))
         ));
         return new Robot<>(controller, body);
       };
