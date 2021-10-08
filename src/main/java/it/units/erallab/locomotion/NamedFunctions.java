@@ -26,6 +26,7 @@ import it.units.erallab.hmsrobots.util.RobotUtils;
 import it.units.erallab.hmsrobots.util.SerializationUtils;
 import it.units.erallab.hmsrobots.viewers.GridFileWriter;
 import it.units.erallab.hmsrobots.viewers.VideoUtils;
+import it.units.erallab.locomotion.Starter.ValidationOutcome;
 import it.units.malelab.jgea.core.Individual;
 import it.units.malelab.jgea.core.evolver.Event;
 import it.units.malelab.jgea.core.listener.Accumulator;
@@ -97,7 +98,6 @@ public class NamedFunctions {
     return List.of(f("serialized", r -> SerializationUtils.serialize(r, SerializationUtils.Mode.GZIPPED_JSON)).of(solution()));
   }
 
-  @SuppressWarnings("unchecked")
   public static List<NamedFunction<Individual<?, ? extends Robot<?>, ? extends Outcome>, ?>> individualFunctions(Function<Outcome, Double> fitnessFunction) {
     NamedFunction<Individual<?, ? extends Robot<?>, ? extends Outcome>, ?> size = size().of(genotype());
     return List.of(
@@ -289,7 +289,7 @@ public class NamedFunctions {
     );
   }
 
-  public static Function<Event<?, ? extends Robot<?>, ? extends Outcome>, Collection<Starter.ValidationOutcome>> validation(
+  public static Function<Event<?, ? extends Robot<?>, ? extends Outcome>, Collection<ValidationOutcome>> validation(
       List<String> validationTerrainNames,
       List<String> validationTransformationNames,
       List<Integer> seeds,
@@ -297,7 +297,7 @@ public class NamedFunctions {
   ) {
     return event -> {
       Robot<?> robot = SerializationUtils.clone(Misc.first(event.getOrderedPopulation().firsts()).getSolution());
-      List<Starter.ValidationOutcome> validationOutcomes = new ArrayList<>();
+      List<ValidationOutcome> validationOutcomes = new ArrayList<>();
       for (String validationTerrainName : validationTerrainNames) {
         for (String validationTransformationName : validationTransformationNames) {
           for (int seed : seeds) {
@@ -309,7 +309,7 @@ public class NamedFunctions {
                 random
             );
             Outcome outcome = validationLocomotion.apply(robot);
-            validationOutcomes.add(new Starter.ValidationOutcome(
+            validationOutcomes.add(new ValidationOutcome(
                 event,
                 Map.ofEntries(
                     Map.entry("validation.terrain", validationTerrainName),

@@ -217,7 +217,7 @@ public class Starter extends Worker {
       ).onLast();
       factory = factory.and(validationFactory);
     }
-    //telegram listner
+    //telegram listener
     if (telegramBotId != null && telegramChatId != 0) {
       factory = factory.and(new TelegramUpdater<>(List.of(
           NamedFunctions.lastEventToString(fitnessFunction),
