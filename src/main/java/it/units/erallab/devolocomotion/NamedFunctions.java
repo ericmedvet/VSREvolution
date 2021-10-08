@@ -50,11 +50,7 @@ public class NamedFunctions {
             .of(f("last", (Function<List<Outcome>, Outcome>) l -> l.get(l.size() - 1)))
             .of(fitness());
     return List.of(
-        f("w", "%2d", (Function<Grid<?>, Number>) Grid::getW).of(firstShape),
-        f("h", "%2d", (Function<Grid<?>, Number>) Grid::getH).of(firstShape),
         f("num.voxel", "%2d", (Function<Grid<?>, Number>) g -> g.count(Objects::nonNull)).of(firstShape),
-        f("w", "%2d", (Function<Grid<?>, Number>) Grid::getW).of(lastShape),
-        f("h", "%2d", (Function<Grid<?>, Number>) Grid::getH).of(lastShape),
         f("num.voxel", "%2d", (Function<Grid<?>, Number>) g -> g.count(Objects::nonNull)).of(lastShape),
         f("num.stages", "%2d", i -> i.getFitness().size()),
         size.reformat("%5d"),
@@ -101,7 +97,8 @@ public class NamedFunctions {
     return List.of(
         f("speed.average", "%4.1f", (List<Outcome> os) -> os.stream().mapToDouble(Outcome::getVelocity).average().orElse(Double.NaN)),
         f("speed.min", "%4.1f", (List<Outcome> os) -> os.stream().mapToDouble(Outcome::getVelocity).min().orElse(Double.NaN)),
-        f("speed.max", "%4.1f", (List<Outcome> os) -> os.stream().mapToDouble(Outcome::getVelocity).max().orElse(Double.NaN))
+        f("speed.max", "%4.1f", (List<Outcome> os) -> os.stream().mapToDouble(Outcome::getVelocity).max().orElse(Double.NaN)),
+        f("time", "%2.1f", (List<Outcome> os) -> os.stream().mapToDouble(Outcome::getTime).sum())
     );
   }
 

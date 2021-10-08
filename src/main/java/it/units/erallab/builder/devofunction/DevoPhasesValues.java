@@ -70,14 +70,14 @@ public class DevoPhasesValues implements PrototypedFunctionBuilder<Grid<double[]
       Grid<Double> phases = Grid.create(targetW, targetH, (x, y) -> grid.get(x, y)[1]);
       return previous -> {
         int n;
-        if (previous==null) {
+        if (previous == null) {
           n = nInitial;
         } else {
-          n = (int) previous.getVoxels().values().stream().filter(Objects::nonNull).count()+nStep;
+          n = (int) previous.getVoxels().values().stream().filter(Objects::nonNull).count() + nStep;
         }
+
         Grid<Double> selected = Utils.gridConnected(strengths, Double::compareTo, n);
-        Grid<Double> cropped = Utils.cropGrid(selected, Objects::nonNull);
-        Grid<ControllableVoxel> body = Grid.create(cropped, v -> (v != null) ? SerializationUtils.clone(voxelPrototype) : null);
+        Grid<ControllableVoxel> body = Grid.create(selected, v -> (v != null) ? SerializationUtils.clone(voxelPrototype) : null);
         if (body.values().stream().noneMatch(Objects::nonNull)) {
           body = Grid.create(1, 1, SerializationUtils.clone(voxelPrototype));
         }
