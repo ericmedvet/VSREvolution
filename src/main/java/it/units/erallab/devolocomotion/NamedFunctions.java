@@ -3,9 +3,11 @@ package it.units.erallab.devolocomotion;
 import it.units.erallab.devolocomotion.Starter.DevoValidationOutcome;
 import it.units.erallab.hmsrobots.core.objects.Robot;
 import it.units.erallab.hmsrobots.tasks.devolocomotion.DevoLocomotion;
+import it.units.erallab.hmsrobots.tasks.devolocomotion.DevoOutcome;
 import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
 import it.units.erallab.hmsrobots.tasks.locomotion.Outcome;
 import it.units.erallab.hmsrobots.util.Grid;
+import it.units.erallab.hmsrobots.util.SerializationUtils;
 import it.units.erallab.hmsrobots.viewers.GridFileWriter;
 import it.units.erallab.hmsrobots.viewers.VideoUtils;
 import it.units.erallab.locomotion.Starter;
@@ -38,27 +40,27 @@ public class NamedFunctions {
   private NamedFunctions() {
   }
 
-  public static List<NamedFunction<Individual<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, ?>> basicIndividualFunctions(Function<List<Outcome>, Double> fitnessFunction) {
-    NamedFunction<Individual<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, ?> size = size().of(genotype());
-    NamedFunction<Individual<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, ? extends Grid<?>> firstShape =
+  public static List<NamedFunction<Individual<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>, ?>> basicIndividualFunctions(Function<DevoOutcome, Double> fitnessFunction) {
+    NamedFunction<Individual<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>, ?> size = size().of(genotype());
+    NamedFunction<Individual<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>, ? extends Grid<?>> firstShape =
         f("shape", (Function<Outcome, Grid<?>>) o -> o.getObservations().get(o.getObservations().firstKey()).getVoxelPolies())
-            .of(f("first", (Function<List<Outcome>, Outcome>) l -> l.get(0)))
+            .of(f("first", (Function<DevoOutcome, Outcome>) l -> l.getLocomotionOutcomes().get(0)))
             .of(fitness());
-    NamedFunction<Individual<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, ? extends Grid<?>> lastShape =
+    NamedFunction<Individual<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>, ? extends Grid<?>> lastShape =
         f("shape", (Function<Outcome, Grid<?>>) o -> o.getObservations().get(o.getObservations().firstKey()).getVoxelPolies())
-            .of(f("last", (Function<List<Outcome>, Outcome>) l -> l.get(l.size() - 1)))
+            .of(f("last", (Function<DevoOutcome, Outcome>) l -> l.getLocomotionOutcomes().get(l.getLocomotionOutcomes().size() - 1)))
             .of(fitness());
     return List.of(
         f("num.voxel", "%2d", (Function<Grid<?>, Number>) g -> g.count(Objects::nonNull)).of(firstShape),
         f("num.voxel", "%2d", (Function<Grid<?>, Number>) g -> g.count(Objects::nonNull)).of(lastShape),
-        f("num.stages", "%2d", i -> i.getFitness().size()),
+        f("num.stages", "%2d", i -> i.getFitness().getNumberOfStages()),
         size.reformat("%5d"),
         genotypeBirthIteration(),
         f("fitness", "%5.1f", fitnessFunction).of(fitness())
     );
   }
 
-  public static List<NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, ?>> keysFunctions() {
+  public static List<NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>, ?>> keysFunctions() {
     return List.of(
         eventAttribute("experiment.name"),
         eventAttribute("seed", "%2d"),
@@ -68,7 +70,7 @@ public class NamedFunctions {
     );
   }
 
-  public static List<NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, ?>> basicFunctions() {
+  public static List<NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>, ?>> basicFunctions() {
     return List.of(
         iterations(),
         births(),
@@ -77,9 +79,9 @@ public class NamedFunctions {
     );
   }
 
-  public static List<NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, ?>> populationFunctions(Function<List<Outcome>, Double> fitnessFunction) {
-    NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, ?> min = min(Double::compare).of(each(f("fitness", fitnessFunction).of(fitness()))).of(all());
-    NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, ?> median = median(Double::compare).of(each(f("fitness", fitnessFunction).of(fitness()))).of(all());
+  public static List<NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>, ?>> populationFunctions(Function<DevoOutcome, Double> fitnessFunction) {
+    NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>, ?> min = min(Double::compare).of(each(f("fitness", fitnessFunction).of(fitness()))).of(all());
+    NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>, ?> median = median(Double::compare).of(each(f("fitness", fitnessFunction).of(fitness()))).of(all());
     return List.of(
         size().of(all()),
         size().of(firsts()),
@@ -92,33 +94,39 @@ public class NamedFunctions {
     );
   }
 
-  public static List<NamedFunction<List<Outcome>, ?>> outcomesFunctions() {
+  public static List<NamedFunction<DevoOutcome, ?>> outcomesFunctions() {
     return List.of(
-        f("speed.average", "%4.1f", (List<Outcome> os) -> os.stream().mapToDouble(Outcome::getVelocity).average().orElse(Double.NaN)),
-        f("speed.min", "%4.1f", (List<Outcome> os) -> os.stream().mapToDouble(Outcome::getVelocity).min().orElse(Double.NaN)),
-        f("speed.max", "%4.1f", (List<Outcome> os) -> os.stream().mapToDouble(Outcome::getVelocity).max().orElse(Double.NaN)),
-        f("time", "%2.1f", (List<Outcome> os) -> os.stream().mapToDouble(Outcome::getTime).sum())
+        f("speed.average", "%4.1f", o -> o.getLocomotionOutcomes().stream().mapToDouble(Outcome::getVelocity).average().orElse(Double.NaN)),
+        f("speed.min", "%4.1f", o -> o.getLocomotionOutcomes().stream().mapToDouble(Outcome::getVelocity).min().orElse(Double.NaN)),
+        f("speed.max", "%4.1f", o -> o.getLocomotionOutcomes().stream().mapToDouble(Outcome::getVelocity).max().orElse(Double.NaN)),
+        f("time", "%2.1f", o -> o.getLocomotionOutcomes().stream().mapToDouble(Outcome::getTime).sum())
     );
   }
 
-  public static Accumulator.Factory<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, String> lastEventToString(Function<List<Outcome>, Double> fitnessFunction) {
-    NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, List<Outcome>> bestFitness = f("best.fitness", event -> Misc.first(event.getOrderedPopulation().firsts()).getFitness());
-    final List<NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, ?>> functions = Misc.concat(List.of(
+  public static NamedFunction<DevoOutcome, ?> serializedDevoRobotsFunction() {
+    return f("devo.robots",
+        o -> o.getRobots().stream().map(r -> SerializationUtils.serialize(r, SerializationUtils.Mode.GZIPPED_JSON))
+            .collect(Collectors.joining(",")));
+  }
+
+  public static Accumulator.Factory<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>, String> lastEventToString(Function<DevoOutcome, Double> fitnessFunction) {
+    NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>, DevoOutcome> bestFitness = f("best.fitness", event -> Misc.first(event.getOrderedPopulation().firsts()).getFitness());
+    final List<NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>, ?>> functions = Misc.concat(List.of(
         keysFunctions(),
         basicFunctions(),
         populationFunctions(fitnessFunction),
         NamedFunction.then(best(), basicIndividualFunctions(fitnessFunction)),
         NamedFunction.then(bestFitness, outcomesFunctions())
     ));
-    return Accumulator.Factory.<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>>last().then(
+    return Accumulator.Factory.<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>>last().then(
         e -> functions.stream()
             .map(f -> f.getName() + ": " + f.applyAndFormat(e))
             .collect(Collectors.joining("\n"))
     );
   }
 
-  public static Accumulator.Factory<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, BufferedImage> fitnessPlot(Function<List<Outcome>, Double> fitnessFunction) {
-    return new TableBuilder<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, Number>(List.of(
+  public static Accumulator.Factory<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>, BufferedImage> fitnessPlot(Function<DevoOutcome, Double> fitnessFunction) {
+    return new TableBuilder<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>, Number>(List.of(
         iterations(),
         f("fitness", fitnessFunction).of(fitness()).of(best()),
         min(Double::compare).of(each(f("fitness", fitnessFunction).of(fitness()))).of(all()),
@@ -126,8 +134,8 @@ public class NamedFunctions {
     )).then(ImagePlotters.xyLines(600, 400));
   }
 
-  public static Accumulator.Factory<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, File> bestVideo(double stageMinDistance, double stageMaxT, double maxT) {
-    return Accumulator.Factory.<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>>last().then(
+  public static Accumulator.Factory<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>, File> bestVideo(double stageMinDistance, double stageMaxT, double maxT) {
+    return Accumulator.Factory.<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>>last().then(
         event -> {
           Random random = new Random(0);
           SortedMap<Long, String> terrainSequence = Starter.getSequence((String) event.getAttributes().get("terrain"));
@@ -152,11 +160,11 @@ public class NamedFunctions {
     );
   }
 
-  public static List<NamedFunction<Individual<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, ?>> visualIndividualFunctions() {
+  public static List<NamedFunction<Individual<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>, ?>> visualIndividualFunctions() {
     return List.of();
   }
 
-  public static Function<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, Collection<DevoValidationOutcome>> validation(
+  public static Function<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>, Collection<DevoValidationOutcome>> validation(
       List<String> validationTerrainNames,
       List<Integer> seeds,
       double stageMinDistance,
@@ -175,7 +183,7 @@ public class NamedFunctions {
               Starter.PHYSICS_SETTINGS
           );
 
-          List<Outcome> outcomes = devoLocomotion.apply(solution);
+          DevoOutcome outcomes = devoLocomotion.apply(solution);
           devoValidationOutcomes.add(new DevoValidationOutcome(
               event,
               Map.ofEntries(
@@ -189,4 +197,5 @@ public class NamedFunctions {
       return devoValidationOutcomes;
     };
   }
+
 }

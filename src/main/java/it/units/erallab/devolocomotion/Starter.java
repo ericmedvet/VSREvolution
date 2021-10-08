@@ -8,6 +8,7 @@ import it.units.erallab.builder.devofunction.DevoPhasesValues;
 import it.units.erallab.hmsrobots.core.controllers.Controller;
 import it.units.erallab.hmsrobots.core.objects.Robot;
 import it.units.erallab.hmsrobots.tasks.devolocomotion.DevoLocomotion;
+import it.units.erallab.hmsrobots.tasks.devolocomotion.DevoOutcome;
 import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
 import it.units.erallab.hmsrobots.tasks.locomotion.Outcome;
 import it.units.erallab.hmsrobots.util.RobotUtils;
@@ -23,10 +24,7 @@ import it.units.malelab.jgea.core.util.Misc;
 import it.units.malelab.jgea.core.util.TextPlotter;
 
 import java.io.File;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
@@ -54,14 +52,14 @@ public class Starter extends Worker {
   private static final int VOXEL_SIZE = 3;
 
   public static class DevoValidationOutcome {
-    private final Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>> event;
+    private final Event<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome> event;
     private final Map<String, Object> keys;
-    private final List<Outcome> outcomes;
+    private final DevoOutcome devoOutcome;
 
-    public DevoValidationOutcome(Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>> event, Map<String, Object> keys, List<Outcome> outcomes) {
+    public DevoValidationOutcome(Event<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome> event, Map<String, Object> keys, DevoOutcome devoOutcome) {
       this.event = event;
       this.keys = keys;
-      this.outcomes = outcomes;
+      this.devoOutcome = devoOutcome;
     }
   }
 
@@ -94,22 +92,39 @@ public class Starter extends Worker {
     String bestFileName = a("bestFile", null);
     String validationFileName = a("validationFile", null);
     boolean deferred = a("deferred", "true").startsWith("t");
-    List<String> serializationFlags = l(a("serialization", "")); //last,best,all TODO currently disabled
+    List<String> serializationFlags = l(a("serialization", "")); //last,best,validation
     boolean output = a("output", "false").startsWith("t");
     String telegramBotId = a("telegramBotId", null);
     long telegramChatId = Long.parseLong(a("telegramChatId", "0"));
     List<String> validationTerrainNames = l(a("validationTerrain", "flat,downhill-30")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
     //fitness function
-    Function<List<Outcome>, Double> fitnessFunction = outcomes -> outcomes.stream().mapToDouble(Outcome::getDistance).sum();
+    Function<DevoOutcome, Double> fitnessFunction = devoOutcome -> devoOutcome.getLocomotionOutcomes().stream().mapToDouble(Outcome::getDistance).sum();
     //consumers
-    List<NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, ?>> keysFunctions = keysFunctions();
-    List<NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, ?>> basicFunctions = basicFunctions();
-    List<NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, ?>> populationFunctions = populationFunctions(fitnessFunction);
-    List<NamedFunction<Individual<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, ?>> basicIndividualFunctions = basicIndividualFunctions(fitnessFunction);
-    List<NamedFunction<List<Outcome>, ?>> outcomesFunctions = outcomesFunctions();
-    List<NamedFunction<Individual<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, ?>> visualIndividualFunctions = visualIndividualFunctions();
-    Listener.Factory<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>> factory = Listener.Factory.deaf();
-    NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>, List<Outcome>> bestFitness = f("best.fitness", event -> Misc.first(event.getOrderedPopulation().firsts()).getFitness());
+    List<NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>, ?>> keysFunctions = keysFunctions();
+    List<NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>, ?>> basicFunctions = basicFunctions();
+    List<NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>, ?>> populationFunctions = populationFunctions(fitnessFunction);
+    List<NamedFunction<Individual<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>, ?>> basicIndividualFunctions = basicIndividualFunctions(fitnessFunction);
+    List<NamedFunction<DevoOutcome, ?>> outcomesFunctions = outcomesFunctions();
+    List<NamedFunction<DevoOutcome, ?>> lastOutcomesFunctions = outcomesFunctions();
+    List<NamedFunction<DevoOutcome, ?>> validationOutcomesFunctions = outcomesFunctions();
+    if (serializationFlags.contains("best")) {
+      List<NamedFunction<DevoOutcome, ?>> tempFunctions = new ArrayList<>(outcomesFunctions);
+      tempFunctions.add(serializedDevoRobotsFunction());
+      outcomesFunctions = tempFunctions;
+    }
+    if (serializationFlags.contains("validation")) {
+      List<NamedFunction<DevoOutcome, ?>> tempFunctions = new ArrayList<>(validationOutcomesFunctions);
+      tempFunctions.add(serializedDevoRobotsFunction());
+      validationOutcomesFunctions = tempFunctions;
+    }
+    if (serializationFlags.contains("last")) {
+      List<NamedFunction<DevoOutcome, ?>> tempFunctions = new ArrayList<>(lastOutcomesFunctions);
+      tempFunctions.add(serializedDevoRobotsFunction());
+      lastOutcomesFunctions = tempFunctions;
+    }
+    List<NamedFunction<Individual<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>, ?>> visualIndividualFunctions = visualIndividualFunctions();
+    Listener.Factory<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>> factory = Listener.Factory.deaf();
+    NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>, DevoOutcome> bestFitness = f("best.fitness", event -> Misc.first(event.getOrderedPopulation().firsts()).getFitness());
     //screen listener
     if ((bestFileName == null) || output) {
       factory = factory.and(new TabularPrinter<>(Misc.concat(List.of(
@@ -127,7 +142,7 @@ public class Starter extends Worker {
           basicFunctions,
           populationFunctions,
           NamedFunction.then(best(), basicIndividualFunctions),
-          NamedFunction.then(bestFitness, outcomesFunctions)
+          NamedFunction.then(bestFitness, lastOutcomesFunctions)
       )), new File(lastFileName)
       ).onLast());
     }
@@ -146,7 +161,7 @@ public class Starter extends Worker {
       if (validationTerrainNames.isEmpty()) {
         validationTerrainNames.add(terrainNames.get(0));
       }
-      Listener.Factory<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>> validationFactory = Listener.Factory.forEach(
+      Listener.Factory<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>> validationFactory = Listener.Factory.forEach(
           validation(validationTerrainNames, List.of(0), validationStageMinDistance, validationStageMaxTime, validationEpisodeTime),
           new CSVPrinter<>(
               Misc.concat(List.of(
@@ -156,7 +171,7 @@ public class Starter extends Worker {
                       f("validation.terrain", (Map<String, Object> map) -> map.get("validation.terrain")),
                       f("validation.seed", "%2d", (Map<String, Object> map) -> map.get("validation.seed"))
                   )),
-                  NamedFunction.then(f("outcome", (DevoValidationOutcome vo) -> vo.outcomes), outcomesFunctions))
+                  NamedFunction.then(f("outcome", (DevoValidationOutcome vo) -> vo.devoOutcome), validationOutcomesFunctions))
               ),
               new File(validationFileName)
           )
@@ -204,7 +219,7 @@ public class Starter extends Worker {
                   RobotUtils.buildSensorizingFunction(targetSensorConfigName).apply(RobotUtils.buildShape("box-" + gridW + "x" + gridH))
               );
               //build evolver
-              Evolver<?, UnaryOperator<Robot<?>>, List<Outcome>> evolver;
+              Evolver<?, UnaryOperator<Robot<?>>, DevoOutcome> evolver;
               try {
                 evolver = buildEvolver(evolverName, devoFunctionName, target, fitnessFunction);
               } catch (ClassCastException | IllegalArgumentException e) {
@@ -216,7 +231,7 @@ public class Starter extends Worker {
                 ));
                 continue;
               }
-              Listener<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends List<Outcome>>> listener = Listener.all(List.of(
+              Listener<Event<?, ? extends UnaryOperator<Robot<?>>, DevoOutcome>> listener = Listener.all(List.of(
                   new EventAugmenter(keys),
                   factory.build()
               ));
@@ -260,7 +275,7 @@ public class Starter extends Worker {
     factory.shutdown();
   }
 
-  public static Function<UnaryOperator<Robot<?>>, List<Outcome>> buildLocomotionTask(String terrainName, double stageMinDistance, double stageMaxT, double maxT, Random random) {
+  public static Function<UnaryOperator<Robot<?>>, DevoOutcome> buildLocomotionTask(String terrainName, double stageMinDistance, double stageMaxT, double maxT, Random random) {
     if (!terrainName.contains("-rnd")) {
       return Misc.cached(new DevoLocomotion(
           stageMinDistance, stageMaxT, maxT,
@@ -276,7 +291,7 @@ public class Starter extends Worker {
   }
 
   @SuppressWarnings({"unchecked", "rawtypes"})
-  private static Evolver<?, UnaryOperator<Robot<?>>, List<Outcome>> buildEvolver(String evolverName, String devoFunctionName, UnaryOperator<Robot<?>> target, Function<List<Outcome>, Double> outcomeMeasure) {
+  private static Evolver<?, UnaryOperator<Robot<?>>, DevoOutcome> buildEvolver(String evolverName, String devoFunctionName, UnaryOperator<Robot<?>> target, Function<DevoOutcome, Double> outcomeMeasure) {
     PrototypedFunctionBuilder<?, ?> devoFunctionBuilder = null;
     for (String piece : devoFunctionName.split(it.units.erallab.locomotion.Starter.MAPPER_PIPE_CHAR)) {
       if (devoFunctionBuilder == null) {
