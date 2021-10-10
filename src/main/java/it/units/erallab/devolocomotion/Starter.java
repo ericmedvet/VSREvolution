@@ -49,8 +49,6 @@ public class Starter extends Worker {
     new Starter(args);
   }
 
-  private static final int VOXEL_SIZE = 3;
-
   public static class DevoValidationOutcome {
     private final Event<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome> event;
     private final Map<String, Object> keys;
@@ -125,7 +123,7 @@ public class Starter extends Worker {
           populationFunctions,
           NamedFunction.then(best(), basicIndividualFunctions),
           NamedFunction.then(best(), visualIndividualFunctions),
-          NamedFunction.then(bestFitness, outcomesFunctions)
+          NamedFunction.then(bestFitness, outcomesFunctions())
       ))));
     }
     //file listeners
