@@ -66,7 +66,10 @@ public class NamedFunctions {
         eventAttribute("seed", "%2d"),
         eventAttribute("terrain"),
         eventAttribute("devo.function"),
-        eventAttribute("evolver")
+        eventAttribute("evolver"),
+        eventAttribute("episode.time"),
+        eventAttribute("stage.max.time"),
+        eventAttribute("stage.min.dist")
     );
   }
 

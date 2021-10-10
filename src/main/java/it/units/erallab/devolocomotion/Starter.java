@@ -77,13 +77,6 @@ public class Starter extends Worker {
     String experimentName = a("expName", "short");
     int gridW = i(a("gridW", "5"));
     int gridH = i(a("gridH", "5"));
-    if (stageMinDistance < VOXEL_SIZE * gridW) {
-      throw new IllegalArgumentException(String.format("Stage min distance must be at least %d for a voxel of length %d and a grid width of %d.",
-          VOXEL_SIZE * gridW,
-          VOXEL_SIZE,
-          gridW
-      ));
-    }
     List<String> terrainNames = l(a("terrain", "flat"));
     List<String> devoFunctionNames = l(a("devoFunction", "devoPhases-1.0-5-1<directNumGrid"));
     List<String> targetSensorConfigNames = l(a("sensorConfig", "uniform-t+a-0.01"));
@@ -211,7 +204,10 @@ public class Starter extends Worker {
                   Map.entry("terrain", terrainName),
                   Map.entry("devo.function", devoFunctionName),
                   Map.entry("sensor.config", targetSensorConfigName),
-                  Map.entry("evolver", evolverName)
+                  Map.entry("evolver", evolverName),
+                  Map.entry("episode.time", episodeTime),
+                  Map.entry("stage.max.time", stageMaxTime),
+                  Map.entry("stage.min.dist", stageMinDistance)
               );
               //prepare target
               UnaryOperator<Robot<?>> target = r -> new Robot<>(
