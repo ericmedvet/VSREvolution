@@ -23,10 +23,10 @@ import java.util.stream.IntStream;
  */
 public class DevoHomoMLP implements PrototypedFunctionBuilder<List<Double>, UnaryOperator<Robot<? extends SensingVoxel>>> {
 
-  private final MLP mlp;
-  private final FixedHomoDistributed fixedHomoDistributed;
-  private final int nInitial;
-  private final int nStep;
+  protected final MLP mlp;
+  protected final FixedHomoDistributed fixedHomoDistributed;
+  protected final int nInitial;
+  protected final int nStep;
 
   public DevoHomoMLP(double innerLayerRatio, int nOfInnerLayers, int signals, int nInitial, int nStep) {
     mlp = new MLP(innerLayerRatio, nOfInnerLayers);
@@ -58,23 +58,28 @@ public class DevoHomoMLP implements PrototypedFunctionBuilder<List<Double>, Unar
       List<Double> listOfStrengths = list.subList(mlpValuesSize, list.size());
       Grid<Double> strengths = new Grid<>(targetW, targetH, listOfStrengths);
       return previous -> {
-        int n;
-        if (previous == null) {
-          n = nInitial;
-        } else {
-          n = (int) previous.getVoxels().values().stream().filter(Objects::nonNull).count() + nStep;
-        }
-        Grid<Double> selected = Utils.gridConnected(strengths, Double::compareTo, n);
-        Grid<SensingVoxel> body = Grid.create(selected, v -> (v != null) ? SerializationUtils.clone(voxelPrototype) : null);
-        if (body.values().stream().noneMatch(Objects::nonNull)) {
-          body = Grid.create(1, 1, SerializationUtils.clone(voxelPrototype));
-        }
+        Grid<? extends SensingVoxel> body = createBody(previous, strengths, voxelPrototype);
         //build controller
         Robot<? extends SensingVoxel> robot = new Robot<>(Controller.empty(), body);
         TimedRealFunction timedRealFunction = mlp.buildFor(fixedHomoDistributed.exampleFor(target)).apply(listOfWeights);
         return fixedHomoDistributed.buildFor(robot).apply(timedRealFunction);
       };
     };
+  }
+
+  protected Grid<? extends SensingVoxel> createBody(Robot<? extends SensingVoxel> previous, Grid<Double> strengths, SensingVoxel voxelPrototype) {
+    int n;
+    if (previous == null) {
+      n = nInitial;
+    } else {
+      n = (int) previous.getVoxels().values().stream().filter(Objects::nonNull).count() + nStep;
+    }
+    Grid<Double> selected = Utils.gridConnected(strengths, Double::compareTo, n);
+    Grid<SensingVoxel> body = Grid.create(selected, v -> (v != null) ? SerializationUtils.clone(voxelPrototype) : null);
+    if (body.values().stream().noneMatch(Objects::nonNull)) {
+      body = Grid.create(1, 1, SerializationUtils.clone(voxelPrototype));
+    }
+    return body;
   }
 
   @Override
