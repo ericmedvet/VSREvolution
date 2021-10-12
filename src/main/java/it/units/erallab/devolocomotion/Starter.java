@@ -3,10 +3,12 @@ package it.units.erallab.devolocomotion;
 import com.google.common.base.Stopwatch;
 import it.units.erallab.builder.DirectNumbersGrid;
 import it.units.erallab.builder.PrototypedFunctionBuilder;
+import it.units.erallab.builder.devofunction.DevoConditionedHomoMLP;
 import it.units.erallab.builder.devofunction.DevoHomoMLP;
 import it.units.erallab.builder.devofunction.DevoPhasesValues;
 import it.units.erallab.hmsrobots.core.controllers.Controller;
 import it.units.erallab.hmsrobots.core.objects.Robot;
+import it.units.erallab.hmsrobots.core.objects.Voxel;
 import it.units.erallab.hmsrobots.tasks.devolocomotion.DevoLocomotion;
 import it.units.erallab.hmsrobots.tasks.devolocomotion.DevoOutcome;
 import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
@@ -169,8 +171,6 @@ public class Starter extends Worker {
       ).onLast();
       factory = factory.and(validationFactory);
     }
-
-
     //telegram listener
     if (telegramBotId != null && telegramChatId != 0) {
       factory = factory.and(new TelegramUpdater<>(List.of(
@@ -302,6 +302,10 @@ public class Starter extends Worker {
   }
 
   private static PrototypedFunctionBuilder<?, ?> getDevoFunctionByName(String name) {
+    String devoCondHomoMLP = "devoCondHomoMLP-(?<ratio>\\d+(\\.\\d+)?)" +
+        "-(?<nLayers>\\d+)-(?<nSignals>\\d+)" +
+        "-(?<selFunc>(areaRatioEnergy|areaRatio))-(?<maxFirst>(t|f))" +
+        "-(?<nInitial>\\d+)-(?<nStep>\\d+)";
     String devoHomoMLP = "devoHomoMLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<nSignals>\\d+)-(?<nInitial>\\d+)-(?<nStep>\\d+)";
     String fixedPhases = "devoPhases-(?<f>\\d+(\\.\\d+)?)-(?<nInitial>\\d+)-(?<nStep>\\d+)";
     String directNumGrid = "directNumGrid";
@@ -320,6 +324,17 @@ public class Starter extends Worker {
           Double.parseDouble(params.get("ratio")),
           Integer.parseInt(params.get("nLayers")),
           Integer.parseInt(params.get("nSignals")),
+          Integer.parseInt(params.get("nInitial")),
+          Integer.parseInt(params.get("nStep"))
+      );
+    }
+    if ((params = params(devoCondHomoMLP, name)) != null) {
+      return new DevoConditionedHomoMLP(
+          Double.parseDouble(params.get("ratio")),
+          Integer.parseInt(params.get("nLayers")),
+          Integer.parseInt(params.get("nSignals")),
+          params.get("selFunc").equals("areaRatioEnergy") ? Voxel::getAreaRatioEnergy : Voxel::getAreaRatio,
+          params.get("maxFirst").startsWith("t"),
           Integer.parseInt(params.get("nInitial")),
           Integer.parseInt(params.get("nStep"))
       );
