@@ -49,8 +49,6 @@ public class Starter extends Worker {
     new Starter(args);
   }
 
-  private static final int VOXEL_SIZE = 3;
-
   public static class DevoValidationOutcome {
     private final Event<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome> event;
     private final Map<String, Object> keys;
@@ -171,8 +169,6 @@ public class Starter extends Worker {
       ).onLast();
       factory = factory.and(validationFactory);
     }
-
-
     //telegram listener
     if (telegramBotId != null && telegramChatId != 0) {
       factory = factory.and(new TelegramUpdater<>(List.of(
