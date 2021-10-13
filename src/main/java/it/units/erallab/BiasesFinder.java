@@ -57,7 +57,7 @@ public class BiasesFinder {
 
   public static void main(String[] args) {
     Random random = new Random(1);
-    int n = 1000;
+    int n = 2000;
     int nTop = 3;
     int nBars = 20;
     int gridW = 10;
