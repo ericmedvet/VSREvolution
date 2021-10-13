@@ -149,29 +149,22 @@ public class DevoTreeHomoMLP implements PrototypedFunctionBuilder<Pair<Tree<Doub
     if (reversed) {
       comparator = comparator.reversed();
     }
+    decorate(tree);
     while (countEnabled(tree) < n) {
       List<Tree<DecoratedValue>> subtrees = tree.topSubtrees().stream()
-          .filter(t -> (t.parent() == null) || (t.parent().content().enabled))
-          .filter(t -> !t.content().enabled)
+          .filter(t -> (t.parent() == null) || (t.parent().content().enabled)) // consider only close to enabled
+          .filter(t -> !t.content().enabled) // consider only not already enabled
+          .filter( // consider only those for which there is not one already enabled
+              tt -> !tree.topSubtrees().stream()
+                  .filter(t -> t.content().enabled)
+                  .anyMatch(t -> t.content().x == tt.content().x && t.content().y == tt.content().y)
+          )
           .sorted(comparator)
           .collect(Collectors.toList());
       if (subtrees.isEmpty()) {
         break;
       }
-      Tree<DecoratedValue> selected = subtrees.get(0);
-      selected.content().enabled = true;
-      if (selected.parent() == null) {
-        selected.content().x = 0;
-        selected.content().y = 0;
-      } else {
-        for (Direction d : Direction.values()) {
-          if (selected.parent().child(d.index) == selected) {
-            selected.content().x = selected.parent().content().x + d.deltaX;
-            selected.content().y = selected.parent().content().y + d.deltaY;
-            break;
-          }
-        }
-      }
+      subtrees.get(0).content().enabled = true;
     }
     //adjust coords
     int minX = tree.topSubtrees().stream().mapToInt(t -> t.content().x).min().orElse(0);
@@ -180,6 +173,20 @@ public class DevoTreeHomoMLP implements PrototypedFunctionBuilder<Pair<Tree<Doub
       t.content().x = t.content().x - minX;
       t.content().y = t.content().y - minY;
     });
+  }
+
+  private static void decorate(Tree<DecoratedValue> tree) {
+    if (tree.parent() == null) {
+      tree.content().x = 0;
+      tree.content().y = 0;
+    }
+    if (tree.nChildren() > 0) {
+      for (Direction d : Direction.values()) {
+        tree.child(d.index).content().x = tree.content().x + d.deltaX;
+        tree.child(d.index).content().y = tree.content().y + d.deltaY;
+        decorate(tree.child(d.index));
+      }
+    }
   }
 
   private static int countEnabled(Tree<DecoratedValue> tree) {

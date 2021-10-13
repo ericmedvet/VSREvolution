@@ -59,7 +59,7 @@ public class BiasesFinder {
     Random random = new Random(1);
     int n = 2000;
     int nTop = 3;
-    int nBars = 20;
+    int nBars = 10;
     int gridW = 10;
     int gridH = 10;
     String targetSensorConfigName = "uniform-t+a-0.01";
@@ -73,7 +73,7 @@ public class BiasesFinder {
             robotMapper(new DevoHomoMLP(1, 1, 1, 8, 0)),
             g -> new FixedLengthListFactory<>(g.size(), new UniformDoubleFactory(-1d, 1d))
         ),
-        "tree-8", ProtoPair.of( //TODO this does not generate always nInitial voxels (that's wrong)
+        "tree-8", ProtoPair.of(
             robotMapper(new DevoTreeHomoMLP(1, 1, 1, 8, 0)),
             g -> Factory.pair(
                 new RampedHalfAndHalf<>(3, 4, d -> 4, new UniformDoubleFactory(0d, 1d), new UniformDoubleFactory(0d, 1d)),
