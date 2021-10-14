@@ -16,7 +16,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
-import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
@@ -25,7 +24,7 @@ import java.util.stream.Collectors;
  */
 public class DevoTreeHomoMLP implements PrototypedFunctionBuilder<Pair<Tree<Double>, List<Double>>, UnaryOperator<Robot<? extends SensingVoxel>>> {
 
-  private static class DecoratedRobot extends Robot<SensingVoxel> {
+  protected static class DecoratedRobot extends Robot<SensingVoxel> {
     private final Tree<DecoratedValue> developmentTree;
 
     public DecoratedRobot(Controller<SensingVoxel> controller, Grid<? extends SensingVoxel> voxels, Tree<DecoratedValue> developmentTree) {
@@ -38,7 +37,7 @@ public class DevoTreeHomoMLP implements PrototypedFunctionBuilder<Pair<Tree<Doub
     }
   }
 
-  private static class DecoratedValue {
+  protected static class DecoratedValue {
     int x;
     int y;
     double value;
@@ -52,7 +51,7 @@ public class DevoTreeHomoMLP implements PrototypedFunctionBuilder<Pair<Tree<Doub
     }
   }
 
-  private enum Direction {
+  protected enum Direction {
     N(0, 0, -1),
     E(1, 1, 0),
     S(2, 0, 1),
@@ -68,10 +67,10 @@ public class DevoTreeHomoMLP implements PrototypedFunctionBuilder<Pair<Tree<Doub
     }
   }
 
-  private final MLP mlp;
-  private final FixedHomoDistributed fixedHomoDistributed;
-  private final int nInitial;
-  private final int nStep;
+  protected final MLP mlp;
+  protected final FixedHomoDistributed fixedHomoDistributed;
+  protected final int nInitial;
+  protected final int nStep;
 
   public DevoTreeHomoMLP(double innerLayerRatio, int nOfInnerLayers, int signals, int nInitial, int nStep) {
     mlp = new MLP(innerLayerRatio, nOfInnerLayers);
@@ -112,7 +111,7 @@ public class DevoTreeHomoMLP implements PrototypedFunctionBuilder<Pair<Tree<Doub
           devoTree = ((DecoratedRobot) previous).getDevelopmentTree();
           n = countEnabled(devoTree) + nStep;
         }
-        develop(devoTree, n, true);
+        develop(devoTree, getComparator(true,previous), n);
         int maxX = devoTree.topSubtrees().stream().mapToInt(t -> t.content().x).max().orElse(0);
         int maxY = devoTree.topSubtrees().stream().mapToInt(t -> t.content().y).max().orElse(0);
         Grid<Boolean> shape = Grid.create(maxX + 1, maxY + 1, false);
@@ -144,20 +143,16 @@ public class DevoTreeHomoMLP implements PrototypedFunctionBuilder<Pair<Tree<Doub
     );
   }
 
-  private static void develop(Tree<DecoratedValue> tree, int n, boolean reversed) {
-    Comparator<Tree<DecoratedValue>> comparator = Comparator.comparingDouble(t -> t.content().value);
-    if (reversed) {
-      comparator = comparator.reversed();
-    }
+  private static void develop(Tree<DecoratedValue> tree, Comparator<Tree<DecoratedValue>> comparator, int n) {
     decorate(tree);
     while (countEnabled(tree) < n) {
       List<Tree<DecoratedValue>> subtrees = tree.topSubtrees().stream()
           .filter(t -> (t.parent() == null) || (t.parent().content().enabled)) // consider only close to enabled
           .filter(t -> !t.content().enabled) // consider only not already enabled
           .filter( // consider only those for which there is not one already enabled
-              tt -> !tree.topSubtrees().stream()
+              tt -> tree.topSubtrees().stream()
                   .filter(t -> t.content().enabled)
-                  .anyMatch(t -> t.content().x == tt.content().x && t.content().y == tt.content().y)
+                  .noneMatch(t -> t.content().x == tt.content().x && t.content().y == tt.content().y)
           )
           .sorted(comparator)
           .collect(Collectors.toList());
@@ -173,6 +168,14 @@ public class DevoTreeHomoMLP implements PrototypedFunctionBuilder<Pair<Tree<Doub
       t.content().x = t.content().x - minX;
       t.content().y = t.content().y - minY;
     });
+  }
+
+  protected Comparator<Tree<DecoratedValue>> getComparator(boolean reversed, Robot<? extends SensingVoxel> robot) {
+    Comparator<Tree<DecoratedValue>> comparator = Comparator.comparingDouble(t -> t.content().value);
+    if (reversed) {
+      comparator = comparator.reversed();
+    }
+    return comparator;
   }
 
   private static void decorate(Tree<DecoratedValue> tree) {
