@@ -44,6 +44,9 @@ public class DevoConditionedTreeHomoMLP extends DevoTreeHomoMLP implements Proto
   }
 
   private double getParentPriority(int x, int y, Robot<? extends SensingVoxel> robot) {
+    if (robot == null) {
+      return 0d;
+    }
     DoubleStream neighborsPriorities = EnumSet.allOf(Direction.class).stream()
         .map(d -> robot.getVoxels().get(x + d.deltaX, y + d.deltaY))
         .filter(Objects::nonNull)

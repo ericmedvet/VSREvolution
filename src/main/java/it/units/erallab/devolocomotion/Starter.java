@@ -3,9 +3,9 @@ package it.units.erallab.devolocomotion;
 import com.google.common.base.Stopwatch;
 import it.units.erallab.builder.DirectNumbersGrid;
 import it.units.erallab.builder.PrototypedFunctionBuilder;
-import it.units.erallab.builder.devofunction.DevoConditionedHomoMLP;
-import it.units.erallab.builder.devofunction.DevoHomoMLP;
-import it.units.erallab.builder.devofunction.DevoPhasesValues;
+import it.units.erallab.builder.devofunction.*;
+import it.units.erallab.builder.evolver.EvolverBuilder;
+import it.units.erallab.builder.evolver.TreeAndDoubles;
 import it.units.erallab.hmsrobots.core.controllers.Controller;
 import it.units.erallab.hmsrobots.core.objects.Robot;
 import it.units.erallab.hmsrobots.core.objects.Voxel;
@@ -294,7 +294,7 @@ public class Starter extends Worker {
         devoFunctionBuilder = devoFunctionBuilder.compose((PrototypedFunctionBuilder) getDevoFunctionByName(piece));
       }
     }
-    return it.units.erallab.locomotion.Starter.getEvolverBuilderFromName(evolverName).build(
+    return getEvolverBuilderFromName(evolverName).build(
         (PrototypedFunctionBuilder) devoFunctionBuilder,
         target,
         PartialComparator.from(Double.class).comparing(outcomeMeasure).reversed()
@@ -302,11 +302,21 @@ public class Starter extends Worker {
   }
 
   private static PrototypedFunctionBuilder<?, ?> getDevoFunctionByName(String name) {
+    String devoTreePhases;
+    String devoTreeCondPhases;
+    String devoCondPhases;
     String devoCondHomoMLP = "devoCondHomoMLP-(?<ratio>\\d+(\\.\\d+)?)" +
         "-(?<nLayers>\\d+)-(?<nSignals>\\d+)" +
         "-(?<selFunc>(areaRatioEnergy|areaRatio))-(?<maxFirst>(t|f))" +
         "-(?<nInitial>\\d+)-(?<nStep>\\d+)";
     String devoHomoMLP = "devoHomoMLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<nSignals>\\d+)-(?<nInitial>\\d+)-(?<nStep>\\d+)";
+    String devoTreeHomoMLP = "devoTreeHomoMLP-(?<ratio>\\d+(\\.\\d+)?)" +
+        "-(?<nLayers>\\d+)-(?<nSignals>\\d+)" +
+        "-(?<nInitial>\\d+)-(?<nStep>\\d+)";
+    String devoCondTreeHomoMLP = "devoCondTreeHomoMLP-(?<ratio>\\d+(\\.\\d+)?)" +
+        "-(?<nLayers>\\d+)-(?<nSignals>\\d+)" +
+        "-(?<selFunc>(areaRatioEnergy|areaRatio))-(?<maxFirst>(t|f))" +
+        "-(?<nInitial>\\d+)-(?<nStep>\\d+)";
     String fixedPhases = "devoPhases-(?<f>\\d+(\\.\\d+)?)-(?<nInitial>\\d+)-(?<nStep>\\d+)";
     String directNumGrid = "directNumGrid";
     Map<String, String> params;
@@ -328,8 +338,28 @@ public class Starter extends Worker {
           Integer.parseInt(params.get("nStep"))
       );
     }
+    if ((params = params(devoTreeHomoMLP, name)) != null) {
+      return new DevoTreeHomoMLP(
+          Double.parseDouble(params.get("ratio")),
+          Integer.parseInt(params.get("nLayers")),
+          Integer.parseInt(params.get("nSignals")),
+          Integer.parseInt(params.get("nInitial")),
+          Integer.parseInt(params.get("nStep"))
+      );
+    }
     if ((params = params(devoCondHomoMLP, name)) != null) {
       return new DevoConditionedHomoMLP(
+          Double.parseDouble(params.get("ratio")),
+          Integer.parseInt(params.get("nLayers")),
+          Integer.parseInt(params.get("nSignals")),
+          params.get("selFunc").equals("areaRatioEnergy") ? Voxel::getAreaRatioEnergy : Voxel::getAreaRatio,
+          params.get("maxFirst").startsWith("t"),
+          Integer.parseInt(params.get("nInitial")),
+          Integer.parseInt(params.get("nStep"))
+      );
+    }
+    if ((params = params(devoCondTreeHomoMLP, name)) != null) {
+      return new DevoConditionedTreeHomoMLP(
           Double.parseDouble(params.get("ratio")),
           Integer.parseInt(params.get("nLayers")),
           Integer.parseInt(params.get("nSignals")),
@@ -344,6 +374,20 @@ public class Starter extends Worker {
       return new DirectNumbersGrid();
     }
     throw new IllegalArgumentException(String.format("Unknown devo function name: %s", name));
+  }
+
+  public static EvolverBuilder<?> getEvolverBuilderFromName(String name) {
+    String treeNumGA = "treeNumGA-(?<nPop>\\d+)-(?<diversity>(t|f))";
+    Map<String, String> params;
+    if ((params = params(treeNumGA, name)) != null) {
+      return new TreeAndDoubles(
+          Integer.parseInt(params.get("nPop")),
+          (int) Math.max(Math.round((double) Integer.parseInt(params.get("nPop")) / 10d), 3),
+          0.75d,
+          params.get("diversity").equals("t")
+      );
+    }
+    return it.units.erallab.locomotion.Starter.getEvolverBuilderFromName(name);
   }
 
 }
