@@ -46,7 +46,7 @@ public class TreeAndDoubles implements EvolverBuilder<Pair<Tree<Double>, List<Do
   }
 
   public TreeAndDoubles(int nPop, int nTournament, double xOverProb, boolean diversityEnforcement) {
-    this(nPop, nTournament, xOverProb, diversityEnforcement, 3, 5);
+    this(nPop, nTournament, xOverProb, diversityEnforcement, 3, 6);
   }
 
   @Override

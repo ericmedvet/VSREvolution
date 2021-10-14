@@ -302,9 +302,6 @@ public class Starter extends Worker {
   }
 
   private static PrototypedFunctionBuilder<?, ?> getDevoFunctionByName(String name) {
-    String devoTreePhases;
-    String devoTreeCondPhases;
-    String devoCondPhases;
     String devoCondHomoMLP = "devoCondHomoMLP-(?<ratio>\\d+(\\.\\d+)?)" +
         "-(?<nLayers>\\d+)-(?<nSignals>\\d+)" +
         "-(?<selFunc>(areaRatioEnergy|areaRatio))-(?<maxFirst>(t|f))" +
