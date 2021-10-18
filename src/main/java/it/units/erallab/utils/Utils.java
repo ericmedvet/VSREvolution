@@ -89,7 +89,6 @@ public class Utils {
     return List.of(f("serialized", r -> SerializationUtils.serialize(r, SerializationUtils.Mode.GZIPPED_JSON)).of(solution()));
   }
 
-  @SuppressWarnings("unchecked")
   public static List<NamedFunction<Individual<?, ? extends Robot<?>, ? extends Outcome>, ?>> individualFunctions(Function<Outcome, Double> fitnessFunction) {
     NamedFunction<Individual<?, ? extends Robot<?>, ? extends Outcome>, ?> size = size().of(genotype());
     return List.of(
@@ -104,7 +103,8 @@ public class Utils {
             .of(solution()),
         size.reformat("%5d"),
         genotypeBirthIteration(),
-        f("fitness", "%5.1f", fitnessFunction).of(fitness())
+        f("fitness", "%5.1f", fitnessFunction).of(fitness()),
+        f("abs.weights.sum", "%5.1f", Outcome::getInitialSumOfAbsoluteWeights).of(fitness())
     );
   }
 

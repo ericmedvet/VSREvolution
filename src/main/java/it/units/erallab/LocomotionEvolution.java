@@ -400,11 +400,17 @@ public class LocomotionEvolution extends Worker {
   private static Function<Outcome, Double> getFitnessFunctionFromName(String name) {
     String velocity = "velocity";
     String efficiency = "efficiency";
+    String weightsPenalizedVelocity = "velocity-(?<lambda>\\d+(\\.\\d+)?)\\*weights";
+    Map<String,String> params;
     if (params(velocity, name) != null) {
       return Outcome::getVelocity;
     }
     if (params(efficiency, name) != null) {
       return Outcome::getCorrectedEfficiency;
+    }
+    if ((params = params(weightsPenalizedVelocity, name)) != null) {
+      System.out.println(params.get("lambda"));
+      return o -> (o.getVelocity() - Double.parseDouble(params.get("lambda")) * o.getInitialSumOfAbsoluteWeights());
     }
     throw new IllegalArgumentException(String.format("Unknown fitness function name: %s", name));
   }
