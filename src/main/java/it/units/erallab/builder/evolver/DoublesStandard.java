@@ -9,7 +9,7 @@ import it.units.malelab.jgea.core.evolver.StandardWithEnforcedDiversityEvolver;
 import it.units.malelab.jgea.core.operator.GeneticOperator;
 import it.units.malelab.jgea.core.order.PartialComparator;
 import it.units.malelab.jgea.core.selector.Tournament;
-import it.units.malelab.jgea.core.selector.Worst;
+import it.units.malelab.jgea.core.selector.Last;
 import it.units.malelab.jgea.representation.sequence.FixedLengthListFactory;
 import it.units.malelab.jgea.representation.sequence.numeric.GaussianMutation;
 import it.units.malelab.jgea.representation.sequence.numeric.GeometricCrossover;
@@ -49,7 +49,7 @@ public class DoublesStandard implements EvolverBuilder<List<Double>> {
               new GeometricCrossover(Range.closed(-.5d, 1.5d)).andThen(new GaussianMutation(.1d)), xOverProb
           ),
           new Tournament(nTournament),
-          new Worst(),
+          new Last(),
           nPop,
           true,
           true
@@ -65,7 +65,7 @@ public class DoublesStandard implements EvolverBuilder<List<Double>> {
             new GeometricCrossover(Range.closed(-.5d, 1.5d)).andThen(new GaussianMutation(.1d)), xOverProb
         ),
         new Tournament(nTournament),
-        new Worst(),
+        new Last(),
         nPop,
         true,
         true,

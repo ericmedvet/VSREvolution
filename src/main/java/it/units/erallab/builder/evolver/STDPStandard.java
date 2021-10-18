@@ -12,7 +12,7 @@ import it.units.malelab.jgea.core.evolver.StandardWithEnforcedDiversityEvolver;
 import it.units.malelab.jgea.core.operator.GeneticOperator;
 import it.units.malelab.jgea.core.order.PartialComparator;
 import it.units.malelab.jgea.core.selector.Tournament;
-import it.units.malelab.jgea.core.selector.Worst;
+import it.units.malelab.jgea.core.selector.Last;
 import it.units.malelab.jgea.representation.sequence.FixedLengthListFactory;
 import it.units.malelab.jgea.representation.sequence.ProbabilisticMutation;
 import it.units.malelab.jgea.representation.sequence.SameTwoPointsCrossover;
@@ -50,7 +50,7 @@ public class STDPStandard implements EvolverBuilder<List<STDPLearningRule>> {
           nPop,
           operators,
           new Tournament(nTournament),
-          new Worst(),
+          new Last(),
           nPop,
           true,
           true
@@ -63,7 +63,7 @@ public class STDPStandard implements EvolverBuilder<List<STDPLearningRule>> {
         nPop,
         operators,
         new Tournament(nTournament),
-        new Worst(),
+        new Last(),
         nPop,
         true,
         true,

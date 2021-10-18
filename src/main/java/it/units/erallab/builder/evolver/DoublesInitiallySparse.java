@@ -6,7 +6,7 @@ import it.units.malelab.jgea.core.evolver.Evolver;
 import it.units.malelab.jgea.core.evolver.StandardEvolver;
 import it.units.malelab.jgea.core.order.PartialComparator;
 import it.units.malelab.jgea.core.selector.Tournament;
-import it.units.malelab.jgea.core.selector.Worst;
+import it.units.malelab.jgea.core.selector.Last;
 import it.units.malelab.jgea.representation.sequence.FixedLengthListFactory;
 import it.units.malelab.jgea.representation.sequence.numeric.SparseMutation;
 import it.units.malelab.jgea.representation.sequence.numeric.SparseSymmetricDoubleFactory;
@@ -38,7 +38,7 @@ public class DoublesInitiallySparse implements EvolverBuilder<List<Double>> {
                     new SparseMutation(p, 0.35, new SparseSymmetricDoubleFactory(1d, 0.5, 1d)), 1d
             ),
             new Tournament(nTournament),
-            new Worst(),
+            new Last(),
             nPop,
             true,
             true
