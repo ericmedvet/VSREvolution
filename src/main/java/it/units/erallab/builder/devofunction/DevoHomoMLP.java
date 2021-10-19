@@ -68,12 +68,7 @@ public class DevoHomoMLP implements PrototypedFunctionBuilder<List<Double>, Unar
   }
 
   protected Grid<? extends SensingVoxel> createBody(Robot<? extends SensingVoxel> previous, Grid<Double> strengths, SensingVoxel voxelPrototype) {
-    int n;
-    if (previous == null) {
-      n = nInitial;
-    } else {
-      n = (int) previous.getVoxels().values().stream().filter(Objects::nonNull).count() + nStep;
-    }
+    int n = previous == null ? nInitial : (int) previous.getVoxels().values().stream().filter(Objects::nonNull).count() + nStep;
     Grid<Double> selected = Utils.gridConnected(strengths, Double::compareTo, n);
     Grid<SensingVoxel> body = Grid.create(selected, v -> (v != null) ? SerializationUtils.clone(voxelPrototype) : null);
     if (body.values().stream().noneMatch(Objects::nonNull)) {

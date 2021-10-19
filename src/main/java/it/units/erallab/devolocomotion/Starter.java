@@ -302,11 +302,12 @@ public class Starter extends Worker {
   }
 
   private static PrototypedFunctionBuilder<?, ?> getDevoFunctionByName(String name) {
+    String devoHomoMLP = "devoHomoMLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<nSignals>\\d+)-(?<nInitial>\\d+)-(?<nStep>\\d+)";
+    String devoRandomHomoMLP = "devoRndHomoMLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<nSignals>\\d+)-(?<nInitial>\\d+)-(?<nStep>\\d+)";
     String devoCondHomoMLP = "devoCondHomoMLP-(?<ratio>\\d+(\\.\\d+)?)" +
         "-(?<nLayers>\\d+)-(?<nSignals>\\d+)" +
         "-(?<selFunc>(areaRatioEnergy|areaRatio))-(?<maxFirst>(t|f))" +
         "-(?<nInitial>\\d+)-(?<nStep>\\d+)";
-    String devoHomoMLP = "devoHomoMLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<nSignals>\\d+)-(?<nInitial>\\d+)-(?<nStep>\\d+)";
     String devoTreeHomoMLP = "devoTreeHomoMLP-(?<ratio>\\d+(\\.\\d+)?)" +
         "-(?<nLayers>\\d+)-(?<nSignals>\\d+)" +
         "-(?<nInitial>\\d+)-(?<nStep>\\d+)";
@@ -328,6 +329,15 @@ public class Starter extends Worker {
     }
     if ((params = params(devoHomoMLP, name)) != null) {
       return new DevoHomoMLP(
+          Double.parseDouble(params.get("ratio")),
+          Integer.parseInt(params.get("nLayers")),
+          Integer.parseInt(params.get("nSignals")),
+          Integer.parseInt(params.get("nInitial")),
+          Integer.parseInt(params.get("nStep"))
+      );
+    }
+    if ((params = params(devoRandomHomoMLP, name)) != null) {
+      return new DevoRandomHomoMLP(
           Double.parseDouble(params.get("ratio")),
           Integer.parseInt(params.get("nLayers")),
           Integer.parseInt(params.get("nSignals")),
