@@ -349,7 +349,7 @@ public class LocomotionEvolution extends Worker {
   private static EvolverBuilder<?> getEvolverBuilderFromName(String name) {
     String numGA = "numGA-(?<nPop>\\d+)-(?<diversity>(t|f))";
     String numGASpeciated = "numGASpec-(?<nPop>\\d+)-(?<nSpecies>\\d+)-(?<criterion>(" + Arrays.stream(DoublesSpeciated.SpeciationCriterion.values()).map(c -> c.name().toLowerCase(Locale.ROOT)).collect(Collectors.joining("|")) + "))";
-    String bitGA = "bigGA-(?<nPop>\\d+)-(?<diversity>(t|f))";
+    String bitGA = "bitGA-(?<nPop>\\d+)-(?<diversity>(t|f))";
     String cmaES = "CMAES";
     String eS = "ES-(?<nPop>\\d+)-(?<sigma>\\d+(\\.\\d+)?)";
     String sparseGA = "sparse-(?<nPop>\\d+)-(?<p>\\d+(\\.\\d+)?)";
