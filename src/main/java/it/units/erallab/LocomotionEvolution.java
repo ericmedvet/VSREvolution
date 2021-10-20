@@ -349,6 +349,7 @@ public class LocomotionEvolution extends Worker {
   private static EvolverBuilder<?> getEvolverBuilderFromName(String name) {
     String numGA = "numGA-(?<nPop>\\d+)-(?<diversity>(t|f))";
     String numGASpeciated = "numGASpec-(?<nPop>\\d+)-(?<nSpecies>\\d+)-(?<criterion>(" + Arrays.stream(DoublesSpeciated.SpeciationCriterion.values()).map(c -> c.name().toLowerCase(Locale.ROOT)).collect(Collectors.joining("|")) + "))";
+    String bitGA = "bigGA-(?<nPop>\\d+)-(?<diversity>(t|f))";
     String cmaES = "CMAES";
     String eS = "ES-(?<nPop>\\d+)-(?<sigma>\\d+(\\.\\d+)?)";
     String sparseGA = "sparse-(?<nPop>\\d+)-(?<p>\\d+(\\.\\d+)?)";
@@ -356,6 +357,14 @@ public class LocomotionEvolution extends Worker {
     Map<String, String> params;
     if ((params = params(numGA, name)) != null) {
       return new DoublesStandard(
+          Integer.parseInt(params.get("nPop")),
+          (int) Math.max(Math.round((double) Integer.parseInt(params.get("nPop")) / 10d), 3),
+          0.75d,
+          params.get("diversity").equals("t")
+      );
+    }
+    if ((params = params(bitGA, name)) != null) {
+      return new BinaryStandard(
           Integer.parseInt(params.get("nPop")),
           (int) Math.max(Math.round((double) Integer.parseInt(params.get("nPop")) / 10d), 3),
           0.75d,
@@ -468,6 +477,10 @@ public class LocomotionEvolution extends Worker {
         "(-(?<izParams>(regular_spiking_params)))?" +
         "-(?<iConv>(unif|unif_mem))-(?<iFreq>\\d+(\\.\\d+)?)-(?<oConv>(avg|avg_mem))(-(?<oMem>\\d+))?-(?<oFreq>\\d+(\\.\\d+)?)";
     String quantizedMsnWithConverter = "QMSN-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<spikeType>(lif|iz|lif_h|lif_h_output|lif_h_io))" +
+        "(-(?<lRestPot>-?\\d+(\\.\\d+)?)-(?<lThreshPot>-?\\d+(\\.\\d+)?)-(?<lambda>\\d+(\\.\\d+)?)(-(?<theta>\\d+(\\.\\d+)?))?)?" +
+        "(-(?<izParams>(regular_spiking_params)))?" +
+        "-(?<iConv>(unif|unif_mem))-(?<iFreq>\\d+(\\.\\d+)?)-(?<oConv>(avg|avg_mem))(-(?<oMem>\\d+))?-(?<oFreq>\\d+(\\.\\d+)?)";
+    String binaryQuantizedMsnWithConverter = "BQMSN-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<spikeType>(lif|iz|lif_h|lif_h_output|lif_h_io))" +
         "(-(?<lRestPot>-?\\d+(\\.\\d+)?)-(?<lThreshPot>-?\\d+(\\.\\d+)?)-(?<lambda>\\d+(\\.\\d+)?)(-(?<theta>\\d+(\\.\\d+)?))?)?" +
         "(-(?<izParams>(regular_spiking_params)))?" +
         "-(?<iConv>(unif|unif_mem))-(?<iFreq>\\d+(\\.\\d+)?)-(?<oConv>(avg|avg_mem))(-(?<oMem>\\d+))?-(?<oFreq>\\d+(\\.\\d+)?)";
@@ -947,6 +960,7 @@ public class LocomotionEvolution extends Worker {
 
     if ((params = params(quantizedMsn, name)) != null ||
         (params = params(quantizedMsnWithConverter, name)) != null ||
+        (params = params(binaryQuantizedMsnWithConverter,name)) != null ||
         (params = params(quantizedNumericLearningMsnWithConverter, name)) != null ||
         (params = params(quantizedNumericLearningFixedPoolMsnWithConverter, name)) != null ||
         (params = params(quantizedHebbianNumericLearningMsnWithConverter, name)) != null||
@@ -1015,8 +1029,9 @@ public class LocomotionEvolution extends Worker {
             neuronBuilder
         );
       }
-      if ((params = params(quantizedMsnWithConverter, name)) != null
-          || (params = params(quantizedNumericLearningMsnWithConverter, name)) != null ||
+      if ((params = params(quantizedMsnWithConverter, name)) != null ||
+          (params = params(quantizedNumericLearningMsnWithConverter, name)) != null ||
+          (params = params(binaryQuantizedMsnWithConverter,name)) != null ||
           (params = params(quantizedNumericLearningFixedPoolMsnWithConverter, name)) != null ||
           (params = params(quantizedHebbianNumericLearningMsnWithConverter, name)) != null||
           (params = params(quantizedHebbianNumericLearningWeightsMSNWithConverters, name)) != null ||
@@ -1076,6 +1091,16 @@ public class LocomotionEvolution extends Worker {
               neuronBuilder,
               valueToSpikeTrainConverter,
               spikeTrainToValueConverter
+          );
+        }
+        if ((params = params(binaryQuantizedMsnWithConverter,name)) != null) {
+          return new QuantizedBinaryMSNWithConverters(
+              Double.parseDouble(params.get("ratio")),
+              Integer.parseInt(params.get("nLayers")),
+              neuronBuilder,
+              valueToSpikeTrainConverter,
+              spikeTrainToValueConverter,
+              1.2
           );
         }
         if ((params = params(quantizedNumericLearningMsnWithConverter, name)) != null) {
