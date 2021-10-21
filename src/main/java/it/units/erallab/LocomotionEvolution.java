@@ -72,6 +72,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static it.units.erallab.hmsrobots.util.Utils.params;
 import static it.units.malelab.jgea.core.listener.NamedFunctions.*;
@@ -140,10 +141,11 @@ public class LocomotionEvolution extends Worker {
     boolean output = a("output", "false").startsWith("t");
     List<String> validationTransformationNames = l(a("validationTransformation", "")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
     List<String> validationTerrainNames = l(a("validationTerrain", "flat")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
-    String fitnessMetrics = a("fitness", "velocity");
+    List<String> fitnessMetrics = l(a("fitness", "velocity"));
     String videoConfiguration = a("videoConfiguration", "basicWithMiniWorldAndBrain");
-    Pair<Pair<Integer, Integer>, Function<String,Drawer>> drawerSupplier = getDrawerSupplierFromName(videoConfiguration);
-    Function<Outcome, Double> fitnessFunction = getFitnessFunctionFromName(fitnessMetrics);
+    Pair<Pair<Integer, Integer>, Function<String, Drawer>> drawerSupplier = getDrawerSupplierFromName(videoConfiguration);
+    Function<Outcome, Double> fitnessFunction = getFitnessFunctionFromName(fitnessMetrics.get(0));
+    Function<Outcome, Double>[] fitnessFunctions = getFitnessFunctionsFromName(fitnessMetrics);
     //consumers
     List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> keysFunctions = Utils.keysFunctions();
     List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> basicFunctions = Utils.basicFunctions();
@@ -289,7 +291,7 @@ public class LocomotionEvolution extends Worker {
                   //build evolver
                   Evolver<?, Robot<?>, Outcome> evolver;
                   try {
-                    evolver = buildEvolver(evolverName, mapperName, target, fitnessFunction);
+                    evolver = buildEvolver(evolverName, mapperName, target, fitnessFunctions);
                   } catch (ClassCastException | IllegalArgumentException e) {
                     e.printStackTrace();
                     L.warning(String.format(
@@ -408,23 +410,32 @@ public class LocomotionEvolution extends Worker {
 
   private static Function<Outcome, Double> getFitnessFunctionFromName(String name) {
     String velocity = "velocity";
+    String roundedVelocity = "rounded-velocity";
     String efficiency = "efficiency";
-    String weightsPenalizedVelocity = "velocity-(?<lambda>\\d+(\\.\\d+)?)\\*weights";
-    Map<String,String> params;
+    String avgSumOfAbsWeights = "avg-sum-abs-weights";
     if (params(velocity, name) != null) {
       return Outcome::getVelocity;
+    }
+    if (params(roundedVelocity, name) != null) {
+      return o -> (double) Math.round(o.getVelocity());
     }
     if (params(efficiency, name) != null) {
       return Outcome::getCorrectedEfficiency;
     }
-    if ((params = params(weightsPenalizedVelocity, name)) != null) {
-      System.out.println(params.get("lambda"));
-      return o -> (o.getVelocity() - Double.parseDouble(params.get("lambda")) * o.getInitialSumOfAbsoluteWeights());
+    if (params(avgSumOfAbsWeights, name) != null) {
+      return Outcome::getAverageSumOfAbsoluteWeights;
     }
     throw new IllegalArgumentException(String.format("Unknown fitness function name: %s", name));
   }
 
-  private static Pair<Pair<Integer, Integer>, Function<String,Drawer>> getDrawerSupplierFromName(String name) {
+  @SuppressWarnings({"unchecked", "rawtypes"})
+  private static Function<Outcome, Double>[] getFitnessFunctionsFromName(List<String> names) {
+    Function[] fitnessMeasures = new Function[names.size()];
+    IntStream.range(0, names.size()).forEach(i -> fitnessMeasures[i] = getFitnessFunctionFromName(names.get(i)));
+    return fitnessMeasures;
+  }
+
+  private static Pair<Pair<Integer, Integer>, Function<String, Drawer>> getDrawerSupplierFromName(String name) {
     String basic = "basic";
     String basicWithMiniWorld = "basicWithMiniWorld";
     String basicWithMiniWorldAndBrain = "basicWithMiniWorldAndBrain";
@@ -438,8 +449,8 @@ public class LocomotionEvolution extends Worker {
     if (params(basicWithMiniWorldAndBrain, name) != null) {
       return Pair.of(Pair.of(1, 2), Drawers::basicWithMiniWorldAndBrain);
     }
-    if(params(basicWithMiniWorldAndBrain,name)!=null){
-      return Pair.of(Pair.of(1,2), Drawers::basicWithMiniWorldAndBrainUsage);
+    if (params(basicWithMiniWorldAndBrain, name) != null) {
+      return Pair.of(Pair.of(1, 2), Drawers::basicWithMiniWorldAndBrainUsage);
     }
     throw new IllegalArgumentException(String.format("Unknown video configuration name: %s", name));
   }
@@ -960,10 +971,10 @@ public class LocomotionEvolution extends Worker {
 
     if ((params = params(quantizedMsn, name)) != null ||
         (params = params(quantizedMsnWithConverter, name)) != null ||
-        (params = params(binaryQuantizedMsnWithConverter,name)) != null ||
+        (params = params(binaryQuantizedMsnWithConverter, name)) != null ||
         (params = params(quantizedNumericLearningMsnWithConverter, name)) != null ||
         (params = params(quantizedNumericLearningFixedPoolMsnWithConverter, name)) != null ||
-        (params = params(quantizedHebbianNumericLearningMsnWithConverter, name)) != null||
+        (params = params(quantizedHebbianNumericLearningMsnWithConverter, name)) != null ||
         (params = params(quantizedHebbianNumericLearningWeightsMSNWithConverters, name)) != null ||
         (params = params(quantizedHebbianNumericLearningClippedWeightsMSNWithConverters, name)) != null ||
         (params = params(quantizedNumericLearningWithFixedRuleValuesAnd0WeightsMSNWithConverters, name)) != null
@@ -1031,12 +1042,12 @@ public class LocomotionEvolution extends Worker {
       }
       if ((params = params(quantizedMsnWithConverter, name)) != null ||
           (params = params(quantizedNumericLearningMsnWithConverter, name)) != null ||
-          (params = params(binaryQuantizedMsnWithConverter,name)) != null ||
+          (params = params(binaryQuantizedMsnWithConverter, name)) != null ||
           (params = params(quantizedNumericLearningFixedPoolMsnWithConverter, name)) != null ||
-          (params = params(quantizedHebbianNumericLearningMsnWithConverter, name)) != null||
+          (params = params(quantizedHebbianNumericLearningMsnWithConverter, name)) != null ||
           (params = params(quantizedHebbianNumericLearningWeightsMSNWithConverters, name)) != null ||
           (params = params(quantizedHebbianNumericLearningClippedWeightsMSNWithConverters, name)) != null ||
-          (params = params(quantizedNumericLearningWithFixedRuleValuesAnd0WeightsMSNWithConverters, name)) != null ) {
+          (params = params(quantizedNumericLearningWithFixedRuleValuesAnd0WeightsMSNWithConverters, name)) != null) {
         QuantizedValueToSpikeTrainConverter valueToSpikeTrainConverter = new QuantizedUniformValueToSpikeTrainConverter();
         QuantizedSpikeTrainToValueConverter spikeTrainToValueConverter = new QuantizedAverageFrequencySpikeTrainToValueConverter();
         if (params.containsKey("iConv")) {
@@ -1093,7 +1104,7 @@ public class LocomotionEvolution extends Worker {
               spikeTrainToValueConverter
           );
         }
-        if ((params = params(binaryQuantizedMsnWithConverter,name)) != null) {
+        if ((params = params(binaryQuantizedMsnWithConverter, name)) != null) {
           return new QuantizedBinaryMSNWithConverters(
               Double.parseDouble(params.get("ratio")),
               Integer.parseInt(params.get("nLayers")),
@@ -1192,7 +1203,10 @@ public class LocomotionEvolution extends Worker {
 
   @SuppressWarnings({"unchecked", "rawtypes"})
   private static Evolver<?, Robot<?>, Outcome> buildEvolver(String evolverName, String robotMapperName, Robot<?>
-      target, Function<Outcome, Double> outcomeMeasure) {
+      target, Function<Outcome, Double>... outcomeMeasure) {
+    if (outcomeMeasure.length == 0) {
+      throw new IllegalArgumentException("At least one outcome measure needs to be specified");
+    }
     PrototypedFunctionBuilder<?, ?> mapperBuilder = null;
     for (String piece : robotMapperName.split(MAPPER_PIPE_CHAR)) {
       if (mapperBuilder == null) {
@@ -1201,10 +1215,16 @@ public class LocomotionEvolution extends Worker {
         mapperBuilder = mapperBuilder.compose((PrototypedFunctionBuilder) getMapperBuilderFromName(piece));
       }
     }
+    // TODO specify if measures need to be reversed or not
+    PartialComparator<Outcome> comparator = PartialComparator.from(Double.class).comparing(outcomeMeasure[0]).reversed();
+    for (int i = 1; i < outcomeMeasure.length; i++) {
+      PartialComparator<Outcome> temporaryComparator = PartialComparator.from(Double.class).comparing(outcomeMeasure[i]);
+      comparator = comparator.thenComparing(temporaryComparator);
+    }
     return getEvolverBuilderFromName(evolverName).build(
         (PrototypedFunctionBuilder) mapperBuilder,
         target,
-        PartialComparator.from(Double.class).comparing(outcomeMeasure).reversed()
+        comparator
     );
   }
 
