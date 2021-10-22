@@ -57,7 +57,7 @@ public class BiasesFinder {
 
   public static void main(String[] args) {
     Random random = new Random(1);
-    int n = 100;
+    int n = 1000;
     int nTop = 3;
     int nBars = 10;
     int gridW = 10;
@@ -164,7 +164,9 @@ public class BiasesFinder {
         NamedFunction.build("center.y", "%.1f", s -> Utils.cropGrid(s, v -> v).stream()
             .filter(e -> e.getValue() != null)
             .mapToDouble(e -> (double) e.getY() / (double) s.getH())
-            .average().orElse(0d))
+            .average().orElse(0d)),
+        NamedFunction.build("compactness", "%.2f", Utils::shapeCompactness),
+        NamedFunction.build("elongation", "%.2f", Utils::shapeElongation)
     );
   }
 
