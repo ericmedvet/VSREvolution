@@ -104,7 +104,8 @@ public class Utils {
         size.reformat("%5d"),
         genotypeBirthIteration(),
         f("fitness", "%5.1f", fitnessFunction).of(fitness()),
-        f("abs.weights.sum", "%5.1f", Outcome::getInitialSumOfAbsoluteWeights).of(fitness())
+        f("abs.weights.sum", "%5.1f", Outcome::getInitialSumOfAbsoluteWeights).of(fitness()),
+        f("avg.abs.weights.sum", "%5.1f", Outcome::getAverageSumOfAbsoluteWeights).of(fitness())
     );
   }
 
