@@ -91,7 +91,7 @@ public class Starter extends Worker {
     long telegramChatId = Long.parseLong(a("telegramChatId", "0"));
     List<String> validationTerrainNames = l(a("validationTerrain", "flat,downhill-30")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
     //fitness function
-    Function<DevoOutcome, Double> fitnessFunction = devoOutcome -> devoOutcome.getLocomotionOutcomes().stream().mapToDouble(Outcome::getDistance).sum();
+    Function<DevoOutcome, Double> fitnessFunction = getFitnessFunctionFromName(a("fitness", "distance"));
     //consumers
     List<NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>, ?>> keysFunctions = keysFunctions();
     List<NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>, ?>> basicFunctions = basicFunctions();
@@ -387,7 +387,7 @@ public class Starter extends Worker {
       );
     }
     //misc
-    if ((params = params(directNumGrid, name)) != null) {
+    if (params(directNumGrid, name) != null) {
       return new DirectNumbersGrid();
     }
     throw new IllegalArgumentException(String.format("Unknown devo function name: %s", name));
@@ -405,6 +405,18 @@ public class Starter extends Worker {
       );
     }
     return it.units.erallab.locomotion.Starter.getEvolverBuilderFromName(name);
+  }
+
+  private static Function<DevoOutcome, Double> getFitnessFunctionFromName(String name) {
+    String distance = "distance";
+    String maxSpeed = "maxSpeed";
+    if (params(distance, name) != null) {
+      return devoOutcome -> devoOutcome.getLocomotionOutcomes().stream().mapToDouble(Outcome::getDistance).sum();
+    }
+    if (params(maxSpeed, name) != null) {
+      return devoOutcome -> devoOutcome.getLocomotionOutcomes().stream().mapToDouble(Outcome::getVelocity).max().orElse(0d);
+    }
+    throw new IllegalArgumentException(String.format("Unknown fitness function name: %s", name));
   }
 
 }
