@@ -91,7 +91,8 @@ public class Starter extends Worker {
     long telegramChatId = Long.parseLong(a("telegramChatId", "0"));
     List<String> validationTerrainNames = l(a("validationTerrain", "flat,downhill-30")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
     //fitness function
-    Function<DevoOutcome, Double> fitnessFunction = getFitnessFunctionFromName(a("fitness", "distance"));
+    String fitnessFunctionName = a("fitness", "distance");
+    Function<DevoOutcome, Double> fitnessFunction = getFitnessFunctionFromName(fitnessFunctionName);
     //consumers
     List<NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>, ?>> keysFunctions = keysFunctions();
     List<NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>, ?>> basicFunctions = basicFunctions();
@@ -185,6 +186,7 @@ public class Starter extends Worker {
     L.info("Devo functions: " + devoFunctionNames);
     L.info("Sensor configs: " + targetSensorConfigNames);
     L.info("Terrains: " + terrainNames);
+    L.info("Fitness: " + fitnessFunctionName);
     //start iterations
     int nOfRuns = seeds.length * terrainNames.size() * devoFunctionNames.size() * evolverNames.size();
     int counter = 0;
@@ -198,6 +200,7 @@ public class Starter extends Worker {
               //prepare keys
               Map<String, Object> keys = Map.ofEntries(
                   Map.entry("experiment.name", experimentName),
+                  Map.entry("fitness",fitnessFunctionName),
                   Map.entry("seed", seed),
                   Map.entry("terrain", terrainName),
                   Map.entry("devo.function", devoFunctionName),

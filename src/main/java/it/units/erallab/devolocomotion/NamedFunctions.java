@@ -63,6 +63,7 @@ public class NamedFunctions {
   public static List<NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>, ?>> keysFunctions() {
     return List.of(
         eventAttribute("experiment.name"),
+        eventAttribute("fitness"),
         eventAttribute("seed", "%2d"),
         eventAttribute("terrain"),
         eventAttribute("devo.function"),
