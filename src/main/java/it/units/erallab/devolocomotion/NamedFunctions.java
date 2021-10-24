@@ -106,10 +106,15 @@ public class NamedFunctions {
     );
   }
 
-  public static NamedFunction<DevoOutcome, ?> serializedDevoRobotsFunction() {
-    return f("devo.robots",
-        o -> o.getRobots().stream().map(r -> SerializationUtils.serialize(r, SerializationUtils.Mode.GZIPPED_JSON))
-            .collect(Collectors.joining(",")));
+  public static List<NamedFunction<DevoOutcome, ?>> serializedOutcomesInformation() {
+    return List.of(
+        f("outcomes.speeds",
+            o -> o.getLocomotionOutcomes().stream().map(Outcome::getVelocity).map(v -> Double.toString(v))
+                .collect(Collectors.joining(","))),
+        f("devo.robots",
+            o -> o.getRobots().stream().map(r -> SerializationUtils.serialize(r, SerializationUtils.Mode.GZIPPED_JSON))
+                .collect(Collectors.joining(",")))
+    );
   }
 
   public static Accumulator.Factory<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>, String> lastEventToString(Function<DevoOutcome, Double> fitnessFunction) {

@@ -102,17 +102,17 @@ public class Starter extends Worker {
     List<NamedFunction<DevoOutcome, ?>> validationOutcomesFunctions = outcomesFunctions();
     if (serializationFlags.contains("best")) {
       List<NamedFunction<DevoOutcome, ?>> tempFunctions = new ArrayList<>(outcomesFunctions);
-      tempFunctions.add(serializedDevoRobotsFunction());
+      tempFunctions.addAll(serializedOutcomesInformation());
       outcomesFunctions = tempFunctions;
     }
     if (serializationFlags.contains("validation")) {
       List<NamedFunction<DevoOutcome, ?>> tempFunctions = new ArrayList<>(validationOutcomesFunctions);
-      tempFunctions.add(serializedDevoRobotsFunction());
+      tempFunctions.addAll(serializedOutcomesInformation());
       validationOutcomesFunctions = tempFunctions;
     }
     if (serializationFlags.contains("last")) {
       List<NamedFunction<DevoOutcome, ?>> tempFunctions = new ArrayList<>(lastOutcomesFunctions);
-      tempFunctions.add(serializedDevoRobotsFunction());
+      tempFunctions.addAll(serializedOutcomesInformation());
       lastOutcomesFunctions = tempFunctions;
     }
     List<NamedFunction<Individual<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>, ?>> visualIndividualFunctions = visualIndividualFunctions();
