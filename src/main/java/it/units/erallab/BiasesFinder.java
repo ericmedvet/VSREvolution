@@ -57,7 +57,7 @@ public class BiasesFinder {
 
   public static void main(String[] args) {
     Random random = new Random(1);
-    int n = 2000;
+    int n = 1000;
     int nTop = 3;
     int nBars = 10;
     int gridW = 10;
@@ -155,8 +155,18 @@ public class BiasesFinder {
   private static List<NamedFunction<Grid<Boolean>, ? extends Number>> descriptors() {
     return List.of(
         NamedFunction.build("nVoxels", "%.1f", s -> s.values().stream().filter(v -> v).count()),
-        NamedFunction.build("w", "%.1f", s -> Utils.cropGrid(s,v -> v).getW()),
-        NamedFunction.build("h", "%.1f", s -> Utils.cropGrid(s,v -> v).getH())
+        NamedFunction.build("w", "%.1f", s -> Utils.cropGrid(s, v -> v).getW()),
+        NamedFunction.build("h", "%.1f", s -> Utils.cropGrid(s, v -> v).getH()),
+        NamedFunction.build("center.x", "%.1f", s -> Utils.cropGrid(s, v -> v).stream()
+            .filter(e -> e.getValue() != null)
+            .mapToDouble(e -> (double) e.getX() / (double) s.getW())
+            .average().orElse(0d)),
+        NamedFunction.build("center.y", "%.1f", s -> Utils.cropGrid(s, v -> v).stream()
+            .filter(e -> e.getValue() != null)
+            .mapToDouble(e -> (double) e.getY() / (double) s.getH())
+            .average().orElse(0d)),
+        NamedFunction.build("compactness", "%.2f", Utils::shapeCompactness),
+        NamedFunction.build("elongation", "%.2f", Utils::shapeElongation)
     );
   }
 
