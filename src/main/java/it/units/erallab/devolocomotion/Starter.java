@@ -311,11 +311,13 @@ public class Starter extends Worker {
         "-(?<nInitial>\\d+)-(?<nStep>\\d+)";
     String devoTreeHomoMLP = "devoTreeHomoMLP-(?<ratio>\\d+(\\.\\d+)?)" +
         "-(?<nLayers>\\d+)-(?<nSignals>\\d+)" +
-        "-(?<nInitial>\\d+)-(?<nStep>\\d+)";
+        "-(?<nInitial>\\d+)-(?<nStep>\\d+)" +
+        "(-(?<cStep>\\d+(\\.\\d+)?))?";
     String devoCondTreeHomoMLP = "devoCondTreeHomoMLP-(?<ratio>\\d+(\\.\\d+)?)" +
         "-(?<nLayers>\\d+)-(?<nSignals>\\d+)" +
         "-(?<selFunc>(areaRatioEnergy|areaRatio))-(?<maxFirst>(t|f))" +
-        "-(?<nInitial>\\d+)-(?<nStep>\\d+)";
+        "-(?<nInitial>\\d+)-(?<nStep>\\d+)" +
+        "(-(?<cStep>\\d+(\\.\\d+)?))?";
     String fixedPhases = "devoPhases-(?<f>\\d+(\\.\\d+)?)-(?<nInitial>\\d+)-(?<nStep>\\d+)";
     String directNumGrid = "directNumGrid";
     Map<String, String> params;
@@ -356,12 +358,14 @@ public class Starter extends Worker {
       );
     }
     if ((params = params(devoTreeHomoMLP, name)) != null) {
+      String controllerStep = params.get("cStep");
       return new DevoTreeHomoMLP(
           Double.parseDouble(params.get("ratio")),
           Integer.parseInt(params.get("nLayers")),
           Integer.parseInt(params.get("nSignals")),
           Integer.parseInt(params.get("nInitial")),
-          Integer.parseInt(params.get("nStep"))
+          Integer.parseInt(params.get("nStep")),
+          controllerStep == null ? 0 : Double.parseDouble(controllerStep)
       );
     }
     if ((params = params(devoCondHomoMLP, name)) != null) {
@@ -376,6 +380,7 @@ public class Starter extends Worker {
       );
     }
     if ((params = params(devoCondTreeHomoMLP, name)) != null) {
+      String controllerStep = params.get("cStep");
       return new DevoConditionedTreeHomoMLP(
           Double.parseDouble(params.get("ratio")),
           Integer.parseInt(params.get("nLayers")),
@@ -383,7 +388,8 @@ public class Starter extends Worker {
           params.get("selFunc").equals("areaRatioEnergy") ? Voxel::getAreaRatioEnergy : Voxel::getAreaRatio,
           params.get("maxFirst").startsWith("t"),
           Integer.parseInt(params.get("nInitial")),
-          Integer.parseInt(params.get("nStep"))
+          Integer.parseInt(params.get("nStep")),
+          controllerStep == null ? 0 : Double.parseDouble(controllerStep)
       );
     }
     //misc

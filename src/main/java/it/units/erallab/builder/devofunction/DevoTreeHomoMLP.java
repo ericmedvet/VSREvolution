@@ -3,6 +3,7 @@ package it.units.erallab.builder.devofunction;
 import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.erallab.builder.phenotype.MLP;
 import it.units.erallab.builder.robot.FixedHomoDistributed;
+import it.units.erallab.hmsrobots.core.controllers.AbstractController;
 import it.units.erallab.hmsrobots.core.controllers.Controller;
 import it.units.erallab.hmsrobots.core.controllers.TimedRealFunction;
 import it.units.erallab.hmsrobots.core.objects.Robot;
@@ -71,16 +72,22 @@ public class DevoTreeHomoMLP implements PrototypedFunctionBuilder<Pair<Tree<Doub
   protected final FixedHomoDistributed fixedHomoDistributed;
   protected final int nInitial;
   protected final int nStep;
+  private final double controllerStep;
 
-  public DevoTreeHomoMLP(double innerLayerRatio, int nOfInnerLayers, int signals, int nInitial, int nStep) {
+  public DevoTreeHomoMLP(double innerLayerRatio, int nOfInnerLayers, int signals, int nInitial, int nStep, double controllerStep) {
     mlp = new MLP(innerLayerRatio, nOfInnerLayers);
     fixedHomoDistributed = new FixedHomoDistributed(signals);
     this.nInitial = nInitial;
     this.nStep = nStep;
+    this.controllerStep = controllerStep;
+  }
+
+  public DevoTreeHomoMLP(double innerLayerRatio, int nOfInnerLayers, int signals, int nInitial, int nStep) {
+    this(innerLayerRatio, nOfInnerLayers, signals, nInitial, nStep, 0d);
   }
 
   @Override
-  @SuppressWarnings({"unchecked", "rawtypes"})
+  @SuppressWarnings({"unchecked"})
   public Function<Pair<Tree<Double>, List<Double>>, UnaryOperator<Robot<? extends SensingVoxel>>> buildFor(UnaryOperator<Robot<? extends SensingVoxel>> robotUnaryOperator) {
     Robot<? extends SensingVoxel> target = robotUnaryOperator.apply(null);
     SensingVoxel voxelPrototype = target.getVoxels().values().stream().filter(Objects::nonNull).findFirst().orElse(null);
@@ -111,7 +118,7 @@ public class DevoTreeHomoMLP implements PrototypedFunctionBuilder<Pair<Tree<Doub
           devoTree = ((DecoratedRobot) previous).getDevelopmentTree();
           n = countEnabled(devoTree) + nStep;
         }
-        develop(devoTree, getComparator(true,previous), n);
+        develop(devoTree, getComparator(true, previous), n);
         int maxX = devoTree.topSubtrees().stream().mapToInt(t -> t.content().x).max().orElse(0);
         int maxY = devoTree.topSubtrees().stream().mapToInt(t -> t.content().y).max().orElse(0);
         Grid<Boolean> shape = Grid.create(maxX + 1, maxY + 1, false);
@@ -125,8 +132,12 @@ public class DevoTreeHomoMLP implements PrototypedFunctionBuilder<Pair<Tree<Doub
         //build controller
         Robot<? extends SensingVoxel> robot = new Robot<>(Controller.empty(), body);
         TimedRealFunction timedRealFunction = mlp.buildFor(fixedHomoDistributed.exampleFor(target)).apply(list);
+        AbstractController<?> controller = (AbstractController<?>) fixedHomoDistributed.buildFor(robot).apply(timedRealFunction).getController();
+        if (controllerStep > 0) {
+          controller = Controller.step(controller, controllerStep);
+        }
         return new DecoratedRobot(
-            (Controller) fixedHomoDistributed.buildFor(robot).apply(timedRealFunction).getController(),
+            (Controller<SensingVoxel>) controller,
             robot.getVoxels(),
             devoTree
         );

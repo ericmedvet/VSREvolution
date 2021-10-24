@@ -29,8 +29,10 @@ public class DevoConditionedTreeHomoMLP extends DevoTreeHomoMLP implements Proto
     this.maxFirst = maxFirst;
   }
 
-  public DevoConditionedTreeHomoMLP(double innerLayerRatio, int nOfInnerLayers, int signals, Function<Voxel, Double> selectionFunction, int nInitial, int nStep) {
-    this(innerLayerRatio, nOfInnerLayers, signals, selectionFunction, false, nInitial, nStep);
+  public DevoConditionedTreeHomoMLP(double innerLayerRatio, int nOfInnerLayers, int signals, Function<Voxel, Double> selectionFunction, boolean maxFirst, int nInitial, int nStep, double controllerStep) {
+    super(innerLayerRatio, nOfInnerLayers, signals, nInitial, nStep, controllerStep);
+    this.selectionFunction = selectionFunction;
+    this.maxFirst = maxFirst;
   }
 
   @Override
