@@ -100,9 +100,21 @@ public class NamedFunctions {
 
   public static List<NamedFunction<DevoOutcome, ?>> outcomesFunctions() {
     return List.of(
-        f("speed.average", "%4.1f", o -> o.getLocomotionOutcomes().stream().mapToDouble(Outcome::getVelocity).average().orElse(Double.NaN)),
-        f("speed.min", "%4.1f", o -> o.getLocomotionOutcomes().stream().mapToDouble(Outcome::getVelocity).min().orElse(Double.NaN)),
-        f("speed.max", "%4.1f", o -> o.getLocomotionOutcomes().stream().mapToDouble(Outcome::getVelocity).max().orElse(Double.NaN)),
+        f("speed.average", "%4.1f", o -> o.getLocomotionOutcomes().stream()
+            .map(Outcome::getVelocity)
+            .filter(v -> !v.isNaN())
+            .mapToDouble(d -> d)
+            .average().orElse(Double.NaN)),
+        f("speed.min", "%4.1f", o -> o.getLocomotionOutcomes().stream()
+            .map(Outcome::getVelocity)
+            .filter(v -> !v.isNaN())
+            .mapToDouble(d -> d)
+            .min().orElse(Double.NaN)),
+        f("speed.max", "%4.1f", o -> o.getLocomotionOutcomes().stream()
+            .map(Outcome::getVelocity)
+            .filter(v -> !v.isNaN())
+            .mapToDouble(d -> d)
+            .max().orElse(Double.NaN)),
         f("time", "%2.1f", o -> o.getLocomotionOutcomes().stream().mapToDouble(Outcome::getTime).sum())
     );
   }

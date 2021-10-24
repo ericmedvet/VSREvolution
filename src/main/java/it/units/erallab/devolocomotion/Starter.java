@@ -200,7 +200,7 @@ public class Starter extends Worker {
               //prepare keys
               Map<String, Object> keys = Map.ofEntries(
                   Map.entry("experiment.name", experimentName),
-                  Map.entry("fitness",fitnessFunctionName),
+                  Map.entry("fitness", fitnessFunctionName),
                   Map.entry("seed", seed),
                   Map.entry("terrain", terrainName),
                   Map.entry("devo.function", devoFunctionName),
@@ -423,7 +423,10 @@ public class Starter extends Worker {
       return devoOutcome -> devoOutcome.getLocomotionOutcomes().stream().mapToDouble(Outcome::getDistance).sum();
     }
     if (params(maxSpeed, name) != null) {
-      return devoOutcome -> devoOutcome.getLocomotionOutcomes().stream().mapToDouble(Outcome::getVelocity).max().orElse(0d);
+      return devoOutcome -> devoOutcome.getLocomotionOutcomes().stream()
+          .map(Outcome::getVelocity)
+          .filter(v -> !v.isNaN())
+          .max(Double::compare).orElse(0d);
     }
     throw new IllegalArgumentException(String.format("Unknown fitness function name: %s", name));
   }
