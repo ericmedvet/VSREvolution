@@ -5,6 +5,7 @@ import it.units.erallab.builder.DirectNumbersGrid;
 import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.erallab.builder.devofunction.*;
 import it.units.erallab.builder.evolver.EvolverBuilder;
+import it.units.erallab.builder.evolver.PairsTree;
 import it.units.erallab.builder.evolver.TreeAndDoubles;
 import it.units.erallab.hmsrobots.core.controllers.Controller;
 import it.units.erallab.hmsrobots.core.objects.Robot;
@@ -321,6 +322,8 @@ public class Starter extends Worker {
         "-(?<selFunc>(areaRatioEnergy|areaRatio))-(?<maxFirst>(t|f))" +
         "-(?<nInitial>\\d+)-(?<nStep>\\d+)" +
         "(-(?<cStep>\\d+(\\.\\d+)?))?";
+    String devoTreePhases = "devoTreePhases-(?<f>\\d+(\\.\\d+)?)-(?<nInitial>\\d+)-(?<nStep>\\d+)" +
+        "(-(?<cStep>\\d+(\\.\\d+)?))?";
     String fixedPhases = "devoPhases-(?<f>\\d+(\\.\\d+)?)-(?<nInitial>\\d+)-(?<nStep>\\d+)";
     String directNumGrid = "directNumGrid";
     Map<String, String> params;
@@ -331,6 +334,16 @@ public class Starter extends Worker {
           1d,
           Integer.parseInt(params.get("nInitial")),
           Integer.parseInt(params.get("nStep"))
+      );
+    }
+    if ((params = params(devoTreePhases, name)) != null) {
+      String controllerStep = params.get("cStep");
+      return new DevoTreePhases(
+          Double.parseDouble(params.get("f")),
+          1d,
+          Integer.parseInt(params.get("nInitial")),
+          Integer.parseInt(params.get("nStep")),
+          controllerStep == null ? 0 : Double.parseDouble(controllerStep)
       );
     }
     if ((params = params(devoHomoMLP, name)) != null) {
@@ -404,9 +417,18 @@ public class Starter extends Worker {
 
   public static EvolverBuilder<?> getEvolverBuilderFromName(String name) {
     String treeNumGA = "treeNumGA-(?<nPop>\\d+)-(?<diversity>(t|f))";
+    String treePairGA = "treePairGA-(?<nPop>\\d+)-(?<diversity>(t|f))";
     Map<String, String> params;
     if ((params = params(treeNumGA, name)) != null) {
       return new TreeAndDoubles(
+          Integer.parseInt(params.get("nPop")),
+          (int) Math.max(Math.round((double) Integer.parseInt(params.get("nPop")) / 10d), 3),
+          0.75d,
+          params.get("diversity").equals("t")
+      );
+    }
+    if ((params = params(treePairGA, name)) != null) {
+      return new PairsTree(
           Integer.parseInt(params.get("nPop")),
           (int) Math.max(Math.round((double) Integer.parseInt(params.get("nPop")) / 10d), 3),
           0.75d,
