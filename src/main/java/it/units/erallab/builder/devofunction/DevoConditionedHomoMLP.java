@@ -20,7 +20,7 @@ public class DevoConditionedHomoMLP extends DevoHomoMLP implements PrototypedFun
   private final boolean maxFirst;
 
   public DevoConditionedHomoMLP(double innerLayerRatio, int nOfInnerLayers, int signals, Function<Voxel, Double> selectionFunction, boolean maxFirst, int nInitial, int nStep) {
-    super(innerLayerRatio, nOfInnerLayers, signals, nInitial, nStep);
+    super(innerLayerRatio, nOfInnerLayers, signals, nInitial, nStep, 0d);
     this.selectionFunction = selectionFunction;
     this.maxFirst = maxFirst;
   }

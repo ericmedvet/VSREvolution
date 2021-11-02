@@ -3,6 +3,7 @@ package it.units.erallab.builder.devofunction;
 import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.erallab.builder.phenotype.MLP;
 import it.units.erallab.builder.robot.FixedHomoDistributed;
+import it.units.erallab.hmsrobots.core.controllers.AbstractController;
 import it.units.erallab.hmsrobots.core.controllers.Controller;
 import it.units.erallab.hmsrobots.core.controllers.TimedRealFunction;
 import it.units.erallab.hmsrobots.core.objects.Robot;
@@ -27,12 +28,14 @@ public class DevoHomoMLP implements PrototypedFunctionBuilder<List<Double>, Unar
   protected final FixedHomoDistributed fixedHomoDistributed;
   protected final int nInitial;
   protected final int nStep;
+  private final double controllerStep;
 
-  public DevoHomoMLP(double innerLayerRatio, int nOfInnerLayers, int signals, int nInitial, int nStep) {
+  public DevoHomoMLP(double innerLayerRatio, int nOfInnerLayers, int signals, int nInitial, int nStep, double controllerStep) {
     mlp = new MLP(innerLayerRatio, nOfInnerLayers);
     fixedHomoDistributed = new FixedHomoDistributed(signals);
     this.nInitial = nInitial;
     this.nStep = nStep;
+    this.controllerStep = controllerStep;
   }
 
   @Override
@@ -62,7 +65,11 @@ public class DevoHomoMLP implements PrototypedFunctionBuilder<List<Double>, Unar
         //build controller
         Robot<? extends SensingVoxel> robot = new Robot<>(Controller.empty(), body);
         TimedRealFunction timedRealFunction = mlp.buildFor(fixedHomoDistributed.exampleFor(target)).apply(listOfWeights);
-        return fixedHomoDistributed.buildFor(robot).apply(timedRealFunction);
+        AbstractController<?> controller = (AbstractController<?>) fixedHomoDistributed.buildFor(robot).apply(timedRealFunction).getController();
+        if (controllerStep > 0) {
+          controller = Controller.step(controller, controllerStep);
+        }
+        return new Robot<>((Controller<SensingVoxel>) controller, robot.getVoxels());
       };
     };
   }

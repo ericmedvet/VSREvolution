@@ -11,7 +11,7 @@ import java.util.Objects;
 public class DevoRandomAdditionHomoMLP extends DevoHomoMLP {
 
   public DevoRandomAdditionHomoMLP(double innerLayerRatio, int nOfInnerLayers, int signals, int nInitial, int nStep) {
-    super(innerLayerRatio, nOfInnerLayers, signals, nInitial, nStep);
+    super(innerLayerRatio, nOfInnerLayers, signals, nInitial, nStep,0d);
   }
 
   @Override

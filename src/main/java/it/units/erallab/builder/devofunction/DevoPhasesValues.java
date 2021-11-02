@@ -1,17 +1,21 @@
 package it.units.erallab.builder.devofunction;
 
 import it.units.erallab.builder.PrototypedFunctionBuilder;
+import it.units.erallab.hmsrobots.core.controllers.AbstractController;
 import it.units.erallab.hmsrobots.core.controllers.Controller;
 import it.units.erallab.hmsrobots.core.controllers.TimeFunctions;
 import it.units.erallab.hmsrobots.core.objects.ControllableVoxel;
 import it.units.erallab.hmsrobots.core.objects.Robot;
-import it.units.erallab.hmsrobots.tasks.devolocomotion.DevoLocomotion;
+import it.units.erallab.hmsrobots.tasks.devolocomotion.DistanceBasedDevoLocomotion;
 import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
-import it.units.erallab.hmsrobots.util.*;
+import it.units.erallab.hmsrobots.util.Grid;
+import it.units.erallab.hmsrobots.util.RobotUtils;
+import it.units.erallab.hmsrobots.util.SerializationUtils;
+import it.units.erallab.hmsrobots.util.Utils;
 import org.dyn4j.dynamics.Settings;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
 
@@ -24,12 +28,14 @@ public class DevoPhasesValues implements PrototypedFunctionBuilder<Grid<double[]
   private final double amplitude;
   private final int nInitial;
   private final int nStep;
+  private final double controllerStep;
 
-  public DevoPhasesValues(double frequency, double amplitude, int nInitial, int nStep) {
+  public DevoPhasesValues(double frequency, double amplitude, int nInitial, int nStep, double controllerStep) {
     this.frequency = frequency;
     this.amplitude = amplitude;
     this.nInitial = nInitial;
     this.nStep = nStep;
+    this.controllerStep = controllerStep;
   }
 
   @Override
@@ -81,12 +87,15 @@ public class DevoPhasesValues implements PrototypedFunctionBuilder<Grid<double[]
         //build controller
         double localAmplitude = amplitude; // copy needed to enable lambdas serialization
         double localFrequency = frequency;
-        TimeFunctions controller = new TimeFunctions(Grid.create(
+        AbstractController<?> controller = new TimeFunctions(Grid.create(
             body.getW(),
             body.getH(),
             (x, y) -> t -> localAmplitude * Math.sin(2 * Math.PI * localFrequency * t + phases.get(x, y))
         ));
-        return new Robot<>(controller, body);
+        if (controllerStep > 0) {
+          controller = Controller.step(controller, controllerStep);
+        }
+        return new Robot<>((Controller<ControllableVoxel>) controller, body);
       };
     };
   }
@@ -119,10 +128,10 @@ public class DevoPhasesValues implements PrototypedFunctionBuilder<Grid<double[]
         Controller.empty(),
         RobotUtils.buildSensorizingFunction("uniform-a-0.01").apply(RobotUtils.buildShape("box-10x10"))
     );
-    UnaryOperator<Robot<?>> devoPhases = new DevoPhasesValues(1, 1, 5, 1)
+    UnaryOperator<Robot<?>> devoPhases = new DevoPhasesValues(1, 1, 5, 1, 0d)
         .buildFor(target)
         .apply(Grid.create(10, 10, (x, y) -> new double[]{x + y, x * y / 10d}));
-    DevoLocomotion devoLocomotion = new DevoLocomotion(
+    DistanceBasedDevoLocomotion devoLocomotion = new DistanceBasedDevoLocomotion(
         10, 20, 60,
         Locomotion.createTerrain("downhill-30"),
         new Settings()

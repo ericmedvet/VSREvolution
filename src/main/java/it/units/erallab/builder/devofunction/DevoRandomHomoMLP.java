@@ -20,7 +20,7 @@ import java.util.stream.IntStream;
 public class DevoRandomHomoMLP extends DevoHomoMLP implements PrototypedFunctionBuilder<List<Double>, UnaryOperator<Robot<? extends SensingVoxel>>> {
 
   public DevoRandomHomoMLP(double innerLayerRatio, int nOfInnerLayers, int signals, int nInitial, int nStep) {
-    super(innerLayerRatio, nOfInnerLayers, signals, nInitial, nStep);
+    super(innerLayerRatio, nOfInnerLayers, signals, nInitial, nStep, 0d);
   }
 
   @Override
