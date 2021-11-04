@@ -10,8 +10,10 @@ import it.units.erallab.builder.evolver.TreeAndDoubles;
 import it.units.erallab.hmsrobots.core.controllers.Controller;
 import it.units.erallab.hmsrobots.core.objects.Robot;
 import it.units.erallab.hmsrobots.core.objects.Voxel;
-import it.units.erallab.hmsrobots.tasks.devolocomotion.DevoLocomotion;
+import it.units.erallab.hmsrobots.tasks.Task;
 import it.units.erallab.hmsrobots.tasks.devolocomotion.DevoOutcome;
+import it.units.erallab.hmsrobots.tasks.devolocomotion.DistanceBasedDevoLocomotion;
+import it.units.erallab.hmsrobots.tasks.devolocomotion.TimeBasedDevoLocomotion;
 import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
 import it.units.erallab.hmsrobots.tasks.locomotion.Outcome;
 import it.units.erallab.hmsrobots.util.RobotUtils;
@@ -67,12 +69,17 @@ public class Starter extends Worker {
   @Override
   public void run() {
     //main params
+    String developmentCriterion = a("devoCriterion", "distance");
+    boolean distanceBasedDevelopment = developmentCriterion.startsWith("d");
     double episodeTime = d(a("episodeTime", "60"));
     double stageMaxTime = d(a("stageMaxTime", "20"));
     double stageMinDistance = d(a("stageMinDistance", "20"));
+    String stringDevelopmentSchedule = a("devoSchedule", "10,20,30,45");
+    List<Double> developmentSchedule = l(stringDevelopmentSchedule).stream().map(Double::parseDouble).collect(Collectors.toList());
     double validationEpisodeTime = d(a("validationEpisodeTime", Double.toString(episodeTime)));
     double validationStageMaxTime = d(a("validationStageMaxTime", Double.toString(stageMaxTime)));
     double validationStageMinDistance = d(a("validationStageMinDistance", Double.toString(stageMinDistance)));
+    List<Double> validationDevelopmentSchedule = l(a("validationDevoSchedule", stringDevelopmentSchedule)).stream().map(Double::parseDouble).collect(Collectors.toList());
     int nEvals = i(a("nEvals", "800"));
     int[] seeds = ri(a("seed", "0:1"));
     String experimentName = a("expName", "short");
@@ -157,7 +164,8 @@ public class Starter extends Worker {
         validationTerrainNames.add(terrainNames.get(0));
       }
       Listener.Factory<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>> validationFactory = Listener.Factory.forEach(
-          validation(validationTerrainNames, List.of(0), validationStageMinDistance, validationStageMaxTime, validationEpisodeTime),
+          validation(validationTerrainNames, List.of(0),
+              validationStageMinDistance, validationStageMaxTime, validationDevelopmentSchedule, validationEpisodeTime, distanceBasedDevelopment),
           new CSVPrinter<>(
               Misc.concat(List.of(
                   NamedFunction.then(f("event", (DevoValidationOutcome vo) -> vo.event), keysFunctions),
@@ -178,7 +186,7 @@ public class Starter extends Worker {
       factory = factory.and(new TelegramUpdater<>(List.of(
           lastEventToString(fitnessFunction),
           fitnessPlot(fitnessFunction),
-          bestVideo(stageMinDistance, stageMaxTime, episodeTime)
+          bestVideo(stageMinDistance, stageMaxTime, developmentSchedule, episodeTime, distanceBasedDevelopment)
       ), telegramBotId, telegramChatId));
     }
     //summarize params
@@ -209,7 +217,9 @@ public class Starter extends Worker {
                   Map.entry("evolver", evolverName),
                   Map.entry("episode.time", episodeTime),
                   Map.entry("stage.max.time", stageMaxTime),
-                  Map.entry("stage.min.dist", stageMinDistance)
+                  Map.entry("stage.min.dist", stageMinDistance),
+                  Map.entry("development.schedule", stringDevelopmentSchedule),
+                  Map.entry("development.criterion", developmentCriterion)
               );
               //prepare target
               UnaryOperator<Robot<?>> target = r -> new Robot<>(
@@ -246,7 +256,7 @@ public class Starter extends Worker {
               //build task
               try {
                 Collection<UnaryOperator<Robot<?>>> solutions = evolver.solve(
-                    buildLocomotionTask(terrainName, stageMinDistance, stageMaxTime, episodeTime, random),
+                    buildLocomotionTask(terrainName, stageMinDistance, stageMaxTime, developmentSchedule, episodeTime, distanceBasedDevelopment, random),
                     new FitnessEvaluations(nEvals),
                     random,
                     executorService,
@@ -273,19 +283,42 @@ public class Starter extends Worker {
     factory.shutdown();
   }
 
-  public static Function<UnaryOperator<Robot<?>>, DevoOutcome> buildLocomotionTask(String terrainName, double stageMinDistance, double stageMaxT, double maxT, Random random) {
+  public static Function<UnaryOperator<Robot<?>>, DevoOutcome> buildLocomotionTask(
+      String terrainName, double stageMinDistance, double stageMaxT, List<Double> developmentSchedule, double maxT, boolean distanceBasedDevelopment, Random random) {
     if (!terrainName.contains("-rnd")) {
-      return Misc.cached(new DevoLocomotion(
-          stageMinDistance, stageMaxT, maxT,
-          Locomotion.createTerrain(terrainName),
-          it.units.erallab.locomotion.Starter.PHYSICS_SETTINGS
-      ), it.units.erallab.locomotion.Starter.CACHE_SIZE);
+      Task<UnaryOperator<Robot<?>>, DevoOutcome> devoLocomotion;
+      if (distanceBasedDevelopment) {
+        devoLocomotion = new DistanceBasedDevoLocomotion(
+            stageMinDistance, stageMaxT, maxT,
+            Locomotion.createTerrain(terrainName),
+            it.units.erallab.locomotion.Starter.PHYSICS_SETTINGS
+        );
+      } else {
+        devoLocomotion = new TimeBasedDevoLocomotion(
+            developmentSchedule, maxT,
+            Locomotion.createTerrain(terrainName),
+            it.units.erallab.locomotion.Starter.PHYSICS_SETTINGS
+        );
+      }
+      return Misc.cached(devoLocomotion, it.units.erallab.locomotion.Starter.CACHE_SIZE);
     }
-    return r -> new DevoLocomotion(
-        stageMinDistance, stageMaxT, maxT,
-        Locomotion.createTerrain(terrainName.replace("-rnd", "-" + random.nextInt(10000))),
-        it.units.erallab.locomotion.Starter.PHYSICS_SETTINGS
-    ).apply(r);
+    return r -> {
+      Task<UnaryOperator<Robot<?>>, DevoOutcome> devoLocomotion;
+      if (distanceBasedDevelopment) {
+        devoLocomotion = new DistanceBasedDevoLocomotion(
+            stageMinDistance, stageMaxT, maxT,
+            Locomotion.createTerrain(terrainName.replace("-rnd", "-" + random.nextInt(10000))),
+            it.units.erallab.locomotion.Starter.PHYSICS_SETTINGS
+        );
+      } else {
+        devoLocomotion = new TimeBasedDevoLocomotion(
+            developmentSchedule, maxT,
+            Locomotion.createTerrain(terrainName.replace("-rnd", "-" + random.nextInt(10000))),
+            it.units.erallab.locomotion.Starter.PHYSICS_SETTINGS
+        );
+      }
+      return devoLocomotion.apply(r);
+    };
   }
 
   @SuppressWarnings({"unchecked", "rawtypes"})
@@ -306,7 +339,8 @@ public class Starter extends Worker {
   }
 
   private static PrototypedFunctionBuilder<?, ?> getDevoFunctionByName(String name) {
-    String devoHomoMLP = "devoHomoMLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<nSignals>\\d+)-(?<nInitial>\\d+)-(?<nStep>\\d+)";
+    String devoHomoMLP = "devoHomoMLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<nSignals>\\d+)-(?<nInitial>\\d+)-(?<nStep>\\d+)" +
+        "(-(?<cStep>\\d+(\\.\\d+)?))?";
     String devoRandomHomoMLP = "devoRndHomoMLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<nSignals>\\d+)-(?<nInitial>\\d+)-(?<nStep>\\d+)";
     String devoRandomAdditionHomoMLP = "devoRndAddHomoMLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<nSignals>\\d+)-(?<nInitial>\\d+)-(?<nStep>\\d+)";
     String devoCondHomoMLP = "devoCondHomoMLP-(?<ratio>\\d+(\\.\\d+)?)" +
@@ -324,16 +358,23 @@ public class Starter extends Worker {
         "(-(?<cStep>\\d+(\\.\\d+)?))?";
     String devoTreePhases = "devoTreePhases-(?<f>\\d+(\\.\\d+)?)-(?<nInitial>\\d+)-(?<nStep>\\d+)" +
         "(-(?<cStep>\\d+(\\.\\d+)?))?";
-    String fixedPhases = "devoPhases-(?<f>\\d+(\\.\\d+)?)-(?<nInitial>\\d+)-(?<nStep>\\d+)";
+    String fixedPhases = "devoPhases-(?<f>\\d+(\\.\\d+)?)-(?<nInitial>\\d+)-(?<nStep>\\d+)" +
+        "(-(?<cStep>\\d+(\\.\\d+)?))?";
     String directNumGrid = "directNumGrid";
+    String devoCAHomoMLP = "devoCAHomoMLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<nSignals>\\d+)" +
+        "-(?<caRatio>\\d+(\\.\\d+)?)-(?<caNLayers>\\d+)" +
+        "-(?<nInitial>\\d+)-(?<nStep>\\d+)" +
+        "(-(?<cStep>\\d+(\\.\\d+)?))?";
     Map<String, String> params;
     //devo functions
     if ((params = params(fixedPhases, name)) != null) {
+      String controllerStep = params.get("cStep");
       return new DevoPhasesValues(
           Double.parseDouble(params.get("f")),
           1d,
           Integer.parseInt(params.get("nInitial")),
-          Integer.parseInt(params.get("nStep"))
+          Integer.parseInt(params.get("nStep")),
+          controllerStep == null ? 0 : Double.parseDouble(controllerStep)
       );
     }
     if ((params = params(devoTreePhases, name)) != null) {
@@ -347,12 +388,27 @@ public class Starter extends Worker {
       );
     }
     if ((params = params(devoHomoMLP, name)) != null) {
+      String controllerStep = params.get("cStep");
       return new DevoHomoMLP(
           Double.parseDouble(params.get("ratio")),
           Integer.parseInt(params.get("nLayers")),
           Integer.parseInt(params.get("nSignals")),
           Integer.parseInt(params.get("nInitial")),
-          Integer.parseInt(params.get("nStep"))
+          Integer.parseInt(params.get("nStep")),
+          controllerStep == null ? 0 : Double.parseDouble(controllerStep)
+      );
+    }
+    if ((params = params(devoCAHomoMLP, name)) != null) {
+      String controllerStep = params.get("cStep");
+      return new DevoCaMLP(
+          Double.parseDouble(params.get("ratio")),
+          Integer.parseInt(params.get("nLayers")),
+          Integer.parseInt(params.get("nSignals")),
+          Double.parseDouble(params.get("caRatio")),
+          Integer.parseInt(params.get("caNLayers")),
+          Integer.parseInt(params.get("nInitial")),
+          Integer.parseInt(params.get("nStep")),
+          controllerStep == null ? 0 : Double.parseDouble(controllerStep)
       );
     }
     if ((params = params(devoRandomHomoMLP, name)) != null) {

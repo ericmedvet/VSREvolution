@@ -2,8 +2,10 @@ package it.units.erallab.devolocomotion;
 
 import it.units.erallab.devolocomotion.Starter.DevoValidationOutcome;
 import it.units.erallab.hmsrobots.core.objects.Robot;
-import it.units.erallab.hmsrobots.tasks.devolocomotion.DevoLocomotion;
+import it.units.erallab.hmsrobots.tasks.Task;
 import it.units.erallab.hmsrobots.tasks.devolocomotion.DevoOutcome;
+import it.units.erallab.hmsrobots.tasks.devolocomotion.DistanceBasedDevoLocomotion;
+import it.units.erallab.hmsrobots.tasks.devolocomotion.TimeBasedDevoLocomotion;
 import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
 import it.units.erallab.hmsrobots.tasks.locomotion.Outcome;
 import it.units.erallab.hmsrobots.util.Grid;
@@ -70,7 +72,9 @@ public class NamedFunctions {
         eventAttribute("evolver"),
         eventAttribute("episode.time"),
         eventAttribute("stage.max.time"),
-        eventAttribute("stage.min.dist")
+        eventAttribute("stage.min.dist"),
+        eventAttribute("development.schedule"),
+        eventAttribute("development.criterion")
     );
   }
 
@@ -155,18 +159,28 @@ public class NamedFunctions {
     )).then(ImagePlotters.xyLines(600, 400));
   }
 
-  public static Accumulator.Factory<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>, File> bestVideo(double stageMinDistance, double stageMaxT, double maxT) {
+  public static Accumulator.Factory<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>, File> bestVideo(
+      double stageMinDistance, double stageMaxT, List<Double> developmentSchedule, double maxT, boolean distanceBasedDevelopment) {
     return Accumulator.Factory.<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>>last().then(
         event -> {
           Random random = new Random(0);
           SortedMap<Long, String> terrainSequence = Starter.getSequence((String) event.getAttributes().get("terrain"));
           String terrainName = terrainSequence.get(terrainSequence.lastKey());
           UnaryOperator<Robot<?>> solution = Misc.first(event.getOrderedPopulation().firsts()).getSolution();
-          DevoLocomotion devoLocomotion = new DevoLocomotion(
-              stageMinDistance, stageMaxT, maxT,
-              Locomotion.createTerrain(terrainName.replace("-rnd", "-" + random.nextInt(10000))),
-              Starter.PHYSICS_SETTINGS
-          );
+          Task<UnaryOperator<Robot<?>>, ? extends DevoOutcome> devoLocomotion;
+          if (distanceBasedDevelopment) {
+            devoLocomotion = new DistanceBasedDevoLocomotion(
+                stageMinDistance, stageMaxT, maxT,
+                Locomotion.createTerrain(terrainName.replace("-rnd", "-" + random.nextInt(10000))),
+                Starter.PHYSICS_SETTINGS
+            );
+          } else {
+            devoLocomotion = new TimeBasedDevoLocomotion(
+                developmentSchedule, maxT,
+                Locomotion.createTerrain(terrainName.replace("-rnd", "-" + random.nextInt(10000))),
+                Starter.PHYSICS_SETTINGS
+            );
+          }
           File file;
           try {
             file = File.createTempFile("robot-video", ".mp4");
@@ -186,23 +200,28 @@ public class NamedFunctions {
   }
 
   public static Function<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>, Collection<DevoValidationOutcome>> validation(
-      List<String> validationTerrainNames,
-      List<Integer> seeds,
-      double stageMinDistance,
-      double stageMaxT,
-      double episodeTime
-  ) {
+      List<String> validationTerrainNames, List<Integer> seeds,
+      double stageMinDistance, double stageMaxT, List<Double> developmentSchedule, double maxT, boolean distanceBasedDevelopment) {
     return event -> {
       UnaryOperator<Robot<?>> solution = Misc.first(event.getOrderedPopulation().firsts()).getSolution();
       List<DevoValidationOutcome> devoValidationOutcomes = new ArrayList<>();
       for (String validationTerrainName : validationTerrainNames) {
         for (int seed : seeds) {
           Random random = new Random(seed);
-          DevoLocomotion devoLocomotion = new DevoLocomotion(
-              stageMinDistance, stageMaxT, episodeTime,
-              Locomotion.createTerrain(validationTerrainName.replace("-rnd", "-" + random.nextInt(10000))),
-              Starter.PHYSICS_SETTINGS
-          );
+          Task<UnaryOperator<Robot<?>>, ? extends DevoOutcome> devoLocomotion;
+          if (distanceBasedDevelopment) {
+            devoLocomotion = new DistanceBasedDevoLocomotion(
+                stageMinDistance, stageMaxT, maxT,
+                Locomotion.createTerrain(validationTerrainName.replace("-rnd", "-" + random.nextInt(10000))),
+                Starter.PHYSICS_SETTINGS
+            );
+          } else {
+            devoLocomotion = new TimeBasedDevoLocomotion(
+                developmentSchedule, maxT,
+                Locomotion.createTerrain(validationTerrainName.replace("-rnd", "-" + random.nextInt(10000))),
+                Starter.PHYSICS_SETTINGS
+            );
+          }
 
           DevoOutcome outcomes = devoLocomotion.apply(solution);
           devoValidationOutcomes.add(new DevoValidationOutcome(
