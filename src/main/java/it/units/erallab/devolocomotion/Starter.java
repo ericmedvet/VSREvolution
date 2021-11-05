@@ -15,7 +15,6 @@ import it.units.erallab.hmsrobots.tasks.devolocomotion.DevoOutcome;
 import it.units.erallab.hmsrobots.tasks.devolocomotion.DistanceBasedDevoLocomotion;
 import it.units.erallab.hmsrobots.tasks.devolocomotion.TimeBasedDevoLocomotion;
 import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
-import it.units.erallab.hmsrobots.tasks.locomotion.Outcome;
 import it.units.erallab.hmsrobots.util.RobotUtils;
 import it.units.malelab.jgea.Worker;
 import it.units.malelab.jgea.core.Individual;
@@ -498,11 +497,10 @@ public class Starter extends Worker {
     String distance = "distance";
     String maxSpeed = "maxSpeed";
     if (params(distance, name) != null) {
-      return devoOutcome -> devoOutcome.getLocomotionOutcomes().stream().mapToDouble(Outcome::getDistance).sum();
+      return devoOutcome -> devoOutcome.getDistances().stream().mapToDouble(d -> d).sum();
     }
     if (params(maxSpeed, name) != null) {
-      return devoOutcome -> devoOutcome.getLocomotionOutcomes().stream()
-          .map(Outcome::getVelocity)
+      return devoOutcome -> devoOutcome.getVelocities().stream()
           .filter(v -> !v.isNaN())
           .max(Double::compare).orElse(0d);
     }

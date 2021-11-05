@@ -7,7 +7,6 @@ import it.units.erallab.hmsrobots.tasks.devolocomotion.DevoOutcome;
 import it.units.erallab.hmsrobots.tasks.devolocomotion.DistanceBasedDevoLocomotion;
 import it.units.erallab.hmsrobots.tasks.devolocomotion.TimeBasedDevoLocomotion;
 import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
-import it.units.erallab.hmsrobots.tasks.locomotion.Outcome;
 import it.units.erallab.hmsrobots.util.Grid;
 import it.units.erallab.hmsrobots.util.SerializationUtils;
 import it.units.erallab.hmsrobots.viewers.GridFileWriter;
@@ -45,17 +44,17 @@ public class NamedFunctions {
   public static List<NamedFunction<Individual<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>, ?>> basicIndividualFunctions(Function<DevoOutcome, Double> fitnessFunction) {
     NamedFunction<Individual<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>, ?> size = size().of(genotype());
     NamedFunction<Individual<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>, ? extends Grid<?>> firstShape =
-        f("shape", (Function<Outcome, Grid<?>>) o -> o.getObservations().get(o.getObservations().firstKey()).getVoxelPolies())
-            .of(f("first", (Function<DevoOutcome, Outcome>) l -> l.getLocomotionOutcomes().get(0)))
+        f("shape", (Function<Robot<?>, Grid<?>>) Robot::getVoxels)
+            .of(f("first", (Function<DevoOutcome, Robot<?>>) l -> l.getRobots().get(0)))
             .of(fitness());
     NamedFunction<Individual<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>, ? extends Grid<?>> lastShape =
-        f("shape", (Function<Outcome, Grid<?>>) o -> o.getObservations().get(o.getObservations().firstKey()).getVoxelPolies())
-            .of(f("last", (Function<DevoOutcome, Outcome>) l -> l.getLocomotionOutcomes().get(l.getLocomotionOutcomes().size() - 1)))
+        f("shape", (Function<Robot<?>, Grid<?>>) Robot::getVoxels)
+            .of(f("last", (Function<DevoOutcome, Robot<?>>) l -> l.getRobots().get(l.getRobots().size() - 1)))
             .of(fitness());
     return List.of(
         f("num.voxel", "%2d", (Function<Grid<?>, Number>) g -> g.count(Objects::nonNull)).of(firstShape),
         f("num.voxel", "%2d", (Function<Grid<?>, Number>) g -> g.count(Objects::nonNull)).of(lastShape),
-        f("num.stages", "%2d", i -> i.getFitness().getNumberOfStages()),
+        f("num.stages", "%2d", i -> i.getFitness().getRobots().size()),
         size.reformat("%5d"),
         genotypeBirthIteration(),
         f("fitness", "%5.1f", fitnessFunction).of(fitness())
@@ -104,29 +103,26 @@ public class NamedFunctions {
 
   public static List<NamedFunction<DevoOutcome, ?>> outcomesFunctions() {
     return List.of(
-        f("speed.average", "%4.1f", o -> o.getLocomotionOutcomes().stream()
-            .map(Outcome::getVelocity)
+        f("speed.average", "%4.1f", o -> o.getVelocities().stream()
             .filter(v -> !v.isNaN())
             .mapToDouble(d -> d)
             .average().orElse(Double.NaN)),
-        f("speed.min", "%4.1f", o -> o.getLocomotionOutcomes().stream()
-            .map(Outcome::getVelocity)
+        f("speed.min", "%4.1f", o -> o.getVelocities().stream()
             .filter(v -> !v.isNaN())
             .mapToDouble(d -> d)
             .min().orElse(Double.NaN)),
-        f("speed.max", "%4.1f", o -> o.getLocomotionOutcomes().stream()
-            .map(Outcome::getVelocity)
+        f("speed.max", "%4.1f", o -> o.getVelocities().stream()
             .filter(v -> !v.isNaN())
             .mapToDouble(d -> d)
             .max().orElse(Double.NaN)),
-        f("time", "%2.1f", o -> o.getLocomotionOutcomes().stream().mapToDouble(Outcome::getTime).sum())
+        f("time", "%2.1f", o -> o.getTimes().stream().mapToDouble(d -> d).sum())
     );
   }
 
   public static List<NamedFunction<DevoOutcome, ?>> serializedOutcomesInformation() {
     return List.of(
         f("outcomes.speeds",
-            o -> o.getLocomotionOutcomes().stream().map(Outcome::getVelocity).map(v -> Double.toString(v))
+            o -> o.getVelocities().stream().map(v -> Double.toString(v))
                 .collect(Collectors.joining(","))),
         f("devo.robots",
             o -> o.getRobots().stream().map(r -> SerializationUtils.serialize(r, SerializationUtils.Mode.GZIPPED_JSON))
