@@ -364,6 +364,10 @@ public class Starter extends Worker {
         "-(?<caRatio>\\d+(\\.\\d+)?)-(?<caNLayers>\\d+)" +
         "-(?<nInitial>\\d+)-(?<nStep>\\d+)" +
         "(-(?<cStep>\\d+(\\.\\d+)?))?";
+    String devoCAPhases = "devoCAPhases-(?<f>\\d+(\\.\\d+)?)" +
+        "-(?<caRatio>\\d+(\\.\\d+)?)-(?<caNLayers>\\d+)" +
+        "-(?<nInitial>\\d+)-(?<nStep>\\d+)" +
+        "(-(?<cStep>\\d+(\\.\\d+)?))?";
     Map<String, String> params;
     //devo functions
     if ((params = params(fixedPhases, name)) != null) {
@@ -403,6 +407,18 @@ public class Starter extends Worker {
           Double.parseDouble(params.get("ratio")),
           Integer.parseInt(params.get("nLayers")),
           Integer.parseInt(params.get("nSignals")),
+          Double.parseDouble(params.get("caRatio")),
+          Integer.parseInt(params.get("caNLayers")),
+          Integer.parseInt(params.get("nInitial")),
+          Integer.parseInt(params.get("nStep")),
+          controllerStep == null ? 0 : Double.parseDouble(controllerStep)
+      );
+    }
+    if ((params = params(devoCAPhases, name)) != null) {
+      String controllerStep = params.get("cStep");
+      return new DevoCaPhases(
+          Double.parseDouble(params.get("f")),
+          1d,
           Double.parseDouble(params.get("caRatio")),
           Integer.parseInt(params.get("caNLayers")),
           Integer.parseInt(params.get("nInitial")),
