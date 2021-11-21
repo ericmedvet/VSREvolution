@@ -70,7 +70,7 @@ public class BiasesFinder {
     //set pairs
     Map<String, ProtoPair<?>> protoPairs = new TreeMap<>(Map.of(
         "gridConnected-8", ProtoPair.of(
-            robotMapper(new DevoHomoMLP(1, 1, 1, 8, 0)),
+            robotMapper(new DevoHomoMLP(1, 1, 1, 8, 0,0d)),
             g -> new FixedLengthListFactory<>(g.size(), new UniformDoubleFactory(-1d, 1d))
         ),
         "tree-8", ProtoPair.of(
@@ -166,7 +166,7 @@ public class BiasesFinder {
             .mapToDouble(e -> (double) e.getY() / (double) s.getH())
             .average().orElse(0d)),
         NamedFunction.build("compactness", "%.2f", Utils::shapeCompactness),
-        NamedFunction.build("elongation", "%.2f", Utils::shapeElongation)
+        NamedFunction.build("elongation", "%.2f", g -> Utils.shapeElongation(g,4)) // TODO check proper value for n
     );
   }
 
