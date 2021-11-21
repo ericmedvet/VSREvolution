@@ -41,17 +41,17 @@ public class DevelopmentValidator extends Worker {
   public void run() {
 
     int validationEpisodeTime = i(a("validationEpisodeTime", "30"));
+    String validationTerrain = a("validationTerrain", "flat");
     int nRemovals = i(a("nRemovals", "5"));
     int[] removals = IntStream.range(1, nRemovals + 1).toArray();
 
-    String path = a("path", "C:\\Users\\giorg\\Documents\\UNITS\\PHD\\Evodevo\\Outcomes\\GA\\step\\time\\");
-    String inputFileName = a("inputFile", "last.txt");
-    inputFileName = path + inputFileName;
+    String path = a("path", "");
+    String inputFileName = a("inputFile", path + "last.txt");
 
-    String shapesFile = path + "shapes.txt";
-    String descriptorsFile = path + "descriptors.txt";
-    String voxelRemovalFile = path + "removal-speeds.txt";
-    String speedsFile = path + "speeds.txt";
+    String shapesFile = a("shapesFile", path + "shapes.txt");
+    String descriptorsFile = a("descriptorsFile", path + "descriptors.txt");
+    String voxelRemovalFile = a("voxelRemovalFile", path + "removal-speeds.txt");
+    String speedsFile = a("speedsFile", path + "speeds.txt");
 
     List<String> colNames = List.of("seed", "devo.function", "development.schedule");
     String robotsColumn = "best.fitness→devo.robots";
@@ -121,7 +121,7 @@ public class DevelopmentValidator extends Worker {
       // voxel removal speed
       Robot<SensingVoxel> lastRobot = robots.get(robots.size() - 1);
       for (int removal : removals) {
-        List<Double> velocities = getVelocitiesAfterRemoval(lastRobot, removal, validationEpisodeTime);
+        List<Double> velocities = getVelocitiesAfterRemoval(lastRobot, removal, validationEpisodeTime, validationTerrain);
         for (double v : velocities) {
           List<Number> removalAddition = List.of(removal, v);
           printRecord(values, removalAddition, voxelRemovalPrinter);
@@ -162,7 +162,7 @@ public class DevelopmentValidator extends Worker {
     }
   }
 
-  private static List<Double> getVelocitiesAfterRemoval(Robot<SensingVoxel> robot, int nVoxels, int validationEpisodeTime) {
+  private static List<Double> getVelocitiesAfterRemoval(Robot<SensingVoxel> robot, int nVoxels, int validationEpisodeTime, String validationTerrain) {
     Controller<SensingVoxel> controller = robot.getController();
     Grid<? extends SensingVoxel> body = robot.getVoxels();
     List<Grid<? extends SensingVoxel>> newBodies = getVoxelRemovalBodies(body, nVoxels);
@@ -170,7 +170,7 @@ public class DevelopmentValidator extends Worker {
         b -> new Robot<>(SerializationUtils.clone(controller), b)
     ).collect(Collectors.toList());
     return robots.stream().parallel()
-        .map(r -> new Locomotion(validationEpisodeTime, Locomotion.createTerrain("flat"), new Settings())
+        .map(r -> new Locomotion(validationEpisodeTime, Locomotion.createTerrain(validationTerrain), new Settings())
             .apply(r).getVelocity())
         .collect(Collectors.toList());
   }
