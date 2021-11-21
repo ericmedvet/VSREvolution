@@ -81,8 +81,14 @@ public class PairsTree implements EvolverBuilder<Tree<Pair<Double, Double>>> {
     Crossover<Tree<Pair<Double, Double>>> treeCrossover = new SubtreeCrossover<>(maxTreeHeight);
     IndependentFactory<Pair<Double, Double>> doublePairsFactory = random -> Pair.of(random.nextDouble(), random.nextDouble() * 2 - 1);
     Mutation<Tree<Pair<Double, Double>>> treeMutation = new SubtreeMutation<>(maxTreeHeight, new GrowTreeBuilder<>(d -> 4, doublePairsFactory, doublePairsFactory));
+    final double sigma = 0.35;
+    Mutation<Tree<Pair<Double, Double>>> treeGaussianMutation = (pairTree, random) -> Tree.map(
+        pairTree,
+        p -> Pair.of(p.first() + sigma * random.nextGaussian(), p.second() + sigma * random.nextGaussian())
+    );
     return Map.of(
-        treeMutation, 1d - xOverProb,
+        treeMutation, (1d - xOverProb) / 2,
+        treeGaussianMutation, (1d - xOverProb) / 2,
         treeCrossover, xOverProb
     );
   }
