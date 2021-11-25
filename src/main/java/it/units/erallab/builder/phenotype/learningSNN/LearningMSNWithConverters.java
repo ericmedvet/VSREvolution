@@ -1,4 +1,4 @@
-package it.units.erallab.builder.phenotype;
+package it.units.erallab.builder.phenotype.learningSNN;
 
 import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.erallab.hmsrobots.core.controllers.MultiLayerPerceptron;

@@ -1,4 +1,4 @@
-package it.units.erallab.builder.phenotype;
+package it.units.erallab.builder.phenotype.learningSNN;
 
 import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.erallab.hmsrobots.core.controllers.MultiLayerPerceptron;
@@ -18,21 +18,20 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.stream.IntStream;
 
-public class QuantizedHebbianNumericLearningClippedWeightsMSNWithConverters implements PrototypedFunctionBuilder<List<Double>, TimedRealFunction> {
+public class QuantizedHebbianNumericLearningMSNWithConverters implements PrototypedFunctionBuilder<List<Double>, TimedRealFunction> {
 
   private final double innerLayerRatio;
   private final int nOfInnerLayers;
   private final BiFunction<Integer, Integer, QuantizedSpikingFunction> neuronBuilder;
-  private final double weightsMaxValue;
   private final QuantizedValueToSpikeTrainConverter valueToSpikeTrainConverter;
   private final QuantizedSpikeTrainToValueConverter spikeTrainToValueConverter;
 
-  public QuantizedHebbianNumericLearningClippedWeightsMSNWithConverters(double innerLayerRatio, int nOfInnerLayers, BiFunction<Integer, Integer, QuantizedSpikingFunction> neuronBuilder, double weightsMaxValue, QuantizedValueToSpikeTrainConverter valueToSpikeTrainConverter, QuantizedSpikeTrainToValueConverter spikeTrainToValueConverter) {
+  public QuantizedHebbianNumericLearningMSNWithConverters(double innerLayerRatio, int nOfInnerLayers, BiFunction<Integer, Integer, QuantizedSpikingFunction> neuronBuilder, QuantizedValueToSpikeTrainConverter valueToSpikeTrainConverter, QuantizedSpikeTrainToValueConverter spikeTrainToValueConverter) {
     this.innerLayerRatio = innerLayerRatio;
     this.nOfInnerLayers = nOfInnerLayers;
     this.neuronBuilder = neuronBuilder;
-    this.weightsMaxValue = weightsMaxValue;
     this.valueToSpikeTrainConverter = valueToSpikeTrainConverter;
     this.spikeTrainToValueConverter = spikeTrainToValueConverter;
   }
@@ -60,15 +59,14 @@ public class QuantizedHebbianNumericLearningClippedWeightsMSNWithConverters impl
       int nOfOutputs = function.getOutputDimension();
       int[] innerNeurons = innerNeurons(nOfInputs, nOfOutputs);
       int nOfWeights = QuantizedMultilayerSpikingNetwork.countWeights(nOfInputs, innerNeurons, nOfOutputs);
-      if (5 * nOfWeights != values.size()) {
+      if (4 * nOfWeights != values.size()) {
         throw new IllegalArgumentException(String.format(
             "Wrong number of values for learning rules: %d expected, %d found",
-            5 * nOfWeights,
+            4 * nOfWeights,
             values.size()
         ));
       }
-      double[] weights = values.subList(0, nOfWeights).stream().mapToDouble(d -> d).toArray();
-      values = values.subList(nOfWeights, values.size());
+      double[] weights = IntStream.range(0, nOfWeights).mapToDouble(i -> Math.random() * 2 - 1).toArray();
       double[][] rulesGenerator = new double[values.size() / 4][4];
       int j = 0;
       for (int i = 0; i < values.size(); i++) {
@@ -79,13 +77,12 @@ public class QuantizedHebbianNumericLearningClippedWeightsMSNWithConverters impl
         }
       }
       STDPLearningRule[] learningRules = Arrays.stream(rulesGenerator).map(params -> {
-        AsymmetricHebbianLearningRule rule = new AsymmetricHebbianLearningRule();
+        STDPLearningRule rule = new AsymmetricHebbianLearningRule();
         rule.setParams(AsymmetricSTDPLearningRule.scaleParameters(params));
         return rule;
-      }).toArray(AsymmetricHebbianLearningRule[]::new);
+      }).toArray(STDPLearningRule[]::new);
       QuantizedLearningMultilayerSpikingNetwork quantizedLearningMultilayerSpikingNetwork = new QuantizedLearningMultilayerSpikingNetwork(
           nOfInputs, innerNeurons, nOfOutputs, weights, learningRules, neuronBuilder, spikeTrainToValueConverter);
-      quantizedLearningMultilayerSpikingNetwork.enableWeightsClipping(weightsMaxValue);
       return new QuantizedMultilayerSpikingNetworkWithConverters<>(
           quantizedLearningMultilayerSpikingNetwork,
           valueToSpikeTrainConverter,
@@ -97,7 +94,7 @@ public class QuantizedHebbianNumericLearningClippedWeightsMSNWithConverters impl
   @Override
   public List<Double> exampleFor(TimedRealFunction function) {
     return Collections.nCopies(
-        5 * QuantizedMultilayerSpikingNetwork.countWeights(
+        4 * QuantizedMultilayerSpikingNetwork.countWeights(
             MultiLayerPerceptron.countNeurons(
                 function.getInputDimension(),
                 innerNeurons(function.getInputDimension(), function.getOutputDimension()),

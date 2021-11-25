@@ -21,6 +21,7 @@ import com.google.common.collect.Lists;
 import it.units.erallab.builder.*;
 import it.units.erallab.builder.evolver.*;
 import it.units.erallab.builder.phenotype.*;
+import it.units.erallab.builder.phenotype.learningSNN.*;
 import it.units.erallab.builder.robot.*;
 import it.units.erallab.hmsrobots.core.controllers.Controller;
 import it.units.erallab.hmsrobots.core.controllers.MultiLayerPerceptron;
