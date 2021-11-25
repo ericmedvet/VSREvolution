@@ -60,9 +60,9 @@ public class BinaryStandard implements EvolverBuilder<BitString> {
         comparator.comparing(Individual::getFitness),
         nPop,
         Map.of(
-            new BitFlipMutation(.35d), 1d - xOverProb,
+            new BitFlipMutation(.01d), 1d - xOverProb,
             new UniformCrossover<>(new BitStringFactory(length))
-                .andThen(new BitFlipMutation(.1d)), xOverProb
+                .andThen(new BitFlipMutation(.01d)), xOverProb
         ),
         new Tournament(nTournament),
         new Last(),
