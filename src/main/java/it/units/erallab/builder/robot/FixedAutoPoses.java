@@ -45,7 +45,7 @@ public class FixedAutoPoses implements PrototypedFunctionBuilder<List<Integer>, 
     ));
     return genes -> new Robot<>(
         new PosesController(stepT, genes.stream()
-            .map(g -> availablePoses.get(Math.max(0, Math.min(availablePoses.size(), g))))
+            .map(g -> availablePoses.get(Math.max(0, Math.min(availablePoses.size()-1, g))))
             .collect(Collectors.toList())),
         SerializationUtils.clone(robot.getVoxels())
     );
