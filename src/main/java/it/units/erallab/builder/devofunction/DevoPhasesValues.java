@@ -93,7 +93,7 @@ public class DevoPhasesValues implements PrototypedFunctionBuilder<Grid<double[]
             (x, y) -> t -> localAmplitude * Math.sin(2 * Math.PI * localFrequency * t + phases.get(x, y))
         ));
         if (controllerStep > 0) {
-          controller = Controller.step(controller, controllerStep);
+          controller =controller.step(controllerStep);
         }
         return new Robot<>((Controller<ControllableVoxel>) controller, body);
       };

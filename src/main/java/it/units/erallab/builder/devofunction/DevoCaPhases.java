@@ -90,7 +90,7 @@ public class DevoCaPhases implements PrototypedFunctionBuilder<List<Double>, Una
             (x, y) -> t -> localAmplitude * Math.sin(2 * Math.PI * localFrequency * t + phases.get(x, y))
         ));
         if (controllerStep > 0) {
-          controller = Controller.step(controller, controllerStep);
+          controller = controller.step(controllerStep);
         }
         return new DecoratedRobot(
             (Controller<SensingVoxel>) controller,

@@ -130,7 +130,7 @@ public class DevoTreePhases implements PrototypedFunctionBuilder<Tree<Pair<Doubl
           (x, y) -> t -> localAmplitude * Math.sin(2 * Math.PI * localFrequency * t + phases.get(x, y))
       ));
       if (controllerStep > 0) {
-        controller = Controller.step(controller, controllerStep);
+        controller = controller.step(controllerStep);
       }
       return new DecoratedRobot(
           (Controller<SensingVoxel>) controller,

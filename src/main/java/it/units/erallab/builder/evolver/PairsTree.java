@@ -26,22 +26,23 @@ public class PairsTree implements EvolverBuilder<Tree<Pair<Double, Double>>> {
   private final int nPop;
   private final int nTournament;
   private final double xOverProb;
-  protected final boolean diversityEnforcement;
-
+  private final boolean diversityEnforcement;
   private final int minTreeHeight;
   private final int maxTreeHeight;
+  private final boolean remap;
 
-  public PairsTree(int nPop, int nTournament, double xOverProb, boolean diversityEnforcement, int minTreeHeight, int maxTreeHeight) {
+  public PairsTree(int nPop, int nTournament, double xOverProb, boolean diversityEnforcement, int minTreeHeight, int maxTreeHeight, boolean remap) {
     this.nPop = nPop;
     this.nTournament = nTournament;
     this.xOverProb = xOverProb;
     this.diversityEnforcement = diversityEnforcement;
     this.minTreeHeight = minTreeHeight;
     this.maxTreeHeight = maxTreeHeight;
+    this.remap = remap;
   }
 
-  public PairsTree(int nPop, int nTournament, double xOverProb, boolean diversityEnforcement) {
-    this(nPop, nTournament, xOverProb, diversityEnforcement, 3, 6);
+  public PairsTree(int nPop, int nTournament, double xOverProb, boolean diversityEnforcement, boolean remap) {
+    this(nPop, nTournament, xOverProb, diversityEnforcement, 3, 6, remap);
   }
 
   @Override

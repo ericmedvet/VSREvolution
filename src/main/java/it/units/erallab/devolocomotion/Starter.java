@@ -495,7 +495,8 @@ public class Starter extends Worker {
           Integer.parseInt(params.get("nPop")),
           (int) Math.max(Math.round((double) Integer.parseInt(params.get("nPop")) / 10d), 3),
           0.75d,
-          params.get("diversity").equals("t")
+          params.get("diversity").equals("t"),
+          true
       );
     }
     if ((params = params(treePairGA, name)) != null) {
@@ -503,7 +504,8 @@ public class Starter extends Worker {
           Integer.parseInt(params.get("nPop")),
           (int) Math.max(Math.round((double) Integer.parseInt(params.get("nPop")) / 10d), 3),
           0.75d,
-          params.get("diversity").equals("t")
+          params.get("diversity").equals("t"),
+          true
       );
     }
     return it.units.erallab.locomotion.Starter.getEvolverBuilderFromName(name);

@@ -35,18 +35,20 @@ public class TreeAndDoubles implements EvolverBuilder<Pair<Tree<Double>, List<Do
 
   private final int minTreeHeight;
   private final int maxTreeHeight;
+  private final boolean remap;
 
-  public TreeAndDoubles(int nPop, int nTournament, double xOverProb, boolean diversityEnforcement, int minTreeHeight, int maxTreeHeight) {
+  public TreeAndDoubles(int nPop, int nTournament, double xOverProb, boolean diversityEnforcement, int minTreeHeight, int maxTreeHeight, boolean remap) {
     this.nPop = nPop;
     this.nTournament = nTournament;
     this.xOverProb = xOverProb;
     this.diversityEnforcement = diversityEnforcement;
     this.minTreeHeight = minTreeHeight;
     this.maxTreeHeight = maxTreeHeight;
+    this.remap = remap;
   }
 
-  public TreeAndDoubles(int nPop, int nTournament, double xOverProb, boolean diversityEnforcement) {
-    this(nPop, nTournament, xOverProb, diversityEnforcement, 3, 6);
+  public TreeAndDoubles(int nPop, int nTournament, double xOverProb, boolean diversityEnforcement, boolean remap) {
+    this(nPop, nTournament, xOverProb, diversityEnforcement, 3, 6, remap);
   }
 
   @Override

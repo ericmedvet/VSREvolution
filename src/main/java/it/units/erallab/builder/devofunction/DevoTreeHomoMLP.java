@@ -134,7 +134,7 @@ public class DevoTreeHomoMLP implements PrototypedFunctionBuilder<Pair<Tree<Doub
         TimedRealFunction timedRealFunction = mlp.buildFor(fixedHomoDistributed.exampleFor(target)).apply(list);
         AbstractController<?> controller = (AbstractController<?>) fixedHomoDistributed.buildFor(robot).apply(timedRealFunction).getController();
         if (controllerStep > 0) {
-          controller = Controller.step(controller, controllerStep);
+          controller = controller.step(controllerStep);
         }
         return new DecoratedRobot(
             (Controller<SensingVoxel>) controller,

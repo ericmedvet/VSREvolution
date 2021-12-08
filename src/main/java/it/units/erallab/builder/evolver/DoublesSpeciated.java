@@ -36,12 +36,14 @@ public class DoublesSpeciated implements EvolverBuilder<List<Double>> {
   private final int nSpecies;
   private final double xOverProb;
   private final SpeciationCriterion criterion;
+  private final boolean remap;
 
-  public DoublesSpeciated(int nPop, int nSpecies, double xOverProb, SpeciationCriterion criterion) {
+  public DoublesSpeciated(int nPop, int nSpecies, double xOverProb, SpeciationCriterion criterion, boolean remap) {
     this.nPop = nPop;
     this.nSpecies = nSpecies;
     this.xOverProb = xOverProb;
     this.criterion = criterion;
+    this.remap = remap;
   }
 
   @Override
@@ -106,7 +108,7 @@ public class DoublesSpeciated implements EvolverBuilder<List<Double>> {
             converter
         ),
         0.75d,
-        true
+        remap
     );
   }
 

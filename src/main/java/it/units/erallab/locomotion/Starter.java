@@ -108,7 +108,7 @@ public class Starter extends Worker {
     List<String> targetShapeNames = l(a("shape", "biped-4x3"));
     List<String> targetSensorConfigNames = l(a("sensorConfig", "spinedTouch-t-f-0.01"));
     List<String> transformationNames = l(a("transformation", "identity"));
-    List<String> evolverNames = l(a("evolver", "numGA-16-f,ES-8-0.35"));
+    List<String> evolverNames = l(a("evolver", "numGA-16-f-t,ES-8-0.35"));
     List<String> mapperNames = l(a("mapper", "fixedCentralized<pMLP-2-2-tanh-4.5-0.95-abs_signal_mean"));
     String lastFileName = a("lastFile", null);
     String bestFileName = a("bestFile", null);
@@ -119,6 +119,7 @@ public class Starter extends Worker {
     long telegramChatId = Long.parseLong(a("telegramChatId", "0"));
     List<String> serializationFlags = l(a("serialization", "")); //last,best,all
     boolean output = a("output", "false").startsWith("t");
+    boolean spectra = a("spectra", "false").startsWith("t");
     List<String> validationTransformationNames = l(a("validationTransformation", "")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
     List<String> validationTerrainNames = l(a("validationTerrain", "flat,downhill-30")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
     Function<Outcome, Double> fitnessFunction = Outcome::getVelocity;
@@ -130,7 +131,7 @@ public class Starter extends Worker {
     List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> visualFunctions = NamedFunctions.visualFunctions(fitnessFunction);
     List<NamedFunction<Outcome, ?>> basicOutcomeFunctions = NamedFunctions.basicOutcomeFunctions();
     List<NamedFunction<Outcome, ?>> detailedOutcomeFunctions = NamedFunctions.detailedOutcomeFunctions(spectrumMinFreq, spectrumMaxFreq, spectrumSize);
-    List<NamedFunction<Outcome, ?>> visualOutcomeFunctions = NamedFunctions.visualOutcomeFunctions(spectrumMinFreq, spectrumMaxFreq);
+    List<NamedFunction<Outcome, ?>> visualOutcomeFunctions = spectra?NamedFunctions.visualOutcomeFunctions(spectrumMinFreq, spectrumMaxFreq):List.of();
     Listener.Factory<Event<?, ? extends Robot<?>, ? extends Outcome>> factory = Listener.Factory.deaf();
     //screen listener
     if (bestFileName == null || output) {
@@ -323,8 +324,9 @@ public class Starter extends Worker {
   }
 
   public static EvolverBuilder<?> getEvolverBuilderFromName(String name) {
-    String numGA = "numGA-(?<nPop>\\d+)-(?<diversity>(t|f))";
-    String numGASpeciated = "numGASpec-(?<nPop>\\d+)-(?<nSpecies>\\d+)-(?<criterion>(" + Arrays.stream(DoublesSpeciated.SpeciationCriterion.values()).map(c -> c.name().toLowerCase(Locale.ROOT)).collect(Collectors.joining("|")) + "))";
+    String numGA = "numGA-(?<nPop>\\d+)-(?<diversity>(t|f))-(?<remap>(t|f))";
+    String intGA = "intGA-(?<nPop>\\d+)-(?<diversity>(t|f))-(?<remap>(t|f))";
+    String numGASpeciated = "numGASpec-(?<nPop>\\d+)-(?<nSpecies>\\d+)-(?<criterion>(" + Arrays.stream(DoublesSpeciated.SpeciationCriterion.values()).map(c -> c.name().toLowerCase(Locale.ROOT)).collect(Collectors.joining("|")) + "))-(?<remap>(t|f))";
     String cmaES = "CMAES";
     String eS = "ES-(?<nPop>\\d+)-(?<sigma>\\d+(\\.\\d+)?)";
     Map<String, String> params;
@@ -333,7 +335,17 @@ public class Starter extends Worker {
           Integer.parseInt(params.get("nPop")),
           (int) Math.max(Math.round((double) Integer.parseInt(params.get("nPop")) / 10d), 3),
           0.75d,
-          params.get("diversity").equals("t")
+          params.get("diversity").equals("t"),
+          params.get("remap").equals("t")
+      );
+    }
+    if ((params = params(intGA, name)) != null) {
+      return new IntegersStandard(
+          Integer.parseInt(params.get("nPop")),
+          (int) Math.max(Math.round((double) Integer.parseInt(params.get("nPop")) / 10d), 3),
+          0.75d,
+          params.get("diversity").equals("t"),
+          params.get("remap").equals("t")
       );
     }
     if ((params = params(numGASpeciated, name)) != null) {
@@ -341,7 +353,8 @@ public class Starter extends Worker {
           Integer.parseInt(params.get("nPop")),
           Integer.parseInt(params.get("nSpecies")),
           0.75d,
-          DoublesSpeciated.SpeciationCriterion.valueOf(params.get("criterion").toUpperCase())
+          DoublesSpeciated.SpeciationCriterion.valueOf(params.get("criterion").toUpperCase()),
+          params.get("remap").equals("t")
       );
     }
     if ((params = params(eS, name)) != null) {
@@ -363,6 +376,7 @@ public class Starter extends Worker {
     String fixedHeteroDistributed = "fixedHeteroDist-(?<nSignals>\\d+)";
     String fixedPhasesFunction = "fixedPhasesFunct-(?<f>\\d+)";
     String fixedPhases = "fixedPhases-(?<f>\\d+(\\.\\d+)?)";
+    String fixedAutoPoses = "fixedAutoPoses-(?<stepT>\\d+(\\.\\d+)?)-(?<nRegions>\\d+)-(?<nUniquePoses>\\d+)-(?<nPoses>\\d+)";
     String bodySin = "bodySin-(?<fullness>\\d+(\\.\\d+)?)-(?<minF>\\d+(\\.\\d+)?)-(?<maxF>\\d+(\\.\\d+)?)";
     String bodyAndHomoDistributed = "bodyAndHomoDist-(?<fullness>\\d+(\\.\\d+)?)-(?<nSignals>\\d+)-(?<nLayers>\\d+)";
     String sensorAndBodyAndHomoDistributed = "sensorAndBodyAndHomoDist-(?<fullness>\\d+(\\.\\d+)?)-(?<nSignals>\\d+)-(?<nLayers>\\d+)-(?<position>(t|f))";
@@ -398,6 +412,15 @@ public class Starter extends Worker {
       return new FixedPhaseValues(
           Double.parseDouble(params.get("f")),
           1d
+      );
+    }
+    if ((params = params(fixedAutoPoses, name)) != null) {
+      return new FixedAutoPoses(
+          Integer.parseInt(params.get("nUniquePoses")),
+          Integer.parseInt(params.get("nPoses")),
+          Integer.parseInt(params.get("nRegions")),
+          16,
+          Double.parseDouble(params.get("stepT"))
       );
     }
     if ((params = params(bodyAndHomoDistributed, name)) != null) {
