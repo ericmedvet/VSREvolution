@@ -356,7 +356,9 @@ public class LocomotionEvolution extends Worker {
     String cmaES = "CMAES";
     String eS = "ES-(?<nPop>\\d+)-(?<sigma>\\d+(\\.\\d+)?)";
     String sparseGA = "sparse-(?<nPop>\\d+)-(?<p>\\d+(\\.\\d+)?)";
-    String STDPstandardGA = "STDP_GA-(?<nPop>\\d+)-(?<diversity>(t|f))";
+    String STDPStandardGA = "STDP_GA-(?<nPop>\\d+)-(?<diversity>(t|f))";
+    String bitNumGA = "bitNumGA-(?<nPop>\\d+)-(?<diversity>(t|f))";
+    String bitNumMutation = "bitNumMut-(?<nPop>\\d+)-(?<diversity>(t|f))";
     Map<String, String> params;
     if ((params = params(numGA, name)) != null) {
       return new DoublesStandard(
@@ -371,6 +373,22 @@ public class LocomotionEvolution extends Worker {
           Integer.parseInt(params.get("nPop")),
           (int) Math.max(Math.round((double) Integer.parseInt(params.get("nPop")) / 10d), 3),
           0.75d,
+          params.get("diversity").equals("t")
+      );
+    }
+    if ((params = params(bitNumGA, name)) != null) {
+      return new BinaryAndDoublesStandard(
+          Integer.parseInt(params.get("nPop")),
+          (int) Math.max(Math.round((double) Integer.parseInt(params.get("nPop")) / 10d), 3),
+          0.75d,
+          params.get("diversity").equals("t")
+      );
+    }
+    if ((params = params(bitNumMutation, name)) != null) {
+      return new BinaryAndDoublesStandard(
+          Integer.parseInt(params.get("nPop")),
+          (int) Math.max(Math.round((double) Integer.parseInt(params.get("nPop")) / 10d), 3),
+          0d,
           params.get("diversity").equals("t")
       );
     }
@@ -398,7 +416,7 @@ public class LocomotionEvolution extends Worker {
           Double.parseDouble(params.get("p"))
       );
     }
-    if ((params = params(STDPstandardGA, name)) != null) {
+    if ((params = params(STDPStandardGA, name)) != null) {
       return new STDPStandard(
           Integer.parseInt(params.get("nPop")),
           (int) Math.max(Math.round((double) Integer.parseInt(params.get("nPop")) / 10d), 3),
@@ -478,6 +496,7 @@ public class LocomotionEvolution extends Worker {
     String sensorCentralized = "sensorCentralized-(?<nLayers>\\d+)";
     String mlp = "MLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)(-(?<actFun>(sin|tanh|sigmoid|relu)))?";
     String pruningMlp = "pMLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<actFun>(sin|tanh|sigmoid|relu))-(?<pruningTime>\\d+(\\.\\d+)?)-(?<pruningRate>0(\\.\\d+)?)-(?<criterion>(weight|abs_signal_mean|random))";
+    String binaryMlp = "bMLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<weight>\\d+(\\.\\d+)?)(-(?<actFun>(sin|tanh|sigmoid|relu)))?";
     String msn = "MSNd-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<spikeType>(lif|iz|lif_h))" +
         "(-(?<lRestPot>-?\\d+(\\.\\d+)?)-(?<lThreshPot>-?\\d+(\\.\\d+)?)-(?<lambda>\\d+(\\.\\d+)?)(-(?<theta>\\d+(\\.\\d+)?))?)?" +
         "(-(?<izParams>(regular_spiking_params)))?";
@@ -522,6 +541,12 @@ public class LocomotionEvolution extends Worker {
         "(-(?<lRestPot>-?\\d+(\\.\\d+)?)-(?<lThreshPot>-?\\d+(\\.\\d+)?)-(?<lambda>\\d+(\\.\\d+)?)(-(?<theta>\\d+(\\.\\d+)?))?)?" +
         "(-(?<izParams>(regular_spiking_params)))?" +
         "-(?<iConv>(unif|unif_mem))-(?<iFreq>\\d+(\\.\\d+)?)-(?<oConv>(avg|avg_mem))(-(?<oMem>\\d+))?-(?<oFreq>\\d+(\\.\\d+)?)";
+    String quantizedBinaryAndDoublesLearningMsnWithConverter = "QBDLMSN-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<spikeType>(lif|iz|lif_h))" +
+        "(-(?<lRestPot>-?\\d+(\\.\\d+)?)-(?<lThreshPot>-?\\d+(\\.\\d+)?)-(?<lambda>\\d+(\\.\\d+)?)(-(?<theta>\\d+(\\.\\d+)?))?)?" +
+        "(-(?<izParams>(regular_spiking_params)))?" +
+        "-(?<iConv>(unif|unif_mem))-(?<iFreq>\\d+(\\.\\d+)?)-(?<oConv>(avg|avg_mem))(-(?<oMem>\\d+))?-(?<oFreq>\\d+(\\.\\d+)?)" +
+        "-(?<symmParam1>\\d+(\\.\\d+))-(?<symmParam2>\\d+(\\.\\d+))-(?<symmParam3>\\d+(\\.\\d+))-(?<symmParam4>\\d+(\\.\\d+))" +
+        "-(?<asymmParam1>\\d+(\\.\\d+))-(?<asymmParam2>\\d+(\\.\\d+))-(?<asymmParam3>\\d+(\\.\\d+))-(?<asymmParam4>\\d+(\\.\\d+))";
     String quantizedHebbianNumericLearningClippedWeightsMSNWithConverters = "QHLCWMSN-(?<maxWeight>\\d+(\\.\\d+)?)-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<spikeType>(lif|iz|lif_h))" +
         "(-(?<lRestPot>-?\\d+(\\.\\d+)?)-(?<lThreshPot>-?\\d+(\\.\\d+)?)-(?<lambda>\\d+(\\.\\d+)?)(-(?<theta>\\d+(\\.\\d+)?))?)?" +
         "(-(?<izParams>(regular_spiking_params)))?" +
@@ -839,6 +864,14 @@ public class LocomotionEvolution extends Worker {
           PruningMultiLayerPerceptron.Criterion.valueOf(params.get("criterion").toUpperCase())
       );
     }
+    if ((params = params(binaryMlp, name)) != null) {
+      return new BinaryMLP(
+          Double.parseDouble(params.get("ratio")),
+          Integer.parseInt(params.get("nLayers")),
+          MultiLayerPerceptron.ActivationFunction.valueOf(params.get("actFun").toUpperCase()),
+          Double.parseDouble(params.get("weight"))
+      );
+    }
     if ((params = params(msn, name)) != null || (params = params(msnWithConverter, name)) != null || (params = params(learningMsnWithConverter, name)) != null) {
       BiFunction<Integer, Integer, SpikingFunction> neuronBuilder = null;
       if (params.containsKey("spikeType") && params.get("spikeType").equals("lif")) {
@@ -978,6 +1011,7 @@ public class LocomotionEvolution extends Worker {
         (params = params(quantizedHebbianNumericLearningMsnWithConverter, name)) != null ||
         (params = params(quantizedHebbianNumericLearningWeightsMSNWithConverters, name)) != null ||
         (params = params(quantizedHebbianNumericLearningClippedWeightsMSNWithConverters, name)) != null ||
+        (params = params(quantizedBinaryAndDoublesLearningMsnWithConverter, name)) != null ||
         (params = params(quantizedNumericLearningWithFixedRuleValuesAnd0WeightsMSNWithConverters, name)) != null
     ) {
       BiFunction<Integer, Integer, QuantizedSpikingFunction> neuronBuilder = null;
@@ -1048,6 +1082,7 @@ public class LocomotionEvolution extends Worker {
           (params = params(quantizedHebbianNumericLearningMsnWithConverter, name)) != null ||
           (params = params(quantizedHebbianNumericLearningWeightsMSNWithConverters, name)) != null ||
           (params = params(quantizedHebbianNumericLearningClippedWeightsMSNWithConverters, name)) != null ||
+          (params = params(quantizedBinaryAndDoublesLearningMsnWithConverter, name)) != null ||
           (params = params(quantizedNumericLearningWithFixedRuleValuesAnd0WeightsMSNWithConverters, name)) != null) {
         QuantizedValueToSpikeTrainConverter valueToSpikeTrainConverter = new QuantizedUniformValueToSpikeTrainConverter();
         QuantizedSpikeTrainToValueConverter spikeTrainToValueConverter = new QuantizedAverageFrequencySpikeTrainToValueConverter();
@@ -1162,20 +1197,34 @@ public class LocomotionEvolution extends Worker {
               spikeTrainToValueConverter
           );
         }
-        if ((params = params(quantizedNumericLearningWithFixedRuleValuesAnd0WeightsMSNWithConverters, name)) != null) {
+        if ((params = params(quantizedNumericLearningWithFixedRuleValuesAnd0WeightsMSNWithConverters, name)) != null ||
+            (params = params(quantizedBinaryAndDoublesLearningMsnWithConverter, name)) != null) {
           double[] symmetricParams = {Double.parseDouble(params.get("symmParam1")), Double.parseDouble(params.get("symmParam2")),
               Double.parseDouble(params.get("symmParam3")), Double.parseDouble(params.get("symmParam4"))};
           double[] asymmetricParams = {Double.parseDouble(params.get("asymmParam1")), Double.parseDouble(params.get("asymmParam2")),
               Double.parseDouble(params.get("asymmParam3")), Double.parseDouble(params.get("asymmParam4"))};
-          return new QuantizedNumericLearningWithFixedRuleValuesAnd0WeightsMSNWithConverters(
-              Double.parseDouble(params.get("ratio")),
-              Integer.parseInt(params.get("nLayers")),
-              neuronBuilder,
-              valueToSpikeTrainConverter,
-              spikeTrainToValueConverter,
-              symmetricParams,
-              asymmetricParams
-          );
+          if ((params = params(quantizedNumericLearningWithFixedRuleValuesAnd0WeightsMSNWithConverters, name)) != null) {
+            return new QuantizedNumericLearningWithFixedRuleValuesAnd0WeightsMSNWithConverters(
+                Double.parseDouble(params.get("ratio")),
+                Integer.parseInt(params.get("nLayers")),
+                neuronBuilder,
+                valueToSpikeTrainConverter,
+                spikeTrainToValueConverter,
+                symmetricParams,
+                asymmetricParams
+            );
+          }
+          if ((params = params(quantizedBinaryAndDoublesLearningMsnWithConverter, name)) != null) {
+            return new QuantizedBinaryAndDoublesLearningMSNWithConverters(
+                Double.parseDouble(params.get("ratio")),
+                Integer.parseInt(params.get("nLayers")),
+                neuronBuilder,
+                valueToSpikeTrainConverter,
+                spikeTrainToValueConverter,
+                symmetricParams,
+                asymmetricParams
+            );
+          }
         }
       }
     }
