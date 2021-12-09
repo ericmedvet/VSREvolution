@@ -131,7 +131,7 @@ public class NamedFunctions {
     );
   }
 
-  public static List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> visualFunctions(Function<Outcome, Double> fitnessFunction) {
+  public static List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> visualPopulationFunctions(Function<Outcome, Double> fitnessFunction) {
     return List.of(
         hist(8)
             .of(each(f("fitness", fitnessFunction).of(fitness())))
@@ -140,14 +140,19 @@ public class NamedFunctions {
             .of(each(f("num.voxels", (Function<Grid<?>, Number>) g -> g.count(Objects::nonNull))
                 .of(f("shape", (Function<Robot<?>, Grid<?>>) Robot::getVoxels))
                 .of(solution())))
-            .of(all()),
+            .of(all())
+    );
+  }
+
+  public static List<NamedFunction<Individual<?, ? extends Robot<?>, ? extends Outcome>, ?>> visualIndividualFunctions() {
+    return List.of(
         f("minimap", "%4s", (Function<Grid<?>, String>) g -> TextPlotter.binaryMap(
             g.toArray(Objects::nonNull),
             (int) Math.min(Math.ceil((float) g.getW() / (float) g.getH() * 2f), 4)))
             .of(f("shape", (Function<Robot<?>, Grid<?>>) Robot::getVoxels))
-            .of(solution()).of(best()),
+            .of(solution()),
         f("average.posture.minimap", "%2s", (Function<Outcome, String>) o -> TextPlotter.binaryMap(o.getAveragePosture(8).toArray(b -> b), 2))
-            .of(fitness()).of(best())
+            .of(fitness())
     );
   }
 
@@ -155,39 +160,41 @@ public class NamedFunctions {
     return List.of(
         f("computation.time", "%4.2f", Outcome::getComputationTime),
         f("distance", "%5.1f", Outcome::getDistance),
-        f("velocity", "%5.1f", Outcome::getVelocity),
-        f("corrected.efficiency", "%5.2f", Outcome::getCorrectedEfficiency),
-        f("area.ratio.power", "%5.1f", Outcome::getAreaRatioPower),
-        f("control.power", "%5.1f", Outcome::getControlPower)
+        f("velocity", "%5.1f", Outcome::getVelocity)
     );
   }
 
   public static List<NamedFunction<Outcome, ?>> detailedOutcomeFunctions(double spectrumMinFreq, double spectrumMaxFreq, int spectrumSize) {
     return Misc.concat(List.of(
+        List.of(
+            f("corrected.efficiency", "%5.2f", Outcome::getCorrectedEfficiency),
+            f("area.ratio.power", "%5.1f", Outcome::getAreaRatioPower),
+            f("control.power", "%5.1f", Outcome::getControlPower)
+        ),
         NamedFunction.then(cachedF(
-                "center.x.spectrum",
-                (Outcome o) -> new ArrayList<>(o.getCenterXVelocitySpectrum(spectrumMinFreq, spectrumMaxFreq, spectrumSize).values())
+            "center.x.spectrum",
+            (Outcome o) -> new ArrayList<>(o.getCenterXVelocitySpectrum(spectrumMinFreq, spectrumMaxFreq, spectrumSize).values())
             ),
             IntStream.range(0, spectrumSize).mapToObj(it.units.malelab.jgea.core.listener.NamedFunctions::nth).collect(Collectors.toList())
         ),
         NamedFunction.then(cachedF(
-                "center.y.spectrum",
-                (Outcome o) -> new ArrayList<>(o.getCenterYVelocitySpectrum(spectrumMinFreq, spectrumMaxFreq, spectrumSize).values())
+            "center.y.spectrum",
+            (Outcome o) -> new ArrayList<>(o.getCenterYVelocitySpectrum(spectrumMinFreq, spectrumMaxFreq, spectrumSize).values())
             ),
             IntStream.range(0, spectrumSize).mapToObj(it.units.malelab.jgea.core.listener.NamedFunctions::nth).collect(Collectors.toList())
         ),
         NamedFunction.then(cachedF(
-                "center.angle.spectrum",
-                (Outcome o) -> new ArrayList<>(o.getCenterAngleSpectrum(spectrumMinFreq, spectrumMaxFreq, spectrumSize).values())
+            "center.angle.spectrum",
+            (Outcome o) -> new ArrayList<>(o.getCenterAngleSpectrum(spectrumMinFreq, spectrumMaxFreq, spectrumSize).values())
             ),
             IntStream.range(0, spectrumSize).mapToObj(it.units.malelab.jgea.core.listener.NamedFunctions::nth).collect(Collectors.toList())
         ),
         NamedFunction.then(cachedF(
-                "footprints.spectra",
-                (Outcome o) -> o.getFootprintsSpectra(4, spectrumMinFreq, spectrumMaxFreq, spectrumSize).stream()
-                    .map(SortedMap::values)
-                    .flatMap(Collection::stream)
-                    .collect(Collectors.toList())
+            "footprints.spectra",
+            (Outcome o) -> o.getFootprintsSpectra(4, spectrumMinFreq, spectrumMaxFreq, spectrumSize).stream()
+                .map(SortedMap::values)
+                .flatMap(Collection::stream)
+                .collect(Collectors.toList())
             ),
             IntStream.range(0, 4 * spectrumSize).mapToObj(it.units.malelab.jgea.core.listener.NamedFunctions::nth).collect(Collectors.toList())
         )
@@ -243,20 +250,20 @@ public class NamedFunctions {
 
   public static Accumulator.Factory<Event<?, ? extends Robot<?>, ? extends Outcome>, BufferedImage> centerPositionPlot() {
     return Accumulator.Factory.<Event<?, ? extends Robot<?>, ? extends Outcome>>last().then(
-            event -> {
-              Outcome o = Misc.first(event.getOrderedPopulation().firsts()).getFitness();
-              Table<Number> table = new ArrayTable<>(List.of("x", "y", "terrain.y"));
-              o.getObservations().values().forEach(obs -> {
-                VoxelPoly poly = BehaviorUtils.getCentralElement(obs.getVoxelPolies());
-                table.addRow(List.of(
-                    poly.center().x,
-                    poly.center().y,
-                    obs.getTerrainHeight()
-                ));
-              });
-              return table;
-            }
-        )
+        event -> {
+          Outcome o = Misc.first(event.getOrderedPopulation().firsts()).getFitness();
+          Table<Number> table = new ArrayTable<>(List.of("x", "y", "terrain.y"));
+          o.getObservations().values().forEach(obs -> {
+            VoxelPoly poly = BehaviorUtils.getCentralElement(obs.getVoxelPolies());
+            table.addRow(List.of(
+                poly.center().x,
+                poly.center().y,
+                obs.getTerrainHeight()
+            ));
+          });
+          return table;
+        }
+    )
         .then(ImagePlotters.xyLines(600, 400));
   }
 

@@ -101,15 +101,15 @@ public class Starter extends Worker {
     double validationEpisodeTransientTime = d(a("validationEpisodeTransientTime", Double.toString(episodeTransientTime)));
     double videoEpisodeTime = d(a("videoEpisodeTime", "10"));
     double videoEpisodeTransientTime = d(a("videoEpisodeTransientTime", "0"));
-    int nEvals = i(a("nEvals", "100"));
+    int nEvals = i(a("nEvals", "500"));
     int[] seeds = ri(a("seed", "0:1"));
     String experimentName = a("expName", "short");
     List<String> terrainNames = l(a("terrain", "flat"));//"hilly-1-10-rnd"));
-    List<String> targetShapeNames = l(a("shape", "biped-4x3"));
-    List<String> targetSensorConfigNames = l(a("sensorConfig", "spinedTouch-t-f-0.01"));
+    List<String> targetShapeNames = l(a("shape", "worm-4x2"));
+    List<String> targetSensorConfigNames = l(a("sensorConfig", "uniform-a-0"));
     List<String> transformationNames = l(a("transformation", "identity"));
-    List<String> evolverNames = l(a("evolver", "numGA-16-f-t,ES-8-0.35"));
-    List<String> mapperNames = l(a("mapper", "fixedCentralized<pMLP-2-2-tanh-4.5-0.95-abs_signal_mean"));
+    List<String> evolverNames = l(a("evolver", "numGA-16-t-f"));
+    List<String> mapperNames = l(a("mapper", "fixedPhases-1.0"));
     String lastFileName = a("lastFile", null);
     String bestFileName = a("bestFile", null);
     String allFileName = a("allFile", null);
@@ -119,7 +119,7 @@ public class Starter extends Worker {
     long telegramChatId = Long.parseLong(a("telegramChatId", "0"));
     List<String> serializationFlags = l(a("serialization", "")); //last,best,all
     boolean output = a("output", "false").startsWith("t");
-    boolean spectra = a("spectra", "false").startsWith("t");
+    boolean detailedOutput = a("detailedOutput", "false").startsWith("t");
     List<String> validationTransformationNames = l(a("validationTransformation", "")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
     List<String> validationTerrainNames = l(a("validationTerrain", "flat,downhill-30")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
     Function<Outcome, Double> fitnessFunction = Outcome::getVelocity;
@@ -128,10 +128,13 @@ public class Starter extends Worker {
     List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> basicFunctions = NamedFunctions.basicFunctions();
     List<NamedFunction<Individual<?, ? extends Robot<?>, ? extends Outcome>, ?>> basicIndividualFunctions = NamedFunctions.individualFunctions(fitnessFunction);
     List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> populationFunctions = NamedFunctions.populationFunctions(fitnessFunction);
-    List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> visualFunctions = NamedFunctions.visualFunctions(fitnessFunction);
+    List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> visualFunctions = Misc.concat(List.of(
+        NamedFunctions.visualPopulationFunctions(fitnessFunction),
+        detailedOutput ? NamedFunction.then(best(), NamedFunctions.visualIndividualFunctions()) : List.of()
+    ));
     List<NamedFunction<Outcome, ?>> basicOutcomeFunctions = NamedFunctions.basicOutcomeFunctions();
     List<NamedFunction<Outcome, ?>> detailedOutcomeFunctions = NamedFunctions.detailedOutcomeFunctions(spectrumMinFreq, spectrumMaxFreq, spectrumSize);
-    List<NamedFunction<Outcome, ?>> visualOutcomeFunctions = spectra?NamedFunctions.visualOutcomeFunctions(spectrumMinFreq, spectrumMaxFreq):List.of();
+    List<NamedFunction<Outcome, ?>> visualOutcomeFunctions = detailedOutput ? NamedFunctions.visualOutcomeFunctions(spectrumMinFreq, spectrumMaxFreq) : List.of();
     Listener.Factory<Event<?, ? extends Robot<?>, ? extends Outcome>> factory = Listener.Factory.deaf();
     //screen listener
     if (bestFileName == null || output) {
