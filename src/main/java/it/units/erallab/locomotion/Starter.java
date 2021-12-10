@@ -120,6 +120,7 @@ public class Starter extends Worker {
     List<String> serializationFlags = l(a("serialization", "")); //last,best,all
     boolean output = a("output", "false").startsWith("t");
     boolean detailedOutput = a("detailedOutput", "false").startsWith("t");
+    boolean cacheOutcome = a("cache", "false").startsWith("t");
     List<String> validationTransformationNames = l(a("validationTransformation", "")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
     List<String> validationTerrainNames = l(a("validationTerrain", "flat,downhill-30")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
     Function<Outcome, Double> fitnessFunction = Outcome::getVelocity;
@@ -297,7 +298,7 @@ public class Starter extends Worker {
                   //build task
                   try {
                     Collection<Robot<?>> solutions = evolver.solve(
-                        buildTaskFromName(transformationName, terrainName, episodeTime, random).andThen(o -> o.subOutcome(episodeTransientTime, episodeTime)),
+                        buildTaskFromName(transformationName, terrainName, episodeTime, random, cacheOutcome).andThen(o -> o.subOutcome(episodeTransientTime, episodeTime)),
                         new FitnessEvaluations(nEvals),
                         random,
                         executorService,
@@ -523,15 +524,15 @@ public class Starter extends Worker {
     );
   }
 
-  private static Function<Robot<?>, Outcome> buildTaskFromName(String transformationSequenceName, String terrainSequenceName, double episodeT, Random random) {
+  private static Function<Robot<?>, Outcome> buildTaskFromName(String transformationSequenceName, String terrainSequenceName, double episodeT, Random random, boolean cacheOutcome) {
     //for sequence, assume format '99:name>99:name'
     //transformations
     Function<Robot<?>, Robot<?>> transformation;
     if (transformationSequenceName.contains(SEQUENCE_SEPARATOR_CHAR)) {
       transformation = new SequentialFunction<>(getSequence(transformationSequenceName).entrySet().stream()
           .collect(Collectors.toMap(
-                  Map.Entry::getKey,
-                  e -> RobotUtils.buildRobotTransformation(e.getValue(), random)
+              Map.Entry::getKey,
+              e -> RobotUtils.buildRobotTransformation(e.getValue(), random)
               )
           ));
     } else {
@@ -542,18 +543,18 @@ public class Starter extends Worker {
     if (terrainSequenceName.contains(SEQUENCE_SEPARATOR_CHAR)) {
       task = new SequentialFunction<>(getSequence(terrainSequenceName).entrySet().stream()
           .collect(Collectors.toMap(
-                  Map.Entry::getKey,
-                  e -> buildLocomotionTask(e.getValue(), episodeT, random)
+              Map.Entry::getKey,
+              e -> buildLocomotionTask(e.getValue(), episodeT, random, cacheOutcome)
               )
           ));
     } else {
-      task = buildLocomotionTask(terrainSequenceName, episodeT, random);
+      task = buildLocomotionTask(terrainSequenceName, episodeT, random, cacheOutcome);
     }
     return task.compose(transformation);
   }
 
-  public static Function<Robot<?>, Outcome> buildLocomotionTask(String terrainName, double episodeT, Random random) {
-    if (!terrainName.contains("-rnd")) {
+  public static Function<Robot<?>, Outcome> buildLocomotionTask(String terrainName, double episodeT, Random random, boolean cacheOutcome) {
+    if (!terrainName.contains("-rnd") && cacheOutcome) {
       return Misc.cached(new Locomotion(
           episodeT,
           Locomotion.createTerrain(terrainName),

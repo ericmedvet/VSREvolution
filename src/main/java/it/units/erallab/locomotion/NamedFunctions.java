@@ -320,7 +320,8 @@ public class NamedFunctions {
             Function<Robot<?>, Outcome> validationLocomotion = Starter.buildLocomotionTask(
                 validationTerrainName,
                 episodeTime,
-                random
+                random,
+                false
             );
             Outcome outcome = validationLocomotion.apply(robot);
             validationOutcomes.add(new ValidationOutcome(
