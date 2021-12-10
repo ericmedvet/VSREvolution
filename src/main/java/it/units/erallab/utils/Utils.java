@@ -312,7 +312,8 @@ public class Utils {
             Function<Robot<?>, Outcome> validationLocomotion = LocomotionEvolution.buildLocomotionTask(
                 validationTerrainName,
                 episodeTime,
-                random
+                random,
+                false
             );
             Outcome outcome = validationLocomotion.apply(robot);
             validationOutcomes.add(new LocomotionEvolution.ValidationOutcome(

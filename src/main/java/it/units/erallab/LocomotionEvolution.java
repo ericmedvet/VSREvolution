@@ -147,6 +147,7 @@ public class LocomotionEvolution extends Worker {
     List<String> fitnessMetrics = l(a("fitness", "velocity"));
     String videoConfiguration = a("videoConfiguration", "basicWithMiniWorldAndBrain");
     boolean detailedOutcome = a("detailedOutcome", "false").startsWith("t");
+    boolean cacheOutcome = a("cache", "false").startsWith("t");
     Pair<Pair<Integer, Integer>, Function<String, Drawer>> drawerSupplier = getDrawerSupplierFromName(videoConfiguration);
     Function<Outcome, Double> fitnessFunction = getFitnessFunctionFromName(fitnessMetrics.get(0));
     Function<Outcome, Double>[] fitnessFunctions = getFitnessFunctionsFromName(fitnessMetrics);
@@ -345,7 +346,7 @@ public class LocomotionEvolution extends Worker {
                   //build task
                   try {
                     Collection<Robot<?>> solutions = evolver.solve(
-                        buildTaskFromName(transformationName, terrainName, episodeTime, random)
+                        buildTaskFromName(transformationName, terrainName, episodeTime, random, cacheOutcome)
                             .andThen(o -> o.subOutcome(episodeTransientTime, episodeTime)),
                         new FitnessEvaluations(nEvals),
                         random,
@@ -1305,7 +1306,7 @@ public class LocomotionEvolution extends Worker {
   }
 
   private static Function<Robot<?>, Outcome> buildTaskFromName(String transformationSequenceName, String
-      terrainSequenceName, double episodeT, Random random) {
+      terrainSequenceName, double episodeT, Random random, boolean outcomeCaching) {
     //for sequence, assume format '99:name>99:name'
     //transformations
     Function<Robot<?>, Robot<?>> transformation;
@@ -1325,17 +1326,18 @@ public class LocomotionEvolution extends Worker {
       task = new SequentialFunction<>(getSequence(terrainSequenceName).entrySet().stream()
           .collect(Collectors.toMap(
               Map.Entry::getKey,
-              e -> buildLocomotionTask(e.getValue(), episodeT, random)
+              e -> buildLocomotionTask(e.getValue(), episodeT, random, outcomeCaching)
               )
           ));
     } else {
-      task = buildLocomotionTask(terrainSequenceName, episodeT, random);
+      task = buildLocomotionTask(terrainSequenceName, episodeT, random, outcomeCaching);
     }
     return task.compose(transformation);
   }
 
-  public static Function<Robot<?>, Outcome> buildLocomotionTask(String terrainName, double episodeT, Random random) {
-    if (!terrainName.contains("-rnd")) {
+  public static Function<Robot<?>, Outcome> buildLocomotionTask(String terrainName, double episodeT, Random random, boolean cache) {
+    if (!terrainName.contains("-rnd") && cache) {
+      System.out.println("cache active");
       return Misc.cached(new Locomotion(
           episodeT,
           Locomotion.createTerrain(terrainName),
