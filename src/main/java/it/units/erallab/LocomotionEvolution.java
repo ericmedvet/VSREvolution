@@ -146,6 +146,7 @@ public class LocomotionEvolution extends Worker {
     List<String> validationTerrainNames = l(a("validationTerrain", "flat")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
     List<String> fitnessMetrics = l(a("fitness", "velocity"));
     String videoConfiguration = a("videoConfiguration", "basicWithMiniWorldAndBrain");
+    boolean detailedOutcome = a("detailedOutcome", "false").startsWith("t");
     Pair<Pair<Integer, Integer>, Function<String, Drawer>> drawerSupplier = getDrawerSupplierFromName(videoConfiguration);
     Function<Outcome, Double> fitnessFunction = getFitnessFunctionFromName(fitnessMetrics.get(0));
     Function<Outcome, Double>[] fitnessFunctions = getFitnessFunctionsFromName(fitnessMetrics);
@@ -178,7 +179,7 @@ public class LocomotionEvolution extends Worker {
           populationFunctions,
           NamedFunction.then(best(), basicIndividualFunctions),
           NamedFunction.then(as(Outcome.class).of(fitness()).of(best()), basicOutcomeFunctions),
-          NamedFunction.then(as(Outcome.class).of(fitness()).of(best()), detailedOutcomeFunctions),
+          detailedOutcome ? NamedFunction.then(as(Outcome.class).of(fitness()).of(best()), detailedOutcomeFunctions) : List.of(),
           NamedFunction.then(best(), Utils.serializationFunction(serializationFlags.contains("last"), solution())),
           NamedFunction.then(best(), Utils.serializationFunction(genotypeSerializationFlags.contains("last"), genotype()))
       )), new File(lastFileName)
@@ -191,7 +192,7 @@ public class LocomotionEvolution extends Worker {
           populationFunctions,
           NamedFunction.then(best(), basicIndividualFunctions),
           NamedFunction.then(as(Outcome.class).of(fitness()).of(best()), basicOutcomeFunctions),
-          NamedFunction.then(as(Outcome.class).of(fitness()).of(best()), detailedOutcomeFunctions),
+          detailedOutcome ? NamedFunction.then(as(Outcome.class).of(fitness()).of(best()), detailedOutcomeFunctions) : List.of(),
           NamedFunction.then(best(), Utils.serializationFunction(serializationFlags.contains("best"), solution())),
           NamedFunction.then(best(), Utils.serializationFunction(genotypeSerializationFlags.contains("best"), genotype()))
       )), new File(bestFileName)
@@ -255,10 +256,11 @@ public class LocomotionEvolution extends Worker {
                       f("outcome", (ValidationOutcome vo) -> vo.outcome.subOutcome(validationEpisodeTransientTime, validationEpisodeTime)),
                       basicOutcomeFunctions
                   ),
-                  NamedFunction.then(
-                      f("outcome", (ValidationOutcome vo) -> vo.outcome.subOutcome(validationEpisodeTransientTime, validationEpisodeTime)),
-                      detailedOutcomeFunctions
-                  )
+                  detailedOutcome ?
+                      NamedFunction.then(
+                          f("outcome", (ValidationOutcome vo) -> vo.outcome.subOutcome(validationEpisodeTransientTime, validationEpisodeTime)),
+                          detailedOutcomeFunctions
+                      ) : List.of()
               )),
               new File(validationFileName)
           )
@@ -343,7 +345,8 @@ public class LocomotionEvolution extends Worker {
                   //build task
                   try {
                     Collection<Robot<?>> solutions = evolver.solve(
-                        buildTaskFromName(transformationName, terrainName, episodeTime, random).andThen(o -> o.subOutcome(episodeTransientTime, episodeTime)),
+                        buildTaskFromName(transformationName, terrainName, episodeTime, random)
+                            .andThen(o -> o.subOutcome(episodeTransientTime, episodeTime)),
                         new FitnessEvaluations(nEvals),
                         random,
                         executorService,
