@@ -33,6 +33,7 @@ import it.units.malelab.jgea.core.listener.Accumulator;
 import it.units.malelab.jgea.core.listener.NamedFunction;
 import it.units.malelab.jgea.core.listener.TableBuilder;
 import it.units.malelab.jgea.core.util.*;
+import org.apache.commons.lang3.tuple.Pair;
 import org.dyn4j.dynamics.Settings;
 
 import java.awt.image.BufferedImage;
@@ -285,7 +286,13 @@ public class NamedFunctions {
           File file;
           try {
             file = File.createTempFile("robot-video", ".mp4");
-            GridFileWriter.save(locomotion, robot, 300, 200, transientTime, 25, VideoUtils.EncoderFacility.JCODEC, file);
+            String robotName = event.getAttributes().get("sensor.config") + " " + event.getAttributes().get("mapper") + " (" + event.getAttributes().get("seed") + ")";
+            GridFileWriter.save(
+                locomotion,
+                Grid.create(1, 1, Pair.of(robotName, robot)),
+                300, 200, transientTime,
+                25, VideoUtils.EncoderFacility.JCODEC, file
+            );
             file.deleteOnExit();
           } catch (IOException ioException) {
             L.warning(String.format("Cannot save video of best: %s", ioException));
