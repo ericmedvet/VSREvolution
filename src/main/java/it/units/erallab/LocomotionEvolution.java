@@ -1337,7 +1337,6 @@ public class LocomotionEvolution extends Worker {
 
   public static Function<Robot<?>, Outcome> buildLocomotionTask(String terrainName, double episodeT, Random random, boolean cache) {
     if (!terrainName.contains("-rnd") && cache) {
-      System.out.println("cache active");
       return Misc.cached(new Locomotion(
           episodeT,
           Locomotion.createTerrain(terrainName),
