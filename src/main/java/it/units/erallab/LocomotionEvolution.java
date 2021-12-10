@@ -134,11 +134,13 @@ public class LocomotionEvolution extends Worker {
     String bestFileName = a("bestFile", null);
     String lastFileName = a("lastFile", null);
     String allFileName = a("allFile", null);
+    String finalFileName = a("finalFile", null);
     String validationFileName = a("validationFile", null);
     boolean deferred = a("deferred", "true").startsWith("t");
     String telegramBotId = a("telegramBotId", null);
     long telegramChatId = Long.parseLong(a("telegramChatId", "0"));
-    List<String> serializationFlags = l(a("serialization", "")); //last,best,all
+    List<String> serializationFlags = l(a("serialization", "")); //last,best,all,final
+    List<String> genotypeSerializationFlags = l(a("genoSerialization", "")); //last,best,all,final
     boolean output = a("output", "false").startsWith("t");
     List<String> validationTransformationNames = l(a("validationTransformation", "")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
     List<String> validationTerrainNames = l(a("validationTerrain", "flat")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
@@ -177,7 +179,8 @@ public class LocomotionEvolution extends Worker {
           NamedFunction.then(best(), basicIndividualFunctions),
           NamedFunction.then(as(Outcome.class).of(fitness()).of(best()), basicOutcomeFunctions),
           NamedFunction.then(as(Outcome.class).of(fitness()).of(best()), detailedOutcomeFunctions),
-          NamedFunction.then(best(), Utils.serializationFunction(serializationFlags.contains("last")))
+          NamedFunction.then(best(), Utils.serializationFunction(serializationFlags.contains("last"), solution())),
+          NamedFunction.then(best(), Utils.serializationFunction(genotypeSerializationFlags.contains("last"), genotype()))
       )), new File(lastFileName)
       ).onLast());
     }
@@ -189,7 +192,8 @@ public class LocomotionEvolution extends Worker {
           NamedFunction.then(best(), basicIndividualFunctions),
           NamedFunction.then(as(Outcome.class).of(fitness()).of(best()), basicOutcomeFunctions),
           NamedFunction.then(as(Outcome.class).of(fitness()).of(best()), detailedOutcomeFunctions),
-          NamedFunction.then(best(), Utils.serializationFunction(serializationFlags.contains("best")))
+          NamedFunction.then(best(), Utils.serializationFunction(serializationFlags.contains("best"), solution())),
+          NamedFunction.then(best(), Utils.serializationFunction(genotypeSerializationFlags.contains("best"), genotype()))
       )), new File(bestFileName)
       ));
     }
@@ -203,11 +207,30 @@ public class LocomotionEvolution extends Worker {
                   NamedFunction.then(f("event", Pair::first), keysFunctions),
                   NamedFunction.then(f("event", Pair::first), basicFunctions),
                   NamedFunction.then(f("individual", Pair::second), basicIndividualFunctions),
-                  NamedFunction.then(f("individual", Pair::second), Utils.serializationFunction(serializationFlags.contains("all")))
+                  NamedFunction.then(f("individual", Pair::second), Utils.serializationFunction(serializationFlags.contains("all"), solution())),
+                  NamedFunction.then(f("individual", Pair::second), Utils.serializationFunction(genotypeSerializationFlags.contains("all"), genotype()))
               )),
               new File(allFileName)
           )
       ));
+    }
+    if (finalFileName != null) {
+      Listener.Factory<Event<?, ? extends Robot<?>, ? extends Outcome>> entirePopulationFactory = Listener.Factory.forEach(
+          event -> event.getOrderedPopulation().all().stream()
+              .map(i -> Pair.of(event, i))
+              .collect(Collectors.toList()),
+          new CSVPrinter<>(
+              Misc.concat(List.of(
+                  NamedFunction.then(f("event", Pair::first), keysFunctions),
+                  NamedFunction.then(f("event", Pair::first), basicFunctions),
+                  NamedFunction.then(f("individual", Pair::second), basicIndividualFunctions),
+                  NamedFunction.then(f("individual", Pair::second), Utils.serializationFunction(serializationFlags.contains("final"), solution())),
+                  NamedFunction.then(f("individual", Pair::second), Utils.serializationFunction(genotypeSerializationFlags.contains("final"), genotype()))
+              )),
+              new File(finalFileName)
+          )
+      );
+      factory = factory.and(entirePopulationFactory.onLast());
     }
     //validation listener
     if (validationFileName != null) {
@@ -468,7 +491,7 @@ public class LocomotionEvolution extends Worker {
     if (params(basicWithMiniWorldAndBrain, name) != null) {
       return Pair.of(Pair.of(1, 2), Drawers::basicWithMiniWorldAndBrain);
     }
-    if (params(basicWithMiniWorldAndBrain, name) != null) {
+    if (params(basicWithMiniWorldAndBrainUsage, name) != null) {
       return Pair.of(Pair.of(1, 2), Drawers::basicWithMiniWorldAndBrainUsage);
     }
     throw new IllegalArgumentException(String.format("Unknown video configuration name: %s", name));
