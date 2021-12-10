@@ -65,7 +65,7 @@ public class RulesParamsExtractor extends Worker {
     String outputFileName = "C:\\Users\\giorg\\Documents\\UNITS\\LAUREA_MAGISTRALE\\TESI\\SNN\\Outcomes\\learning_weights_rule_no_learning\\rules.txt";
 
     SerializationUtils.Mode mode = SerializationUtils.Mode.GZIPPED_JSON;
-    List<String> headersToKeep = List.of("seed", "mapper");
+    List<String> headersToKeep = List.of("seed", "mapper", "iterations", "births");
     // create printer
     CSVPrinter printer;
     try {
