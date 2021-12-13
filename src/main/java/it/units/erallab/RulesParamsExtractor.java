@@ -1,7 +1,7 @@
 package it.units.erallab;
 
 import it.units.erallab.hmsrobots.core.controllers.CentralizedSensing;
-import it.units.erallab.hmsrobots.core.controllers.snn.learning.STDPLearningRule;
+import it.units.erallab.hmsrobots.core.controllers.snn.learning.*;
 import it.units.erallab.hmsrobots.core.controllers.snndiscr.QuantizedLearningMultilayerSpikingNetwork;
 import it.units.erallab.hmsrobots.core.controllers.snndiscr.QuantizedMultilayerSpikingNetwork;
 import it.units.erallab.hmsrobots.core.controllers.snndiscr.QuantizedMultilayerSpikingNetworkWithConverters;
@@ -15,6 +15,7 @@ import org.apache.commons.csv.CSVRecord;
 
 import java.io.*;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -27,7 +28,7 @@ public class RulesParamsExtractor extends Worker {
     super(args);
   }
 
-  private List<String> readRecordsFromFile(String inputFileName) {
+  private void readRecordsFromFile(String inputFileName) {
     //read data
     Reader reader = null;
     try {
@@ -38,9 +39,7 @@ public class RulesParamsExtractor extends Worker {
       }
       CSVParser csvParser = CSVFormat.DEFAULT.withDelimiter(';').withFirstRecordAsHeader().parse(reader);
       records = csvParser.getRecords();
-      List<String> oldHeaders = csvParser.getHeaderNames();
       reader.close();
-      return oldHeaders;
     } catch (IOException e) {
       L.severe(String.format("Cannot read input data: %s", e));
       if (reader != null) {
@@ -51,7 +50,6 @@ public class RulesParamsExtractor extends Worker {
         }
       }
       System.exit(-1);
-      return null;
     }
   }
 
@@ -60,12 +58,12 @@ public class RulesParamsExtractor extends Worker {
     Logger logger = Logger.getAnonymousLogger();
     System.setProperty("java.util.logging.SimpleFormatter.format", "[%1$tF %1$tT] [%4$-6s] %5$s %n");
     // params
-    String inputFileName = "C:\\Users\\giorg\\Documents\\UNITS\\LAUREA_MAGISTRALE\\TESI\\SNN\\Outcomes\\learning_weights_rule_no_learning\\last.txt";
+    String inputFileName = "C:\\Users\\giorg\\Documents\\UNITS\\LAUREA_MAGISTRALE\\TESI\\SNN\\Outcomes\\learning_weights_rule_no_learning\\longer\\best.txt";
     String serializedRobotColumnName = a("serializedRobotColumn", "best→solution→serialized");
-    String outputFileName = "C:\\Users\\giorg\\Documents\\UNITS\\LAUREA_MAGISTRALE\\TESI\\SNN\\Outcomes\\learning_weights_rule_no_learning\\rules.txt";
+    String outputFileName = "C:\\Users\\giorg\\Documents\\UNITS\\LAUREA_MAGISTRALE\\TESI\\SNN\\Outcomes\\learning_weights_rule_no_learning\\longer\\best+rules.txt";
 
     SerializationUtils.Mode mode = SerializationUtils.Mode.GZIPPED_JSON;
-    List<String> headersToKeep = List.of("seed", "mapper", "iterations", "births");
+    List<String> headersToKeep = List.of("seed", "mapper", "iterations", "births", "terrain", "shape", "best→fitness→fitness", "fitness.evaluations", "evolver");
     // create printer
     CSVPrinter printer;
     try {
@@ -74,10 +72,21 @@ public class RulesParamsExtractor extends Worker {
       e.printStackTrace();
       return;
     }
+    List<STDPLearningRule> existingRules = List.of(new DegenerateLearningRule(),
+        new AsymmetricHebbianLearningRule(),
+        new SymmetricHebbianLearningRule(),
+        new AsymmetricAntiHebbianLearningRule(),
+        new SymmetricAntiHebbianLearningRule());
+    List<Class<?>> existingRulesClasses = existingRules.stream().map(STDPLearningRule::getClass).collect(Collectors.toList());
+    List<String> existingRulesNames = existingRulesClasses.stream()
+        .map(Class::getSimpleName)
+        .map(s -> s.replaceAll("([a-z])([A-Z]+)", "$1.$2").toLowerCase())
+        .map(s -> s.replace(".learning.", "."))
+        .collect(Collectors.toList());
     // parse old file and print headers to new file
-    List<String> headers = readRecordsFromFile(inputFileName);
-    headers = headers.stream().filter(headersToKeep::contains).collect(Collectors.toList());
-    headers.addAll(List.of("layer", "start.neuron", "destination.neuron", "rule"));
+    readRecordsFromFile(inputFileName);
+    List<String> headers = new ArrayList<>(headersToKeep);
+    headers.addAll(existingRulesNames);
 
 
     try {
@@ -98,21 +107,27 @@ public class RulesParamsExtractor extends Worker {
       QuantizedLearningMultilayerSpikingNetwork qlmsn = (QuantizedLearningMultilayerSpikingNetwork) qmsn;
       STDPLearningRule[][][] rules = qlmsn.getLearningRules();
       List<String> oldRecord = headersToKeep.stream().map(record::get).collect(Collectors.toList());
-      for (int layer = 0; layer < rules.length; layer++) {
-        for (int startNeuron = 0; startNeuron < rules[layer].length; startNeuron++) {
-          for (int destinationNeuron = 0; destinationNeuron < rules[layer][startNeuron].length; destinationNeuron++) {
-            List<String> printableRecord = new ArrayList<>(oldRecord);
-            printableRecord.add(layer + "");
-            printableRecord.add(startNeuron + "");
-            printableRecord.add(destinationNeuron + "");
-            printableRecord.add(rules[layer][startNeuron][destinationNeuron].getClass().getSimpleName());
-            try {
-              printer.printRecord(printableRecord);
-            } catch (IOException e) {
-              e.printStackTrace();
+      int[] rulesCounter = new int[existingRulesClasses.size()];
+      for (STDPLearningRule[][] rule : rules) {
+        for (STDPLearningRule[] stdpLearningRules : rule) {
+          for (STDPLearningRule stdpLearningRule : stdpLearningRules) {
+            for (int ruleIndex = 0; ruleIndex < rulesCounter.length; ruleIndex++) {
+              Class<?> ruleClass = existingRulesClasses.get(ruleIndex);
+              if (stdpLearningRule.getClass().equals(ruleClass)) {
+                rulesCounter[ruleIndex] += 1;
+                break;
+              }
             }
           }
         }
+      }
+
+      List<String> printableRecord = new ArrayList<>(oldRecord);
+      printableRecord.addAll(Arrays.stream(rulesCounter).mapToObj(i -> i + "").collect(Collectors.toList()));
+      try {
+        printer.printRecord(printableRecord);
+      } catch (IOException e) {
+        e.printStackTrace();
       }
 
       logger.info(String.format("%2d/%2d", ++validationsCounter, records.size()));
