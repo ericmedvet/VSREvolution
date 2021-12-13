@@ -42,6 +42,7 @@ public class IntegersStandard implements EvolverBuilder<List<Integer>> {
     int maxValue = builder.exampleFor(target).get(0);
     IndependentFactory<List<Integer>> factory = new FixedLengthListFactory<>(length, random -> random.nextInt(maxValue));
     Mutation<Integer> mutation = (i, random) -> random.nextInt(maxValue);
+    double pMut = Math.max(0.01, 1d / (double) length);
     if (!diversityEnforcement) {
       return new StandardEvolver<>(
           builder.buildFor(target),
@@ -49,8 +50,9 @@ public class IntegersStandard implements EvolverBuilder<List<Integer>> {
           comparator.comparing(Individual::getFitness),
           nPop,
           Map.of(
-              new ProbabilisticMutation<>(1d / (double) length, factory, mutation), 1d - xOverProb,
-              new UniformCrossover<>(factory), xOverProb
+              new ProbabilisticMutation<>(pMut, factory, mutation), 1d - xOverProb,
+              new UniformCrossover<>(factory)
+                  .andThen(new ProbabilisticMutation<>(pMut, factory, mutation)), xOverProb
           ),
           new Tournament(nTournament),
           new Last(),
