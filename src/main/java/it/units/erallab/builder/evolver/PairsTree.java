@@ -60,7 +60,7 @@ public class PairsTree implements EvolverBuilder<Tree<Pair<Double, Double>>> {
           new Last(),
           nPop,
           true,
-          true
+          remap
       );
     }
     return new StandardWithEnforcedDiversityEvolver<>(
@@ -73,7 +73,7 @@ public class PairsTree implements EvolverBuilder<Tree<Pair<Double, Double>>> {
         new Last(),
         nPop,
         true,
-        true,
+        remap,
         100
     );
   }

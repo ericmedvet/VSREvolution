@@ -487,8 +487,8 @@ public class Starter extends Worker {
   }
 
   public static EvolverBuilder<?> getEvolverBuilderFromName(String name) {
-    String treeNumGA = "treeNumGA-(?<nPop>\\d+)-(?<diversity>(t|f))";
-    String treePairGA = "treePairGA-(?<nPop>\\d+)-(?<diversity>(t|f))";
+    String treeNumGA = "treeNumGA-(?<nPop>\\d+)-(?<diversity>(t|f))-(?<remap>(t|f))";
+    String treePairGA = "treePairGA-(?<nPop>\\d+)-(?<diversity>(t|f))-(?<remap>(t|f))";
     Map<String, String> params;
     if ((params = params(treeNumGA, name)) != null) {
       return new TreeAndDoubles(
@@ -496,7 +496,7 @@ public class Starter extends Worker {
           (int) Math.max(Math.round((double) Integer.parseInt(params.get("nPop")) / 10d), 3),
           0.75d,
           params.get("diversity").equals("t"),
-          true
+          params.get("remap").equals("t")
       );
     }
     if ((params = params(treePairGA, name)) != null) {
@@ -505,7 +505,7 @@ public class Starter extends Worker {
           (int) Math.max(Math.round((double) Integer.parseInt(params.get("nPop")) / 10d), 3),
           0.75d,
           params.get("diversity").equals("t"),
-          true
+          params.get("remap").equals("t")
       );
     }
     return it.units.erallab.locomotion.Starter.getEvolverBuilderFromName(name);

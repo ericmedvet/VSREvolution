@@ -69,7 +69,7 @@ public class TreeAndDoubles implements EvolverBuilder<Pair<Tree<Double>, List<Do
           new Last(),
           nPop,
           true,
-          true
+          remap
       );
     }
     return new StandardWithEnforcedDiversityEvolver<>(
@@ -82,7 +82,7 @@ public class TreeAndDoubles implements EvolverBuilder<Pair<Tree<Double>, List<Do
         new Last(),
         nPop,
         true,
-        true,
+        remap,
         100
     );
   }

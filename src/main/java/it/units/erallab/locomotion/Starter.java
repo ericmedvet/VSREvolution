@@ -332,7 +332,7 @@ public class Starter extends Worker {
     String intGA = "intGA-(?<nPop>\\d+)-(?<diversity>(t|f))-(?<remap>(t|f))";
     String numGASpeciated = "numGASpec-(?<nPop>\\d+)-(?<nSpecies>\\d+)-(?<criterion>(" + Arrays.stream(DoublesSpeciated.SpeciationCriterion.values()).map(c -> c.name().toLowerCase(Locale.ROOT)).collect(Collectors.joining("|")) + "))-(?<remap>(t|f))";
     String cmaES = "CMAES";
-    String eS = "ES-(?<nPop>\\d+)-(?<sigma>\\d+(\\.\\d+)?)";
+    String eS = "ES-(?<nPop>\\d+)-(?<sigma>\\d+(\\.\\d+)?)-(?<remap>(t|f))";
     Map<String, String> params;
     if ((params = params(numGA, name)) != null) {
       return new DoublesStandard(
@@ -364,7 +364,8 @@ public class Starter extends Worker {
     if ((params = params(eS, name)) != null) {
       return new ES(
           Double.parseDouble(params.get("sigma")),
-          Integer.parseInt(params.get("nPop"))
+          Integer.parseInt(params.get("nPop")),
+          params.get("remap").equals("t")
       );
     }
     if ((params = params(cmaES, name)) != null) {
