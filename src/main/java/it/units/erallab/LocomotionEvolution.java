@@ -386,6 +386,7 @@ public class LocomotionEvolution extends Worker {
     String sparseGA = "sparse-(?<nPop>\\d+)-(?<p>\\d+(\\.\\d+)?)";
     String STDPStandardGA = "STDP_GA-(?<nPop>\\d+)-(?<diversity>(t|f))";
     String bitNumGA = "bitNumGA-(?<nPop>\\d+)-(?<diversity>(t|f))";
+    String biasedBitNumGA = "biasedBitNumGA-(?<nPop>\\d+)-(?<diversity>(t|f))-(?<remap>(t|f))";
     String bitNumMutation = "bitNumMut-(?<nPop>\\d+)-(?<diversity>(t|f))";
     Map<String, String> params;
     if ((params = params(numGA, name)) != null) {
@@ -419,6 +420,15 @@ public class LocomotionEvolution extends Worker {
           (int) Math.max(Math.round((double) Integer.parseInt(params.get("nPop")) / 10d), 3),
           0.75d,
           params.get("diversity").equals("t")
+      );
+    }
+    if ((params = params(biasedBitNumGA, name)) != null) {
+      return new BinaryAndDoublesBiased(
+          Integer.parseInt(params.get("nPop")),
+          (int) Math.max(Math.round((double) Integer.parseInt(params.get("nPop")) / 10d), 3),
+          0d,
+          params.get("diversity").equals("t"),
+          params.get("remap").equals("t")
       );
     }
     if ((params = params(bitNumMutation, name)) != null) {
