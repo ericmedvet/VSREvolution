@@ -376,7 +376,6 @@ public class LocomotionEvolution extends Worker {
     String ternaryGA = "terGA-(?<nPop>\\d+)-(?<diversity>(t|f))-(?<remap>(t|f))";
     String cmaES = "CMAES";
     String eS = "ES-(?<nPop>\\d+)-(?<sigma>\\d+(\\.\\d+)?)";
-    String sparseGA = "sparse-(?<nPop>\\d+)-(?<p>\\d+(\\.\\d+)?)";
     String STDPStandardGA = "STDP_GA-(?<nPop>\\d+)-(?<diversity>(t|f))";
     String bitNumGA = "bitNumGA-(?<nPop>\\d+)-(?<diversity>(t|f))";
     String biasedBitNumGA = "biasedBitNumGA-(?<nPop>\\d+)-(?<diversity>(t|f))-(?<remap>(t|f))";
@@ -448,13 +447,6 @@ public class LocomotionEvolution extends Worker {
     }
     if ((params = params(cmaES, name)) != null) {
       return new CMAES();
-    }
-    if ((params = params(sparseGA, name)) != null) {
-      return new DoublesInitiallySparse(
-          Integer.parseInt(params.get("nPop")),
-          (int) Math.max(Math.round((double) Integer.parseInt(params.get("nPop")) / 10d), 3),
-          Double.parseDouble(params.get("p"))
-      );
     }
     if ((params = params(STDPStandardGA, name)) != null) {
       return new STDPStandard(
