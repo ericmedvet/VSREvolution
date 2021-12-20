@@ -559,6 +559,9 @@ public class LocomotionEvolution extends Worker {
         "(-(?<lRestPot>-?\\d+(\\.\\d+)?)-(?<lThreshPot>-?\\d+(\\.\\d+)?)-(?<lambda>\\d+(\\.\\d+)?)(-(?<theta>\\d+(\\.\\d+)?))?)?" +
         "(-(?<izParams>(regular_spiking_params)))?" +
         "-(?<iConv>(unif|unif_mem))-(?<iFreq>\\d+(\\.\\d+)?)-(?<oConv>(avg|avg_mem))(-(?<oMem>\\d+))?-(?<oFreq>\\d+(\\.\\d+)?)";
+    String oneHotMsnWithConverter = "HMSN-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<spikeType>(lif|iz|lif_h|lif_h_output|lif_h_io))" +
+        "(-(?<lRestPot>-?\\d+(\\.\\d+)?)-(?<lThreshPot>-?\\d+(\\.\\d+)?)-(?<lambda>\\d+(\\.\\d+)?)(-(?<theta>\\d+(\\.\\d+)?))?)?" +
+        "(-(?<izParams>(regular_spiking_params)))?";
     String learningMsnWithConverter = "LMSN-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<spikeType>(lif|iz|lif_h))" +
         "(-(?<lRestPot>-?\\d+(\\.\\d+)?)-(?<lThreshPot>-?\\d+(\\.\\d+)?)-(?<lambda>\\d+(\\.\\d+)?)(-(?<theta>\\d+(\\.\\d+)?))?)?" +
         "(-(?<izParams>(regular_spiking_params)))?" +
@@ -1044,8 +1047,8 @@ public class LocomotionEvolution extends Worker {
       }
     }
 
-
     if ((params = params(quantizedMsn, name)) != null ||
+        (params = params(oneHotMsnWithConverter, name)) != null ||
         (params = params(quantizedMsnWithConverter, name)) != null ||
         (params = params(quantizedNumericLearningMsnWithConverter, name)) != null ||
         (params = params(quantizedNumericLearningFixedPoolMsnWithConverter, name)) != null ||
@@ -1114,6 +1117,14 @@ public class LocomotionEvolution extends Worker {
             Double.parseDouble(params.get("ratio")),
             Integer.parseInt(params.get("nLayers")),
             neuronBuilder
+        );
+      }
+      if ((params = params(oneHotMsnWithConverter, name)) != null) {
+        return new OneHotMSNWithConverters(
+            Double.parseDouble(params.get("ratio")),
+            Integer.parseInt(params.get("nLayers")),
+            neuronBuilder,
+            5, 5
         );
       }
       if ((params = params(quantizedMsnWithConverter, name)) != null ||
@@ -1316,8 +1327,8 @@ public class LocomotionEvolution extends Worker {
     if (transformationSequenceName.contains(SEQUENCE_SEPARATOR_CHAR)) {
       transformation = new SequentialFunction<>(getSequence(transformationSequenceName).entrySet().stream()
           .collect(Collectors.toMap(
-              Map.Entry::getKey,
-              e -> RobotUtils.buildRobotTransformation(e.getValue(), random)
+                  Map.Entry::getKey,
+                  e -> RobotUtils.buildRobotTransformation(e.getValue(), random)
               )
           ));
     } else {
@@ -1328,8 +1339,8 @@ public class LocomotionEvolution extends Worker {
     if (terrainSequenceName.contains(SEQUENCE_SEPARATOR_CHAR)) {
       task = new SequentialFunction<>(getSequence(terrainSequenceName).entrySet().stream()
           .collect(Collectors.toMap(
-              Map.Entry::getKey,
-              e -> buildLocomotionTask(e.getValue(), episodeT, random, outcomeCaching)
+                  Map.Entry::getKey,
+                  e -> buildLocomotionTask(e.getValue(), episodeT, random, outcomeCaching)
               )
           ));
     } else {
