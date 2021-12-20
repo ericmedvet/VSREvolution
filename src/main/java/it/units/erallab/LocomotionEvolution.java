@@ -59,12 +59,12 @@ import it.units.malelab.jgea.core.evolver.Event;
 import it.units.malelab.jgea.core.evolver.Evolver;
 import it.units.malelab.jgea.core.evolver.stopcondition.FitnessEvaluations;
 import it.units.malelab.jgea.core.listener.*;
+import it.units.malelab.jgea.core.listener.telegram.TelegramProgressMonitor;
 import it.units.malelab.jgea.core.listener.telegram.TelegramUpdater;
 import it.units.malelab.jgea.core.order.PartialComparator;
 import it.units.malelab.jgea.core.util.Misc;
 import it.units.malelab.jgea.core.util.Pair;
 import it.units.malelab.jgea.core.util.SequentialFunction;
-import it.units.malelab.jgea.core.util.TextPlotter;
 import org.dyn4j.dynamics.Settings;
 
 import java.io.File;
@@ -162,6 +162,7 @@ public class LocomotionEvolution extends Worker {
     List<NamedFunction<Outcome, ?>> detailedOutcomeFunctions = Utils.detailedOutcomeFunctions(spectrumMinFreq, spectrumMaxFreq, spectrumSize);
     List<NamedFunction<Outcome, ?>> visualOutcomeFunctions = Utils.visualOutcomeFunctions(spectrumMinFreq, spectrumMaxFreq);
     Listener.Factory<Event<?, ? extends Robot<?>, ? extends Outcome>> factory = Listener.Factory.deaf();
+    ProgressMonitor progressMonitor = new ScreenProgressMonitor(System.out);
     if (bestFileName == null || output) {
       factory = factory.and(new TabularPrinter<>(Misc.concat(List.of(
           basicFunctions,
@@ -275,6 +276,7 @@ public class LocomotionEvolution extends Worker {
           Utils.centerPositionPlot(),
           Utils.bestVideo(videoEpisodeTransientTime, videoEpisodeTime, PHYSICS_SETTINGS, drawerSupplier)
       ), telegramBotId, telegramChatId));
+      progressMonitor = progressMonitor.and(new TelegramProgressMonitor(telegramBotId, telegramChatId));
     }
     //summarize params
     L.info("Experiment name: " + experimentName);
@@ -338,11 +340,7 @@ public class LocomotionEvolution extends Worker {
                   }
                   //optimize
                   Stopwatch stopwatch = Stopwatch.createStarted();
-                  L.info(String.format("Progress %s (%d/%d); Starting %s",
-                      TextPlotter.horizontalBar(counter - 1, 0, nOfRuns, 8),
-                      counter, nOfRuns,
-                      keys
-                  ));
+                  progressMonitor.notify(((float) counter - 1) / nOfRuns, String.format("(%d/%d); Starting %s", counter, nOfRuns, keys));
                   //build task
                   try {
                     Collection<Robot<?>> solutions = evolver.solve(
@@ -353,12 +351,7 @@ public class LocomotionEvolution extends Worker {
                         executorService,
                         listener
                     );
-                    L.info(String.format("Progress %s (%d/%d); Done: %d solutions in %4ds",
-                        TextPlotter.horizontalBar(counter, 0, nOfRuns, 8),
-                        counter, nOfRuns,
-                        solutions.size(),
-                        stopwatch.elapsed(TimeUnit.SECONDS)
-                    ));
+                    progressMonitor.notify((float) counter / nOfRuns, String.format("(%d/%d); Done: %d solutions in %4ds", counter, nOfRuns, solutions.size(), stopwatch.elapsed(TimeUnit.SECONDS)));
                   } catch (Exception e) {
                     L.severe(String.format("Cannot complete %s due to %s",
                         keys,
