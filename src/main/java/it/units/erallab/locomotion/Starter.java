@@ -40,12 +40,12 @@ import it.units.malelab.jgea.core.evolver.Event;
 import it.units.malelab.jgea.core.evolver.Evolver;
 import it.units.malelab.jgea.core.evolver.stopcondition.FitnessEvaluations;
 import it.units.malelab.jgea.core.listener.*;
+import it.units.malelab.jgea.core.listener.telegram.TelegramProgressMonitor;
 import it.units.malelab.jgea.core.listener.telegram.TelegramUpdater;
 import it.units.malelab.jgea.core.order.PartialComparator;
 import it.units.malelab.jgea.core.util.Misc;
 import it.units.malelab.jgea.core.util.Pair;
 import it.units.malelab.jgea.core.util.SequentialFunction;
-import it.units.malelab.jgea.core.util.TextPlotter;
 import org.dyn4j.dynamics.Settings;
 
 import java.io.File;
@@ -137,6 +137,7 @@ public class Starter extends Worker {
     List<NamedFunction<Outcome, ?>> detailedOutcomeFunctions = NamedFunctions.detailedOutcomeFunctions(spectrumMinFreq, spectrumMaxFreq, spectrumSize);
     List<NamedFunction<Outcome, ?>> visualOutcomeFunctions = detailedOutput ? NamedFunctions.visualOutcomeFunctions(spectrumMinFreq, spectrumMaxFreq) : List.of();
     Listener.Factory<Event<?, ? extends Robot<?>, ? extends Outcome>> factory = Listener.Factory.deaf();
+    ProgressMonitor progressMonitor = new ScreenProgressMonitor(System.out);
     //screen listener
     if (bestFileName == null || output) {
       factory = factory.and(new TabularPrinter<>(Misc.concat(List.of(
@@ -230,6 +231,7 @@ public class Starter extends Worker {
           NamedFunctions.centerPositionPlot(),
           NamedFunctions.bestVideo(videoEpisodeTransientTime, videoEpisodeTime, PHYSICS_SETTINGS)
       ), telegramBotId, telegramChatId));
+      progressMonitor = progressMonitor.and(new TelegramProgressMonitor(telegramBotId, telegramChatId));
     }
     //summarize params
     L.info("Experiment name: " + experimentName);
@@ -290,12 +292,7 @@ public class Starter extends Worker {
                   }
                   //optimize
                   Stopwatch stopwatch = Stopwatch.createStarted();
-                  L.info(String.format("Progress %s (%d/%d); Starting %s",
-                      TextPlotter.horizontalBar(counter - 1, 0, nOfRuns, 8),
-                      counter, nOfRuns,
-                      keys
-                  ));
-                  //build task
+                  progressMonitor.notify(((float) counter - 1) / nOfRuns, String.format("(%d/%d); Starting %s", counter, nOfRuns, keys));
                   try {
                     Collection<Robot<?>> solutions = evolver.solve(
                         buildTaskFromName(transformationName, terrainName, episodeTime, random, cacheOutcome).andThen(o -> o.subOutcome(episodeTransientTime, episodeTime)),
@@ -304,12 +301,7 @@ public class Starter extends Worker {
                         executorService,
                         listener
                     );
-                    L.info(String.format("Progress %s (%d/%d); Done: %d solutions in %4ds",
-                        TextPlotter.horizontalBar(counter, 0, nOfRuns, 8),
-                        counter, nOfRuns,
-                        solutions.size(),
-                        stopwatch.elapsed(TimeUnit.SECONDS)
-                    ));
+                    progressMonitor.notify((float) counter / nOfRuns, String.format("(%d/%d); Done: %d solutions in %4ds", counter, nOfRuns, solutions.size(), stopwatch.elapsed(TimeUnit.SECONDS)));
                   } catch (Exception e) {
                     L.severe(String.format("Cannot complete %s due to %s",
                         keys,
@@ -532,8 +524,8 @@ public class Starter extends Worker {
     if (transformationSequenceName.contains(SEQUENCE_SEPARATOR_CHAR)) {
       transformation = new SequentialFunction<>(getSequence(transformationSequenceName).entrySet().stream()
           .collect(Collectors.toMap(
-              Map.Entry::getKey,
-              e -> RobotUtils.buildRobotTransformation(e.getValue(), random)
+                  Map.Entry::getKey,
+                  e -> RobotUtils.buildRobotTransformation(e.getValue(), random)
               )
           ));
     } else {
@@ -544,8 +536,8 @@ public class Starter extends Worker {
     if (terrainSequenceName.contains(SEQUENCE_SEPARATOR_CHAR)) {
       task = new SequentialFunction<>(getSequence(terrainSequenceName).entrySet().stream()
           .collect(Collectors.toMap(
-              Map.Entry::getKey,
-              e -> buildLocomotionTask(e.getValue(), episodeT, random, cacheOutcome)
+                  Map.Entry::getKey,
+                  e -> buildLocomotionTask(e.getValue(), episodeT, random, cacheOutcome)
               )
           ));
     } else {

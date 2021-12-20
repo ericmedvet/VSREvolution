@@ -22,10 +22,10 @@ import it.units.malelab.jgea.core.evolver.Event;
 import it.units.malelab.jgea.core.evolver.Evolver;
 import it.units.malelab.jgea.core.evolver.stopcondition.FitnessEvaluations;
 import it.units.malelab.jgea.core.listener.*;
+import it.units.malelab.jgea.core.listener.telegram.TelegramProgressMonitor;
 import it.units.malelab.jgea.core.listener.telegram.TelegramUpdater;
 import it.units.malelab.jgea.core.order.PartialComparator;
 import it.units.malelab.jgea.core.util.Misc;
-import it.units.malelab.jgea.core.util.TextPlotter;
 
 import java.io.File;
 import java.util.*;
@@ -126,6 +126,7 @@ public class Starter extends Worker {
     List<NamedFunction<Individual<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>, ?>> visualIndividualFunctions = visualIndividualFunctions();
     Listener.Factory<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>> factory = Listener.Factory.deaf();
     NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>, DevoOutcome> bestFitness = f("best.fitness", event -> Misc.first(event.getOrderedPopulation().firsts()).getFitness());
+    ProgressMonitor progressMonitor = new ScreenProgressMonitor(System.out);
     //screen listener
     if ((bestFileName == null) || output) {
       factory = factory.and(new TabularPrinter<>(Misc.concat(List.of(
@@ -187,6 +188,7 @@ public class Starter extends Worker {
           fitnessPlot(fitnessFunction),
           bestVideo(stageMinDistance, stageMaxTime, developmentSchedule, episodeTime, distanceBasedDevelopment)
       ), telegramBotId, telegramChatId));
+      progressMonitor = progressMonitor.and(new TelegramProgressMonitor(telegramBotId, telegramChatId));
     }
     //summarize params
     L.info("Experiment name: " + experimentName);
@@ -247,11 +249,7 @@ public class Starter extends Worker {
               }
               //optimize
               Stopwatch stopwatch = Stopwatch.createStarted();
-              L.info(String.format("Progress %s (%d/%d); Starting %s",
-                  TextPlotter.horizontalBar(counter - 1, 0, nOfRuns, 8),
-                  counter, nOfRuns,
-                  keys
-              ));
+              progressMonitor.notify(((float) counter - 1) / nOfRuns, String.format("(%d/%d); Starting %s", counter, nOfRuns, keys));
               //build task
               try {
                 Collection<UnaryOperator<Robot<?>>> solutions = evolver.solve(
@@ -261,12 +259,7 @@ public class Starter extends Worker {
                     executorService,
                     listener
                 );
-                L.info(String.format("Progress %s (%d/%d); Done: %d solutions in %4ds",
-                    TextPlotter.horizontalBar(counter, 0, nOfRuns, 8),
-                    counter, nOfRuns,
-                    solutions.size(),
-                    stopwatch.elapsed(TimeUnit.SECONDS)
-                ));
+                progressMonitor.notify((float) counter / nOfRuns, String.format("(%d/%d); Done: %d solutions in %4ds", counter, nOfRuns, solutions.size(), stopwatch.elapsed(TimeUnit.SECONDS)));
               } catch (Exception e) {
                 L.severe(String.format("Cannot complete %s due to %s",
                     keys,
