@@ -1,4 +1,4 @@
-package it.units.erallab;
+package it.units.erallab.utils;
 
 import it.units.erallab.hmsrobots.core.controllers.CentralizedSensing;
 import it.units.erallab.hmsrobots.core.controllers.snn.learning.*;
