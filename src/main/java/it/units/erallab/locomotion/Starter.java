@@ -207,7 +207,9 @@ public class Starter extends Worker {
                   NamedFunction.then(f("keys", (ValidationOutcome vo) -> vo.keys), List.of(
                       f("validation.terrain", (Map<String, Object> map) -> map.get("validation.terrain")),
                       f("validation.transformation", (Map<String, Object> map) -> map.get("validation.transformation")),
-                      f("validation.seed", "%2d", (Map<String, Object> map) -> map.get("validation.seed"))
+                      f("validation.seed", "%2d", (Map<String, Object> map) -> map.get("validation.seed")),
+                      f("validation.episode.time", (Map<String, Object> map) -> map.get("validation.episode.time")),
+                      f("validation.transient.time", (Map<String, Object> map) -> validationEpisodeTransientTime)
                   )),
                   NamedFunction.then(
                       f("outcome", (ValidationOutcome vo) -> vo.outcome.subOutcome(validationEpisodeTransientTime, validationEpisodeTime)),
@@ -263,7 +265,9 @@ public class Starter extends Worker {
                       Map.entry("sensor.config", targetSensorConfigName),
                       Map.entry("mapper", mapperName),
                       Map.entry("transformation", transformationName),
-                      Map.entry("evolver", evolverName)
+                      Map.entry("evolver", evolverName),
+                      Map.entry("episode.time", episodeTime),
+                      Map.entry("episode.transient.time", episodeTransientTime)
                   );
                   //prepare target
                   Robot<?> target = new Robot<>(
