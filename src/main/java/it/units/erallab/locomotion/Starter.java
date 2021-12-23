@@ -113,11 +113,12 @@ public class Starter extends Worker {
     String lastFileName = a("lastFile", null);
     String bestFileName = a("bestFile", null);
     String allFileName = a("allFile", null);
+    String finalFileName = a("finalFile", null);
     String validationFileName = a("validationFile", null);
     boolean deferred = a("deferred", "true").startsWith("t");
     String telegramBotId = a("telegramBotId", null);
     long telegramChatId = Long.parseLong(a("telegramChatId", "0"));
-    List<String> serializationFlags = l(a("serialization", "")); //last,best,all
+    List<String> serializationFlags = l(a("serialization", "")); //last,best,all,final
     boolean output = a("output", "false").startsWith("t");
     boolean detailedOutput = a("detailedOutput", "false").startsWith("t");
     boolean cacheOutcome = a("cache", "false").startsWith("t");
@@ -189,6 +190,22 @@ public class Starter extends Worker {
               new File(allFileName)
           )
       ));
+    }
+    if (finalFileName != null) {
+      Listener.Factory<Event<?, ? extends Robot<?>, ? extends Outcome>> entirePopulationFactory = Listener.Factory.forEach(
+          event -> event.getOrderedPopulation().all().stream()
+              .map(i -> Pair.of(event, i))
+              .collect(Collectors.toList()),
+          new CSVPrinter<>(
+              Misc.concat(List.of(
+                  NamedFunction.then(f("event", Pair::first), keysFunctions),
+                  NamedFunction.then(f("event", Pair::first), basicFunctions),
+                  NamedFunction.then(f("individual", Pair::second), basicIndividualFunctions),
+                  NamedFunction.then(f("individual", Pair::second), NamedFunctions.serializationFunction(serializationFlags.contains("final"))))),
+              new File(finalFileName)
+          )
+      );
+      factory = factory.and(entirePopulationFactory.onLast());
     }
     //validation listener
     if (validationFileName != null) {
