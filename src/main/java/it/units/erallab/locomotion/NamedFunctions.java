@@ -66,7 +66,9 @@ public class NamedFunctions {
         eventAttribute("sensor.config"),
         eventAttribute("mapper"),
         eventAttribute("transformation"),
-        eventAttribute("evolver")
+        eventAttribute("evolver"),
+        eventAttribute("episode.time"),
+        eventAttribute("episode.transient.time")
     );
   }
 
@@ -173,29 +175,29 @@ public class NamedFunctions {
             f("control.power", "%5.1f", Outcome::getControlPower)
         ),
         NamedFunction.then(cachedF(
-            "center.x.spectrum",
-            (Outcome o) -> new ArrayList<>(o.getCenterXVelocitySpectrum(spectrumMinFreq, spectrumMaxFreq, spectrumSize).values())
+                "center.x.spectrum",
+                (Outcome o) -> new ArrayList<>(o.getCenterXVelocitySpectrum(spectrumMinFreq, spectrumMaxFreq, spectrumSize).values())
             ),
             IntStream.range(0, spectrumSize).mapToObj(it.units.malelab.jgea.core.listener.NamedFunctions::nth).collect(Collectors.toList())
         ),
         NamedFunction.then(cachedF(
-            "center.y.spectrum",
-            (Outcome o) -> new ArrayList<>(o.getCenterYVelocitySpectrum(spectrumMinFreq, spectrumMaxFreq, spectrumSize).values())
+                "center.y.spectrum",
+                (Outcome o) -> new ArrayList<>(o.getCenterYVelocitySpectrum(spectrumMinFreq, spectrumMaxFreq, spectrumSize).values())
             ),
             IntStream.range(0, spectrumSize).mapToObj(it.units.malelab.jgea.core.listener.NamedFunctions::nth).collect(Collectors.toList())
         ),
         NamedFunction.then(cachedF(
-            "center.angle.spectrum",
-            (Outcome o) -> new ArrayList<>(o.getCenterAngleSpectrum(spectrumMinFreq, spectrumMaxFreq, spectrumSize).values())
+                "center.angle.spectrum",
+                (Outcome o) -> new ArrayList<>(o.getCenterAngleSpectrum(spectrumMinFreq, spectrumMaxFreq, spectrumSize).values())
             ),
             IntStream.range(0, spectrumSize).mapToObj(it.units.malelab.jgea.core.listener.NamedFunctions::nth).collect(Collectors.toList())
         ),
         NamedFunction.then(cachedF(
-            "footprints.spectra",
-            (Outcome o) -> o.getFootprintsSpectra(4, spectrumMinFreq, spectrumMaxFreq, spectrumSize).stream()
-                .map(SortedMap::values)
-                .flatMap(Collection::stream)
-                .collect(Collectors.toList())
+                "footprints.spectra",
+                (Outcome o) -> o.getFootprintsSpectra(4, spectrumMinFreq, spectrumMaxFreq, spectrumSize).stream()
+                    .map(SortedMap::values)
+                    .flatMap(Collection::stream)
+                    .collect(Collectors.toList())
             ),
             IntStream.range(0, 4 * spectrumSize).mapToObj(it.units.malelab.jgea.core.listener.NamedFunctions::nth).collect(Collectors.toList())
         )
@@ -251,20 +253,20 @@ public class NamedFunctions {
 
   public static Accumulator.Factory<Event<?, ? extends Robot<?>, ? extends Outcome>, BufferedImage> centerPositionPlot() {
     return Accumulator.Factory.<Event<?, ? extends Robot<?>, ? extends Outcome>>last().then(
-        event -> {
-          Outcome o = Misc.first(event.getOrderedPopulation().firsts()).getFitness();
-          Table<Number> table = new ArrayTable<>(List.of("x", "y", "terrain.y"));
-          o.getObservations().values().forEach(obs -> {
-            VoxelPoly poly = BehaviorUtils.getCentralElement(obs.getVoxelPolies());
-            table.addRow(List.of(
-                poly.center().x,
-                poly.center().y,
-                obs.getTerrainHeight()
-            ));
-          });
-          return table;
-        }
-    )
+            event -> {
+              Outcome o = Misc.first(event.getOrderedPopulation().firsts()).getFitness();
+              Table<Number> table = new ArrayTable<>(List.of("x", "y", "terrain.y"));
+              o.getObservations().values().forEach(obs -> {
+                VoxelPoly poly = BehaviorUtils.getCentralElement(obs.getVoxelPolies());
+                table.addRow(List.of(
+                    poly.center().x,
+                    poly.center().y,
+                    obs.getTerrainHeight()
+                ));
+              });
+              return table;
+            }
+        )
         .then(ImagePlotters.xyLines(600, 400));
   }
 
@@ -329,7 +331,8 @@ public class NamedFunctions {
                 Map.ofEntries(
                     Map.entry("validation.terrain", validationTerrainName),
                     Map.entry("validation.transformation", validationTransformationName),
-                    Map.entry("validation.seed", seed)
+                    Map.entry("validation.seed", seed),
+                    Map.entry("validation.episode.time", episodeTime)
                 ),
                 outcome
             ));
