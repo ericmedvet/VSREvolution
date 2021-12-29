@@ -8,7 +8,7 @@ import it.units.erallab.hmsrobots.core.controllers.Controller;
 import it.units.erallab.hmsrobots.core.controllers.RealFunction;
 import it.units.erallab.hmsrobots.core.controllers.TimedRealFunction;
 import it.units.erallab.hmsrobots.core.objects.Robot;
-import it.units.erallab.hmsrobots.core.objects.SensingVoxel;
+import it.units.erallab.hmsrobots.core.objects.Voxel;
 import it.units.erallab.hmsrobots.util.Grid;
 import it.units.erallab.hmsrobots.util.SerializationUtils;
 import it.units.erallab.hmsrobots.util.Utils;
@@ -24,7 +24,7 @@ import java.util.stream.IntStream;
 /**
  * @author "Eric Medvet" on 2021/09/29 for VSREvolution
  */
-public class DevoCaMLP implements PrototypedFunctionBuilder<List<Double>, UnaryOperator<Robot<? extends SensingVoxel>>> {
+public class DevoCaMLP implements PrototypedFunctionBuilder<List<Double>, UnaryOperator<Robot>> {
 
   private final MLP mlp;
   private final FixedHomoDistributed fixedHomoDistributed;
@@ -45,9 +45,9 @@ public class DevoCaMLP implements PrototypedFunctionBuilder<List<Double>, UnaryO
   }
 
   @Override
-  public Function<List<Double>, UnaryOperator<Robot<? extends SensingVoxel>>> buildFor(UnaryOperator<Robot<? extends SensingVoxel>> robotUnaryOperator) {
-    Robot<? extends SensingVoxel> target = robotUnaryOperator.apply(null);
-    SensingVoxel voxelPrototype = target.getVoxels().values().stream().filter(Objects::nonNull).findFirst().orElse(null);
+  public Function<List<Double>, UnaryOperator<Robot>> buildFor(UnaryOperator<Robot> robotUnaryOperator) {
+    Robot target = robotUnaryOperator.apply(null);
+    Voxel voxelPrototype = target.getVoxels().values().stream().filter(Objects::nonNull).findFirst().orElse(null);
     if (voxelPrototype == null) {
       throw new IllegalArgumentException("Target robot has no valid voxels");
     }
@@ -72,16 +72,16 @@ public class DevoCaMLP implements PrototypedFunctionBuilder<List<Double>, UnaryO
           previousBody = Grid.create(previous.getVoxels(), Objects::nonNull);
         }
         RealFunction realFunction = (RealFunction) neuralCA.buildFor(RealFunction.build(d -> d, 4, 1)).apply(listOfCAWeights);
-        Grid<? extends SensingVoxel> body = createBody(developBody(previousBody, realFunction), voxelPrototype);
+        Grid<Voxel> body = createBody(developBody(previousBody, realFunction), voxelPrototype);
 
         //build controller
-        Robot<? extends SensingVoxel> robot = new Robot<>(Controller.empty(), body);
+        Robot robot = new Robot(Controller.empty(), body);
         TimedRealFunction timedRealFunction = mlp.buildFor(fixedHomoDistributed.exampleFor(target)).apply(listOfMLPWeights);
-        AbstractController<?> controller = (AbstractController<?>) fixedHomoDistributed.buildFor(robot).apply(timedRealFunction).getController();
+        AbstractController controller = (AbstractController) fixedHomoDistributed.buildFor(robot).apply(timedRealFunction).getController();
         if (controllerStep > 0) {
           controller = controller.step(controllerStep);
         }
-        return new Robot<>((Controller<SensingVoxel>) controller, robot.getVoxels());
+        return new Robot( controller, robot.getVoxels());
       };
     };
   }
@@ -96,8 +96,8 @@ public class DevoCaMLP implements PrototypedFunctionBuilder<List<Double>, UnaryO
     return nextBody;
   }
 
-  private Grid<? extends SensingVoxel> createBody(Grid<Boolean> positions, SensingVoxel voxelPrototype) {
-    Grid<SensingVoxel> body = Grid.create(positions, v -> v ? SerializationUtils.clone(voxelPrototype) : null);
+  private Grid<Voxel> createBody(Grid<Boolean> positions, Voxel voxelPrototype) {
+    Grid<Voxel> body = Grid.create(positions, v -> v ? SerializationUtils.clone(voxelPrototype) : null);
     if (body.values().stream().noneMatch(Objects::nonNull)) {
       body = Grid.create(1, 1, SerializationUtils.clone(voxelPrototype));
     }
@@ -113,12 +113,12 @@ public class DevoCaMLP implements PrototypedFunctionBuilder<List<Double>, UnaryO
     }
     Grid<Double> strengths = Grid.create(previous);
     previous.forEach(s -> {
-          if (s != null && s.getValue() != null && s.getValue()) {
-            strengths.set(s.getX(), s.getY(), -2d);
+          if (s != null && s.value() != null && s.value()) {
+            strengths.set(s.key().x(), s.key().y(), -2d);
           } else {
-            double[] caInputs = getNeighborsValues(previous, s.getX(), s.getY()).stream()
+            double[] caInputs = getNeighborsValues(previous, s.key().x(), s.key().y()).stream()
                 .mapToDouble(b -> b ? 1 : 0).toArray();
-            strengths.set(s.getX(), s.getY(), neuralCA.apply(caInputs)[0]);
+            strengths.set(s.key().x(), s.key().y(), neuralCA.apply(caInputs)[0]);
           }
         }
     );
@@ -137,8 +137,8 @@ public class DevoCaMLP implements PrototypedFunctionBuilder<List<Double>, UnaryO
 
 
   @Override
-  public List<Double> exampleFor(UnaryOperator<Robot<? extends SensingVoxel>> robotUnaryOperator) {
-    Robot<? extends SensingVoxel> target = robotUnaryOperator.apply(null);
+  public List<Double> exampleFor(UnaryOperator<Robot> robotUnaryOperator) {
+    Robot target = robotUnaryOperator.apply(null);
     int mlpValuesSize = mlp.exampleFor(fixedHomoDistributed.exampleFor(target)).size();
     int neuralCaValuesSize = neuralCA.exampleFor(RealFunction.build(d -> d, 4, 1)).size();
     return IntStream.range(0, mlpValuesSize + neuralCaValuesSize).mapToObj(i -> 0d).collect(Collectors.toList());

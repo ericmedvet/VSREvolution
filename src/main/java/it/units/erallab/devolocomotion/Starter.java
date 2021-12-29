@@ -17,8 +17,6 @@ import it.units.erallab.hmsrobots.tasks.devolocomotion.TimeBasedDevoLocomotion;
 import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
 import it.units.erallab.hmsrobots.util.RobotUtils;
 import it.units.malelab.jgea.Worker;
-import it.units.malelab.jgea.core.Individual;
-import it.units.malelab.jgea.core.evolver.Event;
 import it.units.malelab.jgea.core.evolver.Evolver;
 import it.units.malelab.jgea.core.evolver.stopcondition.FitnessEvaluations;
 import it.units.malelab.jgea.core.listener.*;
@@ -53,16 +51,10 @@ public class Starter extends Worker {
     new Starter(args);
   }
 
-  public static class DevoValidationOutcome {
-    private final Event<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome> event;
-    private final Map<String, Object> keys;
-    private final DevoOutcome devoOutcome;
-
-    public DevoValidationOutcome(Event<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome> event, Map<String, Object> keys, DevoOutcome devoOutcome) {
-      this.event = event;
-      this.keys = keys;
-      this.devoOutcome = devoOutcome;
-    }
+  public record DevoValidationOutcome(
+      Evolver.Event<?, ? extends UnaryOperator<Robot>, ? extends DevoOutcome> event,
+      Map<String, Object> keys,
+      DevoOutcome devoOutcome) {
   }
 
   @Override
@@ -74,11 +66,15 @@ public class Starter extends Worker {
     double stageMaxTime = d(a("stageMaxTime", "20"));
     double stageMinDistance = d(a("stageMinDistance", "20"));
     String stringDevelopmentSchedule = a("devoSchedule", "10,20,30,45");
-    List<Double> developmentSchedule = l(stringDevelopmentSchedule).stream().map(Double::parseDouble).collect(Collectors.toList());
+    List<Double> developmentSchedule = l(stringDevelopmentSchedule).stream()
+        .map(Double::parseDouble)
+        .collect(Collectors.toList());
     double validationEpisodeTime = d(a("validationEpisodeTime", Double.toString(episodeTime)));
     double validationStageMaxTime = d(a("validationStageMaxTime", Double.toString(stageMaxTime)));
     double validationStageMinDistance = d(a("validationStageMinDistance", Double.toString(stageMinDistance)));
-    List<Double> validationDevelopmentSchedule = l(a("validationDevoSchedule", stringDevelopmentSchedule)).stream().map(Double::parseDouble).collect(Collectors.toList());
+    List<Double> validationDevelopmentSchedule = l(a("validationDevoSchedule", stringDevelopmentSchedule)).stream()
+        .map(Double::parseDouble)
+        .collect(Collectors.toList());
     int nEvals = i(a("nEvals", "800"));
     int[] seeds = ri(a("seed", "0:1"));
     String experimentName = a("expName", "short");
@@ -96,15 +92,19 @@ public class Starter extends Worker {
     boolean output = a("output", "false").startsWith("t");
     String telegramBotId = a("telegramBotId", null);
     long telegramChatId = Long.parseLong(a("telegramChatId", "0"));
-    List<String> validationTerrainNames = l(a("validationTerrain", "flat,downhill-30")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
+    List<String> validationTerrainNames = l(a("validationTerrain", "flat,downhill-30")).stream()
+        .filter(s -> !s.isEmpty())
+        .collect(Collectors.toList());
     //fitness function
     String fitnessFunctionName = a("fitness", "distance");
     Function<DevoOutcome, Double> fitnessFunction = getFitnessFunctionFromName(fitnessFunctionName);
     //consumers
-    List<NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>, ?>> keysFunctions = keysFunctions();
-    List<NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>, ?>> basicFunctions = basicFunctions();
-    List<NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>, ?>> populationFunctions = populationFunctions(fitnessFunction);
-    List<NamedFunction<Individual<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>, ?>> basicIndividualFunctions = basicIndividualFunctions(fitnessFunction);
+    List<NamedFunction<Evolver.Event<?, ? extends UnaryOperator<Robot>, ? extends DevoOutcome>, ?>> keysFunctions = keysFunctions();
+    List<NamedFunction<Evolver.Event<?, ? extends UnaryOperator<Robot>, ? extends DevoOutcome>, ?>> basicFunctions = basicFunctions();
+    List<NamedFunction<Evolver.Event<?, ? extends UnaryOperator<Robot>, ? extends DevoOutcome>, ?>> populationFunctions = populationFunctions(
+        fitnessFunction);
+    List<NamedFunction<Evolver.Individual<?, ? extends UnaryOperator<Robot>, ? extends DevoOutcome>, ?>> basicIndividualFunctions = basicIndividualFunctions(
+        fitnessFunction);
     List<NamedFunction<DevoOutcome, ?>> outcomesFunctions = outcomesFunctions();
     List<NamedFunction<DevoOutcome, ?>> lastOutcomesFunctions = outcomesFunctions();
     List<NamedFunction<DevoOutcome, ?>> validationOutcomesFunctions = outcomesFunctions();
@@ -123,14 +123,15 @@ public class Starter extends Worker {
       tempFunctions.addAll(serializedOutcomesInformation());
       lastOutcomesFunctions = tempFunctions;
     }
-    List<NamedFunction<Individual<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>, ?>> visualIndividualFunctions = visualIndividualFunctions();
-    Listener.Factory<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>> factory = Listener.Factory.deaf();
-    NamedFunction<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>, DevoOutcome> bestFitness = f("best.fitness", event -> Misc.first(event.getOrderedPopulation().firsts()).getFitness());
+    List<NamedFunction<Evolver.Individual<?, ? extends UnaryOperator<Robot>, ? extends DevoOutcome>, ?>> visualIndividualFunctions = visualIndividualFunctions();
+    Listener.Factory<Evolver.Event<?, ? extends UnaryOperator<Robot>, ? extends DevoOutcome>> factory = Listener.Factory.deaf();
+    NamedFunction<Evolver.Event<?, ? extends UnaryOperator<Robot>, ? extends DevoOutcome>, DevoOutcome> bestFitness = f("best.fitness",
+        event -> Misc.first(event.orderedPopulation().firsts()).fitness()
+    );
     ProgressMonitor progressMonitor = new ScreenProgressMonitor(System.out);
     //screen listener
     if ((bestFileName == null) || output) {
-      factory = factory.and(new TabularPrinter<>(Misc.concat(List.of(
-          basicFunctions,
+      factory = factory.and(new TabularPrinter<>(Misc.concat(List.of(basicFunctions,
           populationFunctions,
           NamedFunction.then(best(), basicIndividualFunctions),
           NamedFunction.then(best(), visualIndividualFunctions),
@@ -139,52 +140,56 @@ public class Starter extends Worker {
     }
     //file listeners
     if (lastFileName != null) {
-      factory = factory.and(new CSVPrinter<>(Misc.concat(List.of(
-          keysFunctions,
+      factory = factory.and(new CSVPrinter<>(Misc.concat(List.of(keysFunctions,
           basicFunctions,
           populationFunctions,
           NamedFunction.then(best(), basicIndividualFunctions),
           NamedFunction.then(bestFitness, lastOutcomesFunctions)
-      )), new File(lastFileName)
-      ).onLast());
+      )), new File(lastFileName)).onLast());
     }
     if (bestFileName != null) {
-      factory = factory.and(new CSVPrinter<>(Misc.concat(List.of(
-          keysFunctions,
+      factory = factory.and(new CSVPrinter<>(Misc.concat(List.of(keysFunctions,
           basicFunctions,
           populationFunctions,
           NamedFunction.then(best(), basicIndividualFunctions),
           NamedFunction.then(bestFitness, outcomesFunctions)
-      )), new File(bestFileName)
-      ));
+      )), new File(bestFileName)));
     }
     //validation listener
     if (validationFileName != null) {
       if (validationTerrainNames.isEmpty()) {
         validationTerrainNames.add(terrainNames.get(0));
       }
-      Listener.Factory<Event<?, ? extends UnaryOperator<Robot<?>>, ? extends DevoOutcome>> validationFactory = Listener.Factory.forEach(
-          validation(validationTerrainNames, List.of(0),
-              validationStageMinDistance, validationStageMaxTime, validationDevelopmentSchedule, validationEpisodeTime, distanceBasedDevelopment),
-          new CSVPrinter<>(
-              Misc.concat(List.of(
-                  NamedFunction.then(f("event", (DevoValidationOutcome vo) -> vo.event), keysFunctions),
-                  NamedFunction.then(f("event", (DevoValidationOutcome vo) -> vo.event), basicFunctions),
-                  NamedFunction.then(f("keys", (DevoValidationOutcome vo) -> vo.keys), List.of(
-                      f("validation.terrain", (Map<String, Object> map) -> map.get("validation.terrain")),
-                      f("validation.seed", "%2d", (Map<String, Object> map) -> map.get("validation.seed"))
-                  )),
-                  NamedFunction.then(f("outcome", (DevoValidationOutcome vo) -> vo.devoOutcome), validationOutcomesFunctions))
+      Listener.Factory<Evolver.Event<?, ? extends UnaryOperator<Robot>, ? extends DevoOutcome>> validationFactory = Listener.Factory.forEach(validation(
+              validationTerrainNames,
+              List.of(0),
+              validationStageMinDistance,
+              validationStageMaxTime,
+              validationDevelopmentSchedule,
+              validationEpisodeTime,
+              distanceBasedDevelopment
+          ),
+          new CSVPrinter<>(Misc.concat(List.of(NamedFunction.then(
+                  f("event", (DevoValidationOutcome vo) -> vo.event),
+                  keysFunctions
               ),
-              new File(validationFileName)
-          )
+              NamedFunction.then(f("event", (DevoValidationOutcome vo) -> vo.event), basicFunctions),
+              NamedFunction.then(
+                  f("keys", (DevoValidationOutcome vo) -> vo.keys),
+                  List.of(f("validation.terrain", (Map<String, Object> map) -> map.get("validation.terrain")),
+                      f("validation.seed", "%2d", (Map<String, Object> map) -> map.get("validation.seed"))
+                  )
+              ),
+              NamedFunction.then(f("outcome", (DevoValidationOutcome vo) -> vo.devoOutcome),
+                  validationOutcomesFunctions
+              )
+          )), new File(validationFileName))
       ).onLast();
       factory = factory.and(validationFactory);
     }
     //telegram listener
     if (telegramBotId != null && telegramChatId != 0) {
-      factory = factory.and(new TelegramUpdater<>(List.of(
-          lastEventToString(fitnessFunction),
+      factory = factory.and(new TelegramUpdater<>(List.of(lastEventToString(fitnessFunction),
           fitnessPlot(fitnessFunction),
           bestVideo(stageMinDistance, stageMaxTime, developmentSchedule, episodeTime, distanceBasedDevelopment)
       ), telegramBotId, telegramChatId));
@@ -208,8 +213,7 @@ public class Starter extends Worker {
               counter = counter + 1;
               final Random random = new Random(seed);
               //prepare keys
-              Map<String, Object> keys = Map.ofEntries(
-                  Map.entry("experiment.name", experimentName),
+              Map<String, Object> keys = Map.ofEntries(Map.entry("experiment.name", experimentName),
                   Map.entry("fitness", fitnessFunctionName),
                   Map.entry("seed", seed),
                   Map.entry("terrain", terrainName),
@@ -223,25 +227,19 @@ public class Starter extends Worker {
                   Map.entry("development.criterion", developmentCriterion)
               );
               //prepare target
-              UnaryOperator<Robot<?>> target = r -> new Robot<>(
-                  Controller.empty(),
-                  RobotUtils.buildSensorizingFunction(targetSensorConfigName).apply(RobotUtils.buildShape("box-" + gridW + "x" + gridH))
+              UnaryOperator<Robot> target = r -> new Robot(Controller.empty(),
+                  RobotUtils.buildSensorizingFunction(targetSensorConfigName)
+                      .apply(RobotUtils.buildShape("box-" + gridW + "x" + gridH))
               );
               //build evolver
-              Evolver<?, UnaryOperator<Robot<?>>, DevoOutcome> evolver;
+              Evolver<?, UnaryOperator<Robot>, DevoOutcome> evolver;
               try {
                 evolver = buildEvolver(evolverName, devoFunctionName, target, fitnessFunction);
               } catch (ClassCastException | IllegalArgumentException e) {
-                L.warning(String.format(
-                    "Cannot instantiate %s for %s: %s",
-                    evolverName,
-                    devoFunctionName,
-                    e
-                ));
+                L.warning(String.format("Cannot instantiate %s for %s: %s", evolverName, devoFunctionName, e));
                 continue;
               }
-              Listener<Event<?, ? extends UnaryOperator<Robot<?>>, DevoOutcome>> listener = Listener.all(List.of(
-                  new EventAugmenter(keys),
+              Listener<Evolver.Event<?, ? extends UnaryOperator<Robot>, DevoOutcome>> listener = Listener.all(List.of(new EventAugmenter(keys),
                   factory.build()
               ));
               if (deferred) {
@@ -249,22 +247,27 @@ public class Starter extends Worker {
               }
               //optimize
               Stopwatch stopwatch = Stopwatch.createStarted();
-              progressMonitor.notify(((float) counter - 1) / nOfRuns, String.format("(%d/%d); Starting %s", counter, nOfRuns, keys));
+              progressMonitor.notify(((float) counter - 1) / nOfRuns,
+                  String.format("(%d/%d); Starting %s", counter, nOfRuns, keys)
+              );
               //build task
               try {
-                Collection<UnaryOperator<Robot<?>>> solutions = evolver.solve(
-                    buildLocomotionTask(terrainName, stageMinDistance, stageMaxTime, developmentSchedule, episodeTime, distanceBasedDevelopment, random),
-                    new FitnessEvaluations(nEvals),
-                    random,
-                    executorService,
-                    listener
-                );
-                progressMonitor.notify((float) counter / nOfRuns, String.format("(%d/%d); Done: %d solutions in %4ds", counter, nOfRuns, solutions.size(), stopwatch.elapsed(TimeUnit.SECONDS)));
-              } catch (Exception e) {
-                L.severe(String.format("Cannot complete %s due to %s",
-                    keys,
-                    e
+                Collection<UnaryOperator<Robot>> solutions = evolver.solve(buildLocomotionTask(terrainName,
+                    stageMinDistance,
+                    stageMaxTime,
+                    developmentSchedule,
+                    episodeTime,
+                    distanceBasedDevelopment,
+                    random
+                ), new FitnessEvaluations(nEvals), random, executorService, listener);
+                progressMonitor.notify((float) counter / nOfRuns, String.format("(%d/%d); Done: %d solutions in %4ds",
+                    counter,
+                    nOfRuns,
+                    solutions.size(),
+                    stopwatch.elapsed(TimeUnit.SECONDS)
                 ));
+              } catch (Exception e) {
+                L.severe(String.format("Cannot complete %s due to %s", keys, e));
                 e.printStackTrace(); // TODO possibly to be removed
               }
             }
@@ -275,19 +278,27 @@ public class Starter extends Worker {
     factory.shutdown();
   }
 
-  public static Function<UnaryOperator<Robot<?>>, DevoOutcome> buildLocomotionTask(
-      String terrainName, double stageMinDistance, double stageMaxT, List<Double> developmentSchedule, double maxT, boolean distanceBasedDevelopment, Random random) {
+  public static Function<UnaryOperator<Robot>, DevoOutcome> buildLocomotionTask(
+      String terrainName,
+      double stageMinDistance,
+      double stageMaxT,
+      List<Double> developmentSchedule,
+      double maxT,
+      boolean distanceBasedDevelopment,
+      Random random
+  ) {
     if (!terrainName.contains("-rnd")) {
-      Task<UnaryOperator<Robot<?>>, DevoOutcome> devoLocomotion;
+      Task<UnaryOperator<Robot>, DevoOutcome> devoLocomotion;
       if (distanceBasedDevelopment) {
-        devoLocomotion = new DistanceBasedDevoLocomotion(
-            stageMinDistance, stageMaxT, maxT,
+        devoLocomotion = new DistanceBasedDevoLocomotion(stageMinDistance,
+            stageMaxT,
+            maxT,
             Locomotion.createTerrain(terrainName),
             it.units.erallab.locomotion.Starter.PHYSICS_SETTINGS
         );
       } else {
-        devoLocomotion = new TimeBasedDevoLocomotion(
-            developmentSchedule, maxT,
+        devoLocomotion = new TimeBasedDevoLocomotion(developmentSchedule,
+            maxT,
             Locomotion.createTerrain(terrainName),
             it.units.erallab.locomotion.Starter.PHYSICS_SETTINGS
         );
@@ -295,16 +306,17 @@ public class Starter extends Worker {
       return Misc.cached(devoLocomotion, it.units.erallab.locomotion.Starter.CACHE_SIZE);
     }
     return r -> {
-      Task<UnaryOperator<Robot<?>>, DevoOutcome> devoLocomotion;
+      Task<UnaryOperator<Robot>, DevoOutcome> devoLocomotion;
       if (distanceBasedDevelopment) {
-        devoLocomotion = new DistanceBasedDevoLocomotion(
-            stageMinDistance, stageMaxT, maxT,
+        devoLocomotion = new DistanceBasedDevoLocomotion(stageMinDistance,
+            stageMaxT,
+            maxT,
             Locomotion.createTerrain(terrainName.replace("-rnd", "-" + random.nextInt(10000))),
             it.units.erallab.locomotion.Starter.PHYSICS_SETTINGS
         );
       } else {
-        devoLocomotion = new TimeBasedDevoLocomotion(
-            developmentSchedule, maxT,
+        devoLocomotion = new TimeBasedDevoLocomotion(developmentSchedule,
+            maxT,
             Locomotion.createTerrain(terrainName.replace("-rnd", "-" + random.nextInt(10000))),
             it.units.erallab.locomotion.Starter.PHYSICS_SETTINGS
         );
@@ -314,7 +326,12 @@ public class Starter extends Worker {
   }
 
   @SuppressWarnings({"unchecked", "rawtypes"})
-  private static Evolver<?, UnaryOperator<Robot<?>>, DevoOutcome> buildEvolver(String evolverName, String devoFunctionName, UnaryOperator<Robot<?>> target, Function<DevoOutcome, Double> outcomeMeasure) {
+  private static Evolver<?, UnaryOperator<Robot>, DevoOutcome> buildEvolver(
+      String evolverName,
+      String devoFunctionName,
+      UnaryOperator<Robot> target,
+      Function<DevoOutcome, Double> outcomeMeasure
+  ) {
     PrototypedFunctionBuilder<?, ?> devoFunctionBuilder = null;
     for (String piece : devoFunctionName.split(it.units.erallab.locomotion.Starter.MAPPER_PIPE_CHAR)) {
       if (devoFunctionBuilder == null) {
@@ -323,50 +340,29 @@ public class Starter extends Worker {
         devoFunctionBuilder = devoFunctionBuilder.compose((PrototypedFunctionBuilder) getDevoFunctionByName(piece));
       }
     }
-    return getEvolverBuilderFromName(evolverName).build(
-        (PrototypedFunctionBuilder) devoFunctionBuilder,
+    return getEvolverBuilderFromName(evolverName).build((PrototypedFunctionBuilder) devoFunctionBuilder,
         target,
         PartialComparator.from(Double.class).comparing(outcomeMeasure).reversed()
     );
   }
 
   private static PrototypedFunctionBuilder<?, ?> getDevoFunctionByName(String name) {
-    String devoHomoMLP = "devoHomoMLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<nSignals>\\d+)-(?<nInitial>\\d+)-(?<nStep>\\d+)" +
-        "(-(?<cStep>\\d+(\\.\\d+)?))?";
+    String devoHomoMLP = "devoHomoMLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<nSignals>\\d+)-(?<nInitial>\\d+)-(?<nStep>\\d+)" + "(-(?<cStep>\\d+(\\.\\d+)?))?";
     String devoRandomHomoMLP = "devoRndHomoMLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<nSignals>\\d+)-(?<nInitial>\\d+)-(?<nStep>\\d+)";
     String devoRandomAdditionHomoMLP = "devoRndAddHomoMLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<nSignals>\\d+)-(?<nInitial>\\d+)-(?<nStep>\\d+)";
-    String devoCondHomoMLP = "devoCondHomoMLP-(?<ratio>\\d+(\\.\\d+)?)" +
-        "-(?<nLayers>\\d+)-(?<nSignals>\\d+)" +
-        "-(?<selFunc>(areaRatioEnergy|areaRatio))-(?<maxFirst>(t|f))" +
-        "-(?<nInitial>\\d+)-(?<nStep>\\d+)";
-    String devoTreeHomoMLP = "devoTreeHomoMLP-(?<ratio>\\d+(\\.\\d+)?)" +
-        "-(?<nLayers>\\d+)-(?<nSignals>\\d+)" +
-        "-(?<nInitial>\\d+)-(?<nStep>\\d+)" +
-        "(-(?<cStep>\\d+(\\.\\d+)?))?";
-    String devoCondTreeHomoMLP = "devoCondTreeHomoMLP-(?<ratio>\\d+(\\.\\d+)?)" +
-        "-(?<nLayers>\\d+)-(?<nSignals>\\d+)" +
-        "-(?<selFunc>(areaRatioEnergy|areaRatio))-(?<maxFirst>(t|f))" +
-        "-(?<nInitial>\\d+)-(?<nStep>\\d+)" +
-        "(-(?<cStep>\\d+(\\.\\d+)?))?";
-    String devoTreePhases = "devoTreePhases-(?<f>\\d+(\\.\\d+)?)-(?<nInitial>\\d+)-(?<nStep>\\d+)" +
-        "(-(?<cStep>\\d+(\\.\\d+)?))?";
-    String fixedPhases = "devoPhases-(?<f>\\d+(\\.\\d+)?)-(?<nInitial>\\d+)-(?<nStep>\\d+)" +
-        "(-(?<cStep>\\d+(\\.\\d+)?))?";
+    String devoCondHomoMLP = "devoCondHomoMLP-(?<ratio>\\d+(\\.\\d+)?)" + "-(?<nLayers>\\d+)-(?<nSignals>\\d+)" + "-(?<selFunc>(areaRatioEnergy|areaRatio))-(?<maxFirst>(t|f))" + "-(?<nInitial>\\d+)-(?<nStep>\\d+)";
+    String devoTreeHomoMLP = "devoTreeHomoMLP-(?<ratio>\\d+(\\.\\d+)?)" + "-(?<nLayers>\\d+)-(?<nSignals>\\d+)" + "-(?<nInitial>\\d+)-(?<nStep>\\d+)" + "(-(?<cStep>\\d+(\\.\\d+)?))?";
+    String devoCondTreeHomoMLP = "devoCondTreeHomoMLP-(?<ratio>\\d+(\\.\\d+)?)" + "-(?<nLayers>\\d+)-(?<nSignals>\\d+)" + "-(?<selFunc>(areaRatioEnergy|areaRatio))-(?<maxFirst>(t|f))" + "-(?<nInitial>\\d+)-(?<nStep>\\d+)" + "(-(?<cStep>\\d+(\\.\\d+)?))?";
+    String devoTreePhases = "devoTreePhases-(?<f>\\d+(\\.\\d+)?)-(?<nInitial>\\d+)-(?<nStep>\\d+)" + "(-(?<cStep>\\d+(\\.\\d+)?))?";
+    String fixedPhases = "devoPhases-(?<f>\\d+(\\.\\d+)?)-(?<nInitial>\\d+)-(?<nStep>\\d+)" + "(-(?<cStep>\\d+(\\.\\d+)?))?";
     String directNumGrid = "directNumGrid";
-    String devoCAHomoMLP = "devoCAHomoMLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<nSignals>\\d+)" +
-        "-(?<caRatio>\\d+(\\.\\d+)?)-(?<caNLayers>\\d+)" +
-        "-(?<nInitial>\\d+)-(?<nStep>\\d+)" +
-        "(-(?<cStep>\\d+(\\.\\d+)?))?";
-    String devoCAPhases = "devoCAPhases-(?<f>\\d+(\\.\\d+)?)" +
-        "-(?<caRatio>\\d+(\\.\\d+)?)-(?<caNLayers>\\d+)" +
-        "-(?<nInitial>\\d+)-(?<nStep>\\d+)" +
-        "(-(?<cStep>\\d+(\\.\\d+)?))?";
+    String devoCAHomoMLP = "devoCAHomoMLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<nSignals>\\d+)" + "-(?<caRatio>\\d+(\\.\\d+)?)-(?<caNLayers>\\d+)" + "-(?<nInitial>\\d+)-(?<nStep>\\d+)" + "(-(?<cStep>\\d+(\\.\\d+)?))?";
+    String devoCAPhases = "devoCAPhases-(?<f>\\d+(\\.\\d+)?)" + "-(?<caRatio>\\d+(\\.\\d+)?)-(?<caNLayers>\\d+)" + "-(?<nInitial>\\d+)-(?<nStep>\\d+)" + "(-(?<cStep>\\d+(\\.\\d+)?))?";
     Map<String, String> params;
     //devo functions
     if ((params = params(fixedPhases, name)) != null) {
       String controllerStep = params.get("cStep");
-      return new DevoPhasesValues(
-          Double.parseDouble(params.get("f")),
+      return new DevoPhasesValues(Double.parseDouble(params.get("f")),
           1d,
           Integer.parseInt(params.get("nInitial")),
           Integer.parseInt(params.get("nStep")),
@@ -375,8 +371,7 @@ public class Starter extends Worker {
     }
     if ((params = params(devoTreePhases, name)) != null) {
       String controllerStep = params.get("cStep");
-      return new DevoTreePhases(
-          Double.parseDouble(params.get("f")),
+      return new DevoTreePhases(Double.parseDouble(params.get("f")),
           1d,
           Integer.parseInt(params.get("nInitial")),
           Integer.parseInt(params.get("nStep")),
@@ -385,8 +380,7 @@ public class Starter extends Worker {
     }
     if ((params = params(devoHomoMLP, name)) != null) {
       String controllerStep = params.get("cStep");
-      return new DevoHomoMLP(
-          Double.parseDouble(params.get("ratio")),
+      return new DevoHomoMLP(Double.parseDouble(params.get("ratio")),
           Integer.parseInt(params.get("nLayers")),
           Integer.parseInt(params.get("nSignals")),
           Integer.parseInt(params.get("nInitial")),
@@ -396,8 +390,7 @@ public class Starter extends Worker {
     }
     if ((params = params(devoCAHomoMLP, name)) != null) {
       String controllerStep = params.get("cStep");
-      return new DevoCaMLP(
-          Double.parseDouble(params.get("ratio")),
+      return new DevoCaMLP(Double.parseDouble(params.get("ratio")),
           Integer.parseInt(params.get("nLayers")),
           Integer.parseInt(params.get("nSignals")),
           Double.parseDouble(params.get("caRatio")),
@@ -409,8 +402,7 @@ public class Starter extends Worker {
     }
     if ((params = params(devoCAPhases, name)) != null) {
       String controllerStep = params.get("cStep");
-      return new DevoCaPhases(
-          Double.parseDouble(params.get("f")),
+      return new DevoCaPhases(Double.parseDouble(params.get("f")),
           1d,
           Double.parseDouble(params.get("caRatio")),
           Integer.parseInt(params.get("caNLayers")),
@@ -420,8 +412,7 @@ public class Starter extends Worker {
       );
     }
     if ((params = params(devoRandomHomoMLP, name)) != null) {
-      return new DevoRandomHomoMLP(
-          Double.parseDouble(params.get("ratio")),
+      return new DevoRandomHomoMLP(Double.parseDouble(params.get("ratio")),
           Integer.parseInt(params.get("nLayers")),
           Integer.parseInt(params.get("nSignals")),
           Integer.parseInt(params.get("nInitial")),
@@ -429,8 +420,7 @@ public class Starter extends Worker {
       );
     }
     if ((params = params(devoRandomAdditionHomoMLP, name)) != null) {
-      return new DevoRandomAdditionHomoMLP(
-          Double.parseDouble(params.get("ratio")),
+      return new DevoRandomAdditionHomoMLP(Double.parseDouble(params.get("ratio")),
           Integer.parseInt(params.get("nLayers")),
           Integer.parseInt(params.get("nSignals")),
           Integer.parseInt(params.get("nInitial")),
@@ -439,8 +429,7 @@ public class Starter extends Worker {
     }
     if ((params = params(devoTreeHomoMLP, name)) != null) {
       String controllerStep = params.get("cStep");
-      return new DevoTreeHomoMLP(
-          Double.parseDouble(params.get("ratio")),
+      return new DevoTreeHomoMLP(Double.parseDouble(params.get("ratio")),
           Integer.parseInt(params.get("nLayers")),
           Integer.parseInt(params.get("nSignals")),
           Integer.parseInt(params.get("nInitial")),
@@ -449,8 +438,7 @@ public class Starter extends Worker {
       );
     }
     if ((params = params(devoCondHomoMLP, name)) != null) {
-      return new DevoConditionedHomoMLP(
-          Double.parseDouble(params.get("ratio")),
+      return new DevoConditionedHomoMLP(Double.parseDouble(params.get("ratio")),
           Integer.parseInt(params.get("nLayers")),
           Integer.parseInt(params.get("nSignals")),
           params.get("selFunc").equals("areaRatioEnergy") ? Voxel::getAreaRatioEnergy : Voxel::getAreaRatio,
@@ -461,8 +449,7 @@ public class Starter extends Worker {
     }
     if ((params = params(devoCondTreeHomoMLP, name)) != null) {
       String controllerStep = params.get("cStep");
-      return new DevoConditionedTreeHomoMLP(
-          Double.parseDouble(params.get("ratio")),
+      return new DevoConditionedTreeHomoMLP(Double.parseDouble(params.get("ratio")),
           Integer.parseInt(params.get("nLayers")),
           Integer.parseInt(params.get("nSignals")),
           params.get("selFunc").equals("areaRatioEnergy") ? Voxel::getAreaRatioEnergy : Voxel::getAreaRatio,
@@ -484,8 +471,7 @@ public class Starter extends Worker {
     String treePairGA = "treePairGA-(?<nPop>\\d+)-(?<diversity>(t|f))-(?<remap>(t|f))";
     Map<String, String> params;
     if ((params = params(treeNumGA, name)) != null) {
-      return new TreeAndDoubles(
-          Integer.parseInt(params.get("nPop")),
+      return new TreeAndDoubles(Integer.parseInt(params.get("nPop")),
           (int) Math.max(Math.round((double) Integer.parseInt(params.get("nPop")) / 10d), 3),
           0.75d,
           params.get("diversity").equals("t"),
@@ -493,8 +479,7 @@ public class Starter extends Worker {
       );
     }
     if ((params = params(treePairGA, name)) != null) {
-      return new PairsTree(
-          Integer.parseInt(params.get("nPop")),
+      return new PairsTree(Integer.parseInt(params.get("nPop")),
           (int) Math.max(Math.round((double) Integer.parseInt(params.get("nPop")) / 10d), 3),
           0.75d,
           params.get("diversity").equals("t"),
@@ -511,9 +496,11 @@ public class Starter extends Worker {
       return devoOutcome -> devoOutcome.getDistances().stream().mapToDouble(d -> d).sum();
     }
     if (params(maxSpeed, name) != null) {
-      return devoOutcome -> devoOutcome.getVelocities().stream()
+      return devoOutcome -> devoOutcome.getVelocities()
+          .stream()
           .filter(v -> !v.isNaN())
-          .max(Double::compare).orElse(0d);
+          .max(Double::compare)
+          .orElse(0d);
     }
     throw new IllegalArgumentException(String.format("Unknown fitness function name: %s", name));
   }

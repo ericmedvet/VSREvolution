@@ -5,7 +5,7 @@ import it.units.erallab.hmsrobots.core.controllers.DistributedSensing;
 import it.units.erallab.hmsrobots.core.controllers.RealFunction;
 import it.units.erallab.hmsrobots.core.controllers.TimedRealFunction;
 import it.units.erallab.hmsrobots.core.objects.Robot;
-import it.units.erallab.hmsrobots.core.objects.SensingVoxel;
+import it.units.erallab.hmsrobots.core.objects.Voxel;
 import it.units.erallab.hmsrobots.util.Grid;
 import it.units.erallab.hmsrobots.util.SerializationUtils;
 import it.units.erallab.hmsrobots.util.Utils;
@@ -18,7 +18,7 @@ import java.util.function.Function;
 /**
  * @author eric
  */
-public class BodyAndHomoDistributed implements PrototypedFunctionBuilder<List<TimedRealFunction>, Robot<? extends SensingVoxel>> {
+public class BodyAndHomoDistributed implements PrototypedFunctionBuilder<List<TimedRealFunction>, Robot> {
   private final int signals;
   private final double percentile;
 
@@ -28,10 +28,10 @@ public class BodyAndHomoDistributed implements PrototypedFunctionBuilder<List<Ti
   }
 
   @Override
-  public Function<List<TimedRealFunction>, Robot<? extends SensingVoxel>> buildFor(Robot<? extends SensingVoxel> robot) {
+  public Function<List<TimedRealFunction>, Robot> buildFor(Robot robot) {
     int w = robot.getVoxels().getW();
     int h = robot.getVoxels().getH();
-    SensingVoxel voxelPrototype = robot.getVoxels().values().stream().filter(Objects::nonNull).findFirst().orElse(null);
+    Voxel voxelPrototype = robot.getVoxels().values().stream().filter(Objects::nonNull).findFirst().orElse(null);
     if (voxelPrototype == null) {
       throw new IllegalArgumentException("Target robot has no voxels");
     }
@@ -78,24 +78,24 @@ public class BodyAndHomoDistributed implements PrototypedFunctionBuilder<List<Ti
       values = Grid.create(values, v -> v >= threshold ? v : null);
       values = Utils.gridLargestConnected(values, Objects::nonNull);
       values = Utils.cropGrid(values, Objects::nonNull);
-      Grid<SensingVoxel> body = Grid.create(values, v -> (v != null) ? SerializationUtils.clone(voxelPrototype) : null);
+      Grid<Voxel> body = Grid.create(values, v -> (v != null) ? SerializationUtils.clone(voxelPrototype) : null);
       if (body.values().stream().noneMatch(Objects::nonNull)) {
         body = Grid.create(1, 1, SerializationUtils.clone(voxelPrototype));
       }
       //build brain
       DistributedSensing controller = new DistributedSensing(body, signals);
-      for (Grid.Entry<? extends SensingVoxel> entry : body) {
-        if (entry.getValue() != null) {
-          controller.getFunctions().set(entry.getX(), entry.getY(), SerializationUtils.clone(brainFunction));
+      for (Grid.Entry<Voxel> entry : body) {
+        if (entry.value() != null) {
+          controller.getFunctions().set(entry.key().x(), entry.key().y(), SerializationUtils.clone(brainFunction));
         }
       }
-      return new Robot<>(controller, body);
+      return new Robot(controller, body);
     };
   }
 
   @Override
-  public List<TimedRealFunction> exampleFor(Robot<? extends SensingVoxel> robot) {
-    SensingVoxel voxelPrototype = robot.getVoxels().values().stream().filter(Objects::nonNull).findFirst().orElse(null);
+  public List<TimedRealFunction> exampleFor(Robot robot) {
+    Voxel voxelPrototype = robot.getVoxels().values().stream().filter(Objects::nonNull).findFirst().orElse(null);
     if (voxelPrototype == null) {
       throw new IllegalArgumentException("Target robot has no voxels");
     }

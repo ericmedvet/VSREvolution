@@ -25,15 +25,14 @@ import it.units.erallab.hmsrobots.util.Grid;
 import it.units.erallab.hmsrobots.util.RobotUtils;
 import it.units.erallab.hmsrobots.util.SerializationUtils;
 import it.units.erallab.hmsrobots.viewers.GridFileWriter;
+import it.units.erallab.hmsrobots.viewers.NamedValue;
 import it.units.erallab.hmsrobots.viewers.VideoUtils;
 import it.units.erallab.locomotion.Starter.ValidationOutcome;
-import it.units.malelab.jgea.core.Individual;
-import it.units.malelab.jgea.core.evolver.Event;
+import it.units.malelab.jgea.core.evolver.Evolver;
 import it.units.malelab.jgea.core.listener.Accumulator;
 import it.units.malelab.jgea.core.listener.NamedFunction;
 import it.units.malelab.jgea.core.listener.TableBuilder;
 import it.units.malelab.jgea.core.util.*;
-import org.apache.commons.lang3.tuple.Pair;
 import org.dyn4j.dynamics.Settings;
 
 import java.awt.image.BufferedImage;
@@ -57,7 +56,7 @@ public class NamedFunctions {
   private NamedFunctions() {
   }
 
-  public static List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> keysFunctions() {
+  public static List<NamedFunction<Evolver.Event<?, ? extends Robot, ? extends Outcome>, ?>> keysFunctions() {
     return List.of(
         eventAttribute("experiment.name"),
         eventAttribute("seed", "%2d"),
@@ -72,20 +71,7 @@ public class NamedFunctions {
     );
   }
 
-  public static List<NamedFunction<Event<?, ?, ?>, ?>> keysFunctions2() {
-    return List.of(
-        eventAttribute("experiment.name"),
-        eventAttribute("seed", "%2d"),
-        eventAttribute("terrain"),
-        eventAttribute("shape"),
-        eventAttribute("sensor.config"),
-        eventAttribute("mapper"),
-        eventAttribute("transformation"),
-        eventAttribute("evolver")
-    );
-  }
-
-  public static List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> basicFunctions() {
+  public static List<NamedFunction<Evolver.Event<?, ? extends Robot, ? extends Outcome>, ?>> basicFunctions() {
     return List.of(
         iterations(),
         births(),
@@ -94,24 +80,24 @@ public class NamedFunctions {
     );
   }
 
-  public static List<NamedFunction<Individual<?, ? extends Robot<?>, ? extends Outcome>, ?>> serializationFunction(boolean flag) {
+  public static List<NamedFunction<Evolver.Individual<?, ? extends Robot, ? extends Outcome>, ?>> serializationFunction(boolean flag) {
     if (!flag) {
       return List.of();
     }
     return List.of(f("serialized", r -> SerializationUtils.serialize(r, SerializationUtils.Mode.GZIPPED_JSON)).of(solution()));
   }
 
-  public static List<NamedFunction<Individual<?, ? extends Robot<?>, ? extends Outcome>, ?>> individualFunctions(Function<Outcome, Double> fitnessFunction) {
-    NamedFunction<Individual<?, ? extends Robot<?>, ? extends Outcome>, ?> size = size().of(genotype());
+  public static List<NamedFunction<Evolver.Individual<?, ? extends Robot, ? extends Outcome>, ?>> individualFunctions(Function<Outcome, Double> fitnessFunction) {
+    NamedFunction<Evolver.Individual<?, ? extends Robot, ? extends Outcome>, ?> size = size().of(genotype());
     return List.of(
         f("w", "%2d", (Function<Grid<?>, Number>) Grid::getW)
-            .of(f("shape", (Function<Robot<?>, Grid<?>>) Robot::getVoxels))
+            .of(f("shape", (Function<Robot, Grid<?>>) Robot::getVoxels))
             .of(solution()),
         f("h", "%2d", (Function<Grid<?>, Number>) Grid::getH)
-            .of(f("shape", (Function<Robot<?>, Grid<?>>) Robot::getVoxels))
+            .of(f("shape", (Function<Robot, Grid<?>>) Robot::getVoxels))
             .of(solution()),
         f("num.voxel", "%2d", (Function<Grid<?>, Number>) g -> g.count(Objects::nonNull))
-            .of(f("shape", (Function<Robot<?>, Grid<?>>) Robot::getVoxels))
+            .of(f("shape", (Function<Robot, Grid<?>>) Robot::getVoxels))
             .of(solution()),
         size.reformat("%5d"),
         genotypeBirthIteration(),
@@ -119,9 +105,9 @@ public class NamedFunctions {
     );
   }
 
-  public static List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> populationFunctions(Function<Outcome, Double> fitnessFunction) {
-    NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?> min = min(Double::compare).of(each(f("fitness", fitnessFunction).of(fitness()))).of(all());
-    NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?> median = median(Double::compare).of(each(f("fitness", fitnessFunction).of(fitness()))).of(all());
+  public static List<NamedFunction<Evolver.Event<?, ? extends Robot, ? extends Outcome>, ?>> populationFunctions(Function<Outcome, Double> fitnessFunction) {
+    NamedFunction<Evolver.Event<?, ? extends Robot, ? extends Outcome>, ?> min = min(Double::compare).of(each(f("fitness", fitnessFunction).of(fitness()))).of(all());
+    NamedFunction<Evolver.Event<?, ? extends Robot, ? extends Outcome>, ?> median = median(Double::compare).of(each(f("fitness", fitnessFunction).of(fitness()))).of(all());
     return List.of(
         size().of(all()),
         size().of(firsts()),
@@ -134,25 +120,25 @@ public class NamedFunctions {
     );
   }
 
-  public static List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> visualPopulationFunctions(Function<Outcome, Double> fitnessFunction) {
+  public static List<NamedFunction<Evolver.Event<?, ? extends Robot, ? extends Outcome>, ?>> visualPopulationFunctions(Function<Outcome, Double> fitnessFunction) {
     return List.of(
         hist(8)
             .of(each(f("fitness", fitnessFunction).of(fitness())))
             .of(all()),
         hist(8)
             .of(each(f("num.voxels", (Function<Grid<?>, Number>) g -> g.count(Objects::nonNull))
-                .of(f("shape", (Function<Robot<?>, Grid<?>>) Robot::getVoxels))
+                .of(f("shape", (Function<Robot, Grid<?>>) Robot::getVoxels))
                 .of(solution())))
             .of(all())
     );
   }
 
-  public static List<NamedFunction<Individual<?, ? extends Robot<?>, ? extends Outcome>, ?>> visualIndividualFunctions() {
+  public static List<NamedFunction<Evolver.Individual<?, ? extends Robot, ? extends Outcome>, ?>> visualIndividualFunctions() {
     return List.of(
         f("minimap", "%4s", (Function<Grid<?>, String>) g -> TextPlotter.binaryMap(
             g.toArray(Objects::nonNull),
             (int) Math.min(Math.ceil((float) g.getW() / (float) g.getH() * 2f), 4)))
-            .of(f("shape", (Function<Robot<?>, Grid<?>>) Robot::getVoxels))
+            .of(f("shape", (Function<Robot, Grid<?>>) Robot::getVoxels))
             .of(solution()),
         f("average.posture.minimap", "%2s", (Function<Outcome, String>) o -> TextPlotter.binaryMap(o.getAveragePosture(8).toArray(b -> b), 2))
             .of(fitness())
@@ -227,23 +213,23 @@ public class NamedFunctions {
     ));
   }
 
-  public static Accumulator.Factory<Event<?, ? extends Robot<?>, ? extends Outcome>, String> lastEventToString(Function<Outcome, Double> fitnessFunction) {
-    final List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> functions = Misc.concat(List.of(
+  public static Accumulator.Factory<Evolver.Event<?, ? extends Robot, ? extends Outcome>, String> lastEventToString(Function<Outcome, Double> fitnessFunction) {
+    final List<NamedFunction<Evolver.Event<?, ? extends Robot, ? extends Outcome>, ?>> functions = Misc.concat(List.of(
         keysFunctions(),
         basicFunctions(),
         populationFunctions(fitnessFunction),
         NamedFunction.then(best(), individualFunctions(fitnessFunction)),
         NamedFunction.then(as(Outcome.class).of(fitness()).of(best()), basicOutcomeFunctions())
     ));
-    return Accumulator.Factory.<Event<?, ? extends Robot<?>, ? extends Outcome>>last().then(
+    return Accumulator.Factory.<Evolver.Event<?, ? extends Robot, ? extends Outcome>>last().then(
         e -> functions.stream()
             .map(f -> f.getName() + ": " + f.applyAndFormat(e))
             .collect(Collectors.joining("\n"))
     );
   }
 
-  public static Accumulator.Factory<Event<?, ? extends Robot<?>, ? extends Outcome>, BufferedImage> fitnessPlot(Function<Outcome, Double> fitnessFunction) {
-    return new TableBuilder<Event<?, ? extends Robot<?>, ? extends Outcome>, Number>(List.of(
+  public static Accumulator.Factory<Evolver.Event<?, ? extends Robot, ? extends Outcome>, BufferedImage> fitnessPlot(Function<Outcome, Double> fitnessFunction) {
+    return new TableBuilder<Evolver.Event<?, ? extends Robot, ? extends Outcome>, Number>(List.of(
         iterations(),
         f("fitness", fitnessFunction).of(fitness()).of(best()),
         min(Double::compare).of(each(f("fitness", fitnessFunction).of(fitness()))).of(all()),
@@ -251,17 +237,17 @@ public class NamedFunctions {
     )).then(ImagePlotters.xyLines(600, 400));
   }
 
-  public static Accumulator.Factory<Event<?, ? extends Robot<?>, ? extends Outcome>, BufferedImage> centerPositionPlot() {
-    return Accumulator.Factory.<Event<?, ? extends Robot<?>, ? extends Outcome>>last().then(
+  public static Accumulator.Factory<Evolver.Event<?, ? extends Robot, ? extends Outcome>, BufferedImage> centerPositionPlot() {
+    return Accumulator.Factory.<Evolver.Event<?, ? extends Robot, ? extends Outcome>>last().then(
             event -> {
-              Outcome o = Misc.first(event.getOrderedPopulation().firsts()).getFitness();
+              Outcome o = Misc.first(event.orderedPopulation().firsts()).fitness();
               Table<Number> table = new ArrayTable<>(List.of("x", "y", "terrain.y"));
               o.getObservations().values().forEach(obs -> {
-                VoxelPoly poly = BehaviorUtils.getCentralElement(obs.getVoxelPolies());
+                VoxelPoly poly = BehaviorUtils.getCentralElement(obs.voxelPolies());
                 table.addRow(List.of(
-                    poly.center().x,
-                    poly.center().y,
-                    obs.getTerrainHeight()
+                    poly.center().x(),
+                    poly.center().y(),
+                    obs.terrainHeight()
                 ));
               });
               return table;
@@ -270,15 +256,15 @@ public class NamedFunctions {
         .then(ImagePlotters.xyLines(600, 400));
   }
 
-  public static Accumulator.Factory<Event<?, ? extends Robot<?>, ? extends Outcome>, File> bestVideo(double transientTime, double episodeTime, Settings settings) {
-    return Accumulator.Factory.<Event<?, ? extends Robot<?>, ? extends Outcome>>last().then(
+  public static Accumulator.Factory<Evolver.Event<?, ? extends Robot, ? extends Outcome>, File> bestVideo(double transientTime, double episodeTime, Settings settings) {
+    return Accumulator.Factory.<Evolver.Event<?, ? extends Robot, ? extends Outcome>>last().then(
         event -> {
           Random random = new Random(0);
-          SortedMap<Long, String> terrainSequence = Starter.getSequence((String) event.getAttributes().get("terrain"));
-          SortedMap<Long, String> transformationSequence = Starter.getSequence((String) event.getAttributes().get("transformation"));
+          SortedMap<Long, String> terrainSequence = Starter.getSequence((String) event.attributes().get("terrain"));
+          SortedMap<Long, String> transformationSequence = Starter.getSequence((String) event.attributes().get("transformation"));
           String terrainName = terrainSequence.get(terrainSequence.lastKey());
           String transformationName = transformationSequence.get(transformationSequence.lastKey());
-          Robot<?> robot = SerializationUtils.clone(Misc.first(event.getOrderedPopulation().firsts()).getSolution());
+          Robot robot = SerializationUtils.clone(Misc.first(event.orderedPopulation().firsts()).solution());
           robot = RobotUtils.buildRobotTransformation(transformationName, random).apply(robot);
           Locomotion locomotion = new Locomotion(
               episodeTime,
@@ -288,10 +274,10 @@ public class NamedFunctions {
           File file;
           try {
             file = File.createTempFile("robot-video", ".mp4");
-            String robotName = event.getAttributes().get("sensor.config") + " " + event.getAttributes().get("mapper") + " (" + event.getAttributes().get("seed") + ")";
+            String robotName = event.attributes().get("sensor.config") + " " + event.attributes().get("mapper") + " (" + event.attributes().get("seed") + ")";
             GridFileWriter.save(
                 locomotion,
-                Grid.create(1, 1, Pair.of(robotName, robot)),
+                Grid.create(1, 1, new NamedValue<>(robotName, robot)),
                 300, 200, transientTime,
                 25, VideoUtils.EncoderFacility.JCODEC, file
             );
@@ -305,21 +291,21 @@ public class NamedFunctions {
     );
   }
 
-  public static Function<Event<?, ? extends Robot<?>, ? extends Outcome>, Collection<ValidationOutcome>> validation(
+  public static Function<Evolver.Event<?, ? extends Robot, ? extends Outcome>, Collection<ValidationOutcome>> validation(
       List<String> validationTerrainNames,
       List<String> validationTransformationNames,
       List<Integer> seeds,
       double episodeTime
   ) {
     return event -> {
-      Robot<?> robot = SerializationUtils.clone(Misc.first(event.getOrderedPopulation().firsts()).getSolution());
+      Robot robot = SerializationUtils.clone(Misc.first(event.orderedPopulation().firsts()).solution());
       List<ValidationOutcome> validationOutcomes = new ArrayList<>();
       for (String validationTerrainName : validationTerrainNames) {
         for (String validationTransformationName : validationTransformationNames) {
           for (int seed : seeds) {
             Random random = new Random(seed);
             robot = RobotUtils.buildRobotTransformation(validationTransformationName, random).apply(robot);
-            Function<Robot<?>, Outcome> validationLocomotion = Starter.buildLocomotionTask(
+            Function<Robot, Outcome> validationLocomotion = Starter.buildLocomotionTask(
                 validationTerrainName,
                 episodeTime,
                 random,

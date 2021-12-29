@@ -1,9 +1,7 @@
 package it.units.erallab.builder.evolver;
 
-import com.google.common.collect.Range;
 import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.malelab.jgea.core.IndependentFactory;
-import it.units.malelab.jgea.core.Individual;
 import it.units.malelab.jgea.core.evolver.Evolver;
 import it.units.malelab.jgea.core.evolver.StandardEvolver;
 import it.units.malelab.jgea.core.evolver.StandardWithEnforcedDiversityEvolver;
@@ -14,13 +12,9 @@ import it.units.malelab.jgea.core.selector.Tournament;
 import it.units.malelab.jgea.representation.sequence.FixedLengthListFactory;
 import it.units.malelab.jgea.representation.sequence.ProbabilisticMutation;
 import it.units.malelab.jgea.representation.sequence.UniformCrossover;
-import it.units.malelab.jgea.representation.sequence.numeric.GaussianMutation;
-import it.units.malelab.jgea.representation.sequence.numeric.GeometricCrossover;
-import it.units.malelab.jgea.representation.sequence.numeric.UniformDoubleFactory;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 
 /**
  * @author eric
@@ -51,7 +45,7 @@ public class IntegersStandard implements EvolverBuilder<List<Integer>> {
       return new StandardEvolver<>(
           builder.buildFor(target),
           factory,
-          comparator.comparing(Individual::getFitness),
+          comparator.comparing(Evolver.Individual::fitness),
           nPop,
           Map.of(
               new ProbabilisticMutation<>(1d / (double) length, factory, mutation), 1d - xOverProb,
@@ -67,7 +61,7 @@ public class IntegersStandard implements EvolverBuilder<List<Integer>> {
     return new StandardWithEnforcedDiversityEvolver<>(
         builder.buildFor(target),
         factory,
-        comparator.comparing(Individual::getFitness),
+        comparator.comparing(Evolver.Individual::fitness),
         nPop,
         Map.of(
             new ProbabilisticMutation<>(1d / (double) length, factory, mutation), 1d - xOverProb,
