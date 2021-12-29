@@ -24,6 +24,7 @@ import it.units.erallab.builder.FunctionNumbersGrid;
 import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.erallab.builder.evolver.*;
 import it.units.erallab.builder.phenotype.FGraph;
+import it.units.erallab.builder.phenotype.HebbianMLP;
 import it.units.erallab.builder.phenotype.MLP;
 import it.units.erallab.builder.phenotype.PruningMLP;
 import it.units.erallab.builder.robot.*;
@@ -401,6 +402,7 @@ public class Starter extends Worker {
     String sensorCentralized = "sensorCentralized-(?<nLayers>\\d+)";
     String mlp = "MLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)(-(?<actFun>(sin|tanh|sigmoid|relu)))?";
     String pruningMlp = "pMLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<actFun>(sin|tanh|sigmoid|relu))-(?<pruningTime>\\d+(\\.\\d+)?)-(?<pruningRate>0(\\.\\d+)?)-(?<criterion>(weight|abs_signal_mean|random))";
+    String hebbianMlp = "hMLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<actFun>(sin|tanh|sigmoid|relu))-(?<eta>\\d+(\\.\\d+)?)-(?<norm>(t|f))(-(?<seed>-?\\d+))?";
     String directNumGrid = "directNumGrid";
     String functionNumGrid = "functionNumGrid";
     String fgraph = "fGraph";
@@ -504,6 +506,15 @@ public class Starter extends Worker {
           PruningMultiLayerPerceptron.Criterion.valueOf(params.get("criterion").toUpperCase())
 
       );
+    }
+    if ((params = params(hebbianMlp, name)) != null) {
+      return new HebbianMLP(
+          Double.parseDouble(params.get("ratio")),
+          Integer.parseInt(params.get("nLayers")),
+          MultiLayerPerceptron.ActivationFunction.valueOf(params.get("actFun").toUpperCase()),
+          Double.parseDouble(params.get("eta")),
+          params.containsKey("seed") ? new Random(Integer.parseInt(params.get("seed"))) : null,
+          params.get("norm").startsWith("t"));
     }
     if ((params = params(fgraph, name)) != null) {
       return new FGraph();
