@@ -7,7 +7,7 @@ import it.units.erallab.hmsrobots.core.controllers.Controller;
 import it.units.erallab.hmsrobots.core.controllers.RealFunction;
 import it.units.erallab.hmsrobots.core.controllers.TimeFunctions;
 import it.units.erallab.hmsrobots.core.objects.Robot;
-import it.units.erallab.hmsrobots.core.objects.SensingVoxel;
+import it.units.erallab.hmsrobots.core.objects.Voxel;
 import it.units.erallab.hmsrobots.util.Grid;
 import it.units.erallab.hmsrobots.util.SerializationUtils;
 import it.units.erallab.hmsrobots.util.Utils;
@@ -22,7 +22,7 @@ import java.util.stream.IntStream;
 /**
  * @author "Eric Medvet" on 2021/09/29 for VSREvolution
  */
-public class DevoCaPhases implements PrototypedFunctionBuilder<List<Double>, UnaryOperator<Robot<? extends SensingVoxel>>> {
+public class DevoCaPhases implements PrototypedFunctionBuilder<List<Double>, UnaryOperator<Robot>> {
 
   private final double frequency;
   private final double amplitude;
@@ -31,9 +31,11 @@ public class DevoCaPhases implements PrototypedFunctionBuilder<List<Double>, Una
   private final int nStep;
   private final double controllerStep;
 
-  public DevoCaPhases(double frequency, double amplitude,
-                      double caInnerLayerRatio, int caNOfInnerLayers,
-                      int nInitial, int nStep, double controllerStep) {
+  public DevoCaPhases(
+      double frequency, double amplitude,
+      double caInnerLayerRatio, int caNOfInnerLayers,
+      int nInitial, int nStep, double controllerStep
+  ) {
     this.frequency = frequency;
     this.amplitude = amplitude;
     neuralCA = new MLP(caInnerLayerRatio, caNOfInnerLayers);
@@ -42,19 +44,19 @@ public class DevoCaPhases implements PrototypedFunctionBuilder<List<Double>, Una
     this.controllerStep = controllerStep;
   }
 
-  private static class DecoratedRobot extends Robot<SensingVoxel> {
+  private static class DecoratedRobot extends Robot {
     private final Grid<Double> phases;
 
-    private DecoratedRobot(Controller<SensingVoxel> controller, Grid<? extends SensingVoxel> voxels, Grid<Double> phases) {
+    private DecoratedRobot(Controller controller, Grid<Voxel> voxels, Grid<Double> phases) {
       super(controller, voxels);
       this.phases = phases;
     }
   }
 
   @Override
-  public Function<List<Double>, UnaryOperator<Robot<? extends SensingVoxel>>> buildFor(UnaryOperator<Robot<? extends SensingVoxel>> robotUnaryOperator) {
-    Robot<? extends SensingVoxel> target = robotUnaryOperator.apply(null);
-    SensingVoxel voxelPrototype = target.getVoxels().values().stream().filter(Objects::nonNull).findFirst().orElse(null);
+  public Function<List<Double>, UnaryOperator<Robot>> buildFor(UnaryOperator<Robot> robotUnaryOperator) {
+    Robot target = robotUnaryOperator.apply(null);
+    Voxel voxelPrototype = target.getVoxels().values().stream().filter(Objects::nonNull).findFirst().orElse(null);
     if (voxelPrototype == null) {
       throw new IllegalArgumentException("Target robot has no valid voxels");
     }
@@ -79,12 +81,11 @@ public class DevoCaPhases implements PrototypedFunctionBuilder<List<Double>, Una
           previousPhases = ((DecoratedRobot) previous).phases;
         }
         Grid<Double> phases = developBodyAndPhases(previousPhases, nca);
-        Grid<? extends SensingVoxel> body = createBody(phases, voxelPrototype);
-
+        Grid<Voxel> body = createBody(phases, voxelPrototype);
         //build controller
         double localAmplitude = amplitude;
         double localFrequency = frequency;
-        AbstractController<?> controller = new TimeFunctions(Grid.create(
+        AbstractController controller = new TimeFunctions(Grid.create(
             phases.getW(),
             phases.getH(),
             (x, y) -> t -> localAmplitude * Math.sin(2 * Math.PI * localFrequency * t + phases.get(x, y))
@@ -93,7 +94,7 @@ public class DevoCaPhases implements PrototypedFunctionBuilder<List<Double>, Una
           controller = controller.step(controllerStep);
         }
         return new DecoratedRobot(
-            (Controller<SensingVoxel>) controller,
+            controller,
             body,
             phases
         );
@@ -122,22 +123,20 @@ public class DevoCaPhases implements PrototypedFunctionBuilder<List<Double>, Una
     Grid<Double> strengths = Grid.create(phases);
     Grid<Double> tempPhases = SerializationUtils.clone(phases);
     phases.forEach(s -> {
-          if (s != null && s.getValue() != null) {
-            strengths.set(s.getX(), s.getY(), defaultNegativeValue);
+          if (s != null && s.value() != null) {
+            strengths.set(s.key().x(), s.key().y(), defaultNegativeValue);
           } else {
             assert s != null;
-            double[] neighborsPhasesValues = getNeighborsPhasesValues(phases, s.getX(), s.getY());
+            double[] neighborsPhasesValues = getNeighborsPhasesValues(phases, s.key().x(), s.key().y());
             double[] caOutputs = neuralCA.apply(neighborsPhasesValues);
-            strengths.set(s.getX(), s.getY(), caOutputs[0]);
-            tempPhases.set(s.getX(), s.getY(), caOutputs[1]);
+            strengths.set(s.key().x(), s.key().y(), caOutputs[0]);
+            tempPhases.set(s.key().x(), s.key().y(), caOutputs[1]);
           }
         }
     );
 
     Grid<Double> body = Utils.gridConnected(strengths, Double::compareTo, n);
-    body.stream().filter(e -> e != null && e.getValue() != null && e.getValue() != defaultNegativeValue).forEach(e -> {
-          phases.set(e.getX(), e.getY(), tempPhases.get(e.getX(), e.getY()));
-        }
+    body.stream().filter(e -> e != null && e.value() != null && e.value() != defaultNegativeValue).forEach(e -> phases.set(e.key().x(), e.key().y(), tempPhases.get(e.key().x(), e.key().y()))
     );
   }
 
@@ -153,8 +152,8 @@ public class DevoCaPhases implements PrototypedFunctionBuilder<List<Double>, Una
     return neighbors.stream().mapToDouble(d -> d).toArray();
   }
 
-  private Grid<? extends SensingVoxel> createBody(Grid<Double> phases, SensingVoxel voxelPrototype) {
-    Grid<SensingVoxel> body = Grid.create(phases, v -> v != null ? SerializationUtils.clone(voxelPrototype) : null);
+  private Grid<Voxel> createBody(Grid<Double> phases, Voxel voxelPrototype) {
+    Grid<Voxel> body = Grid.create(phases, v -> v != null ? SerializationUtils.clone(voxelPrototype) : null);
     if (body.values().stream().noneMatch(Objects::nonNull)) {
       body = Grid.create(1, 1, SerializationUtils.clone(voxelPrototype));
     }
@@ -162,7 +161,7 @@ public class DevoCaPhases implements PrototypedFunctionBuilder<List<Double>, Una
   }
 
   @Override
-  public List<Double> exampleFor(UnaryOperator<Robot<? extends SensingVoxel>> robotUnaryOperator) {
+  public List<Double> exampleFor(UnaryOperator<Robot> robotUnaryOperator) {
     return neuralCA.exampleFor(RealFunction.build(d -> d, 4, 2));
   }
 

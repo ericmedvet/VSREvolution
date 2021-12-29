@@ -2,7 +2,6 @@ package it.units.erallab.builder.evolver;
 
 import com.google.common.collect.Range;
 import it.units.erallab.builder.PrototypedFunctionBuilder;
-import it.units.malelab.jgea.core.Individual;
 import it.units.malelab.jgea.core.evolver.Evolver;
 import it.units.malelab.jgea.core.evolver.StandardEvolver;
 import it.units.malelab.jgea.core.evolver.StandardWithEnforcedDiversityEvolver;
@@ -43,7 +42,7 @@ public class DoublesStandard implements EvolverBuilder<List<Double>> {
       return new StandardEvolver<>(
           builder.buildFor(target),
           new FixedLengthListFactory<>(length, new UniformDoubleFactory(-1d, 1d)),
-          comparator.comparing(Individual::getFitness),
+          comparator.comparing(Evolver.Individual::fitness),
           nPop,
           Map.of(
               new GaussianMutation(.35d), 1d - xOverProb,
@@ -59,7 +58,7 @@ public class DoublesStandard implements EvolverBuilder<List<Double>> {
     return new StandardWithEnforcedDiversityEvolver<>(
         builder.buildFor(target),
         new FixedLengthListFactory<>(length, new UniformDoubleFactory(-1d, 1d)),
-        comparator.comparing(Individual::getFitness),
+        comparator.comparing(Evolver.Individual::fitness),
         nPop,
         Map.of(
             new GaussianMutation(1d), 1d - xOverProb,

@@ -5,7 +5,7 @@ import it.units.erallab.hmsrobots.core.controllers.AbstractController;
 import it.units.erallab.hmsrobots.core.controllers.Controller;
 import it.units.erallab.hmsrobots.core.controllers.TimeFunctions;
 import it.units.erallab.hmsrobots.core.objects.Robot;
-import it.units.erallab.hmsrobots.core.objects.SensingVoxel;
+import it.units.erallab.hmsrobots.core.objects.Voxel;
 import it.units.erallab.hmsrobots.util.Grid;
 import it.units.erallab.hmsrobots.util.SerializationUtils;
 import it.units.malelab.jgea.core.util.Pair;
@@ -16,24 +16,23 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
-import java.util.stream.Collectors;
 
 /**
  * @author "Eric Medvet" on 2021/09/29 for VSREvolution
  */
-public class DevoTreePhases implements PrototypedFunctionBuilder<Tree<Pair<Double, Double>>, UnaryOperator<Robot<? extends SensingVoxel>>> {
+public class DevoTreePhases implements PrototypedFunctionBuilder<Tree<Pair<Double, Double>>, UnaryOperator<Robot>> {
 
-  private static class DecoratedRobot extends Robot<SensingVoxel> {
+  private static class DecoratedRobot extends Robot {
     private final Tree<DecoratedValue> developmentTree;
 
-    private DecoratedRobot(Controller<SensingVoxel> controller, Grid<? extends SensingVoxel> voxels, Tree<DecoratedValue> developmentTree) {
+    private DecoratedRobot(Controller controller, Grid<Voxel> voxels, Tree<DecoratedValue> developmentTree) {
       super(controller, voxels);
       this.developmentTree = developmentTree;
     }
 
   }
 
-  private static class DecoratedValue {
+  private static class DecoratedValue { // TODO to record
     int x;
     int y;
     double value;
@@ -50,10 +49,7 @@ public class DevoTreePhases implements PrototypedFunctionBuilder<Tree<Pair<Doubl
   }
 
   private enum Direction {
-    N(0, 0, -1),
-    E(1, 1, 0),
-    S(2, 0, 1),
-    W(3, -1, 0);
+    N(0, 0, -1), E(1, 1, 0), S(2, 0, 1), W(3, -1, 0);
     private final int index;
     private final int deltaX;
     private final int deltaY;
@@ -84,10 +80,9 @@ public class DevoTreePhases implements PrototypedFunctionBuilder<Tree<Pair<Doubl
   }
 
   @Override
-  @SuppressWarnings({"unchecked"})
-  public Function<Tree<Pair<Double, Double>>, UnaryOperator<Robot<? extends SensingVoxel>>> buildFor(UnaryOperator<Robot<? extends SensingVoxel>> robotUnaryOperator) {
-    Robot<? extends SensingVoxel> target = robotUnaryOperator.apply(null);
-    SensingVoxel voxelPrototype = target.getVoxels().values().stream().filter(Objects::nonNull).findFirst().orElse(null);
+  public Function<Tree<Pair<Double, Double>>, UnaryOperator<Robot>> buildFor(UnaryOperator<Robot> robotUnaryOperator) {
+    Robot target = robotUnaryOperator.apply(null);
+    Voxel voxelPrototype = target.getVoxels().values().stream().filter(Objects::nonNull).findFirst().orElse(null);
     if (voxelPrototype == null) {
       throw new IllegalArgumentException("Target robot has no valid voxels");
     }
@@ -110,54 +105,47 @@ public class DevoTreePhases implements PrototypedFunctionBuilder<Tree<Pair<Doubl
       int maxY = devoTree.topSubtrees().stream().mapToInt(t -> t.content().y).max().orElse(0);
       Grid<Boolean> shape = Grid.create(maxX + 1, maxY + 1, false);
       Grid<Double> phases = Grid.create(maxX + 1, maxY + 1, 0d);
-      devoTree.topSubtrees().stream()
-          .filter(t -> t.content().enabled)
-          .forEach(t -> {
-            shape.set(t.content().x, t.content().y, true);
-            phases.set(t.content().x, t.content().y, t.content().phase);
-          });
-      Grid<SensingVoxel> body = Grid.create(shape, b -> b ? SerializationUtils.clone(voxelPrototype) : null);
+      devoTree.topSubtrees().stream().filter(t -> t.content().enabled).forEach(t -> {
+        shape.set(t.content().x, t.content().y, true);
+        phases.set(t.content().x, t.content().y, t.content().phase);
+      });
+      Grid<Voxel> body = Grid.create(shape, b -> b ? SerializationUtils.clone(voxelPrototype) : null);
       if (body.values().stream().noneMatch(Objects::nonNull)) {
         body = Grid.create(1, 1, SerializationUtils.clone(voxelPrototype));
       }
       //build controller
-      Robot<? extends SensingVoxel> robot = new Robot<>(Controller.empty(), body);
+      Robot robot = new Robot(Controller.empty(), body);
       double localAmplitude = amplitude;
       double localFrequency = frequency;
-      AbstractController<?> controller = new TimeFunctions(Grid.create(
-          phases.getW(),
+      AbstractController controller = new TimeFunctions(Grid.create(phases.getW(),
           phases.getH(),
           (x, y) -> t -> localAmplitude * Math.sin(2 * Math.PI * localFrequency * t + phases.get(x, y))
       ));
       if (controllerStep > 0) {
         controller = controller.step(controllerStep);
       }
-      return new DecoratedRobot(
-          (Controller<SensingVoxel>) controller,
-          robot.getVoxels(),
-          devoTree
-      );
+      return new DecoratedRobot(controller, robot.getVoxels(), devoTree);
     };
   }
 
   @Override
-  public Tree<Pair<Double, Double>> exampleFor(UnaryOperator<Robot<? extends SensingVoxel>> robotUnaryOperator) {
+  public Tree<Pair<Double, Double>> exampleFor(UnaryOperator<Robot> robotUnaryOperator) {
     return Tree.of(Pair.of(0d, 0d));
   }
 
   private static void develop(Tree<DecoratedValue> tree, Comparator<Tree<DecoratedValue>> comparator, int n) {
     decorate(tree);
     while (countEnabled(tree) < n) {
-      List<Tree<DecoratedValue>> subtrees = tree.topSubtrees().stream()
+      List<Tree<DecoratedValue>> subtrees = tree.topSubtrees()
+          .stream()
           .filter(t -> (t.parent() == null) || (t.parent().content().enabled)) // consider only close to enabled
           .filter(t -> !t.content().enabled) // consider only not already enabled
           .filter( // consider only those for which there is not one already enabled
-              tt -> tree.topSubtrees().stream()
+              tt -> tree.topSubtrees()
+                  .stream()
                   .filter(t -> t.content().enabled)
-                  .noneMatch(t -> t.content().x == tt.content().x && t.content().y == tt.content().y)
-          )
-          .sorted(comparator)
-          .collect(Collectors.toList());
+                  .noneMatch(t -> t.content().x == tt.content().x && t.content().y == tt.content().y))
+          .sorted(comparator).toList();
       if (subtrees.isEmpty()) {
         break;
       }

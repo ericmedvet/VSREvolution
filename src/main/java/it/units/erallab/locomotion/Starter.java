@@ -35,8 +35,6 @@ import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
 import it.units.erallab.hmsrobots.tasks.locomotion.Outcome;
 import it.units.erallab.hmsrobots.util.RobotUtils;
 import it.units.malelab.jgea.Worker;
-import it.units.malelab.jgea.core.Individual;
-import it.units.malelab.jgea.core.evolver.Event;
 import it.units.malelab.jgea.core.evolver.Evolver;
 import it.units.malelab.jgea.core.evolver.stopcondition.FitnessEvaluations;
 import it.units.malelab.jgea.core.listener.*;
@@ -65,12 +63,12 @@ public class Starter extends Worker {
 
   public final static Settings PHYSICS_SETTINGS = new Settings();
 
-  public static class ValidationOutcome {
-    private final Event<?, ? extends Robot<?>, ? extends Outcome> event;
+  public static class ValidationOutcome { // TODO to record
+    private final Evolver.Event<?, ? extends Robot, ? extends Outcome> event;
     private final Map<String, Object> keys;
     private final Outcome outcome;
 
-    public ValidationOutcome(Event<?, ? extends Robot<?>, ? extends Outcome> event, Map<String, Object> keys, Outcome outcome) {
+    public ValidationOutcome(Evolver.Event<?, ? extends Robot, ? extends Outcome> event, Map<String, Object> keys, Outcome outcome) {
       this.event = event;
       this.keys = keys;
       this.outcome = outcome;
@@ -126,18 +124,18 @@ public class Starter extends Worker {
     List<String> validationTerrainNames = l(a("validationTerrain", "flat,downhill-30")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
     Function<Outcome, Double> fitnessFunction = Outcome::getVelocity;
     //consumers
-    List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> keysFunctions = NamedFunctions.keysFunctions();
-    List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> basicFunctions = NamedFunctions.basicFunctions();
-    List<NamedFunction<Individual<?, ? extends Robot<?>, ? extends Outcome>, ?>> basicIndividualFunctions = NamedFunctions.individualFunctions(fitnessFunction);
-    List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> populationFunctions = NamedFunctions.populationFunctions(fitnessFunction);
-    List<NamedFunction<Event<?, ? extends Robot<?>, ? extends Outcome>, ?>> visualFunctions = Misc.concat(List.of(
+    List<NamedFunction<Evolver.Event<?, ? extends Robot, ? extends Outcome>, ?>> keysFunctions = NamedFunctions.keysFunctions();
+    List<NamedFunction<Evolver.Event<?, ? extends Robot, ? extends Outcome>, ?>> basicFunctions = NamedFunctions.basicFunctions();
+    List<NamedFunction<Evolver.Individual<?, ? extends Robot, ? extends Outcome>, ?>> basicIndividualFunctions = NamedFunctions.individualFunctions(fitnessFunction);
+    List<NamedFunction<Evolver.Event<?, ? extends Robot, ? extends Outcome>, ?>> populationFunctions = NamedFunctions.populationFunctions(fitnessFunction);
+    List<NamedFunction<Evolver.Event<?, ? extends Robot, ? extends Outcome>, ?>> visualFunctions = Misc.concat(List.of(
         NamedFunctions.visualPopulationFunctions(fitnessFunction),
         detailedOutput ? NamedFunction.then(best(), NamedFunctions.visualIndividualFunctions()) : List.of()
     ));
     List<NamedFunction<Outcome, ?>> basicOutcomeFunctions = NamedFunctions.basicOutcomeFunctions();
     List<NamedFunction<Outcome, ?>> detailedOutcomeFunctions = NamedFunctions.detailedOutcomeFunctions(spectrumMinFreq, spectrumMaxFreq, spectrumSize);
     List<NamedFunction<Outcome, ?>> visualOutcomeFunctions = detailedOutput ? NamedFunctions.visualOutcomeFunctions(spectrumMinFreq, spectrumMaxFreq) : List.of();
-    Listener.Factory<Event<?, ? extends Robot<?>, ? extends Outcome>> factory = Listener.Factory.deaf();
+    Listener.Factory<Evolver.Event<?, ? extends Robot, ? extends Outcome>> factory = Listener.Factory.deaf();
     ProgressMonitor progressMonitor = new ScreenProgressMonitor(System.out);
     //screen listener
     if (bestFileName == null || output) {
@@ -177,7 +175,7 @@ public class Starter extends Worker {
     }
     if (allFileName != null) {
       factory = factory.and(Listener.Factory.forEach(
-          event -> event.getOrderedPopulation().all().stream()
+          event -> event.orderedPopulation().all().stream()
               .map(i -> Pair.of(event, i))
               .collect(Collectors.toList()),
           new CSVPrinter<>(
@@ -192,8 +190,8 @@ public class Starter extends Worker {
       ));
     }
     if (finalFileName != null) {
-      Listener.Factory<Event<?, ? extends Robot<?>, ? extends Outcome>> entirePopulationFactory = Listener.Factory.forEach(
-          event -> event.getOrderedPopulation().all().stream()
+      Listener.Factory<Evolver.Event<?, ? extends Robot, ? extends Outcome>> entirePopulationFactory = Listener.Factory.forEach(
+          event -> event.orderedPopulation().all().stream()
               .map(i -> Pair.of(event, i))
               .collect(Collectors.toList()),
           new CSVPrinter<>(
@@ -215,7 +213,7 @@ public class Starter extends Worker {
       if (validationTerrainNames.isEmpty() && !validationTransformationNames.isEmpty()) {
         validationTerrainNames.add(terrainNames.get(0));
       }
-      Listener.Factory<Event<?, ? extends Robot<?>, ? extends Outcome>> validationFactory = Listener.Factory.forEach(
+      Listener.Factory<Evolver.Event<?, ? extends Robot, ? extends Outcome>> validationFactory = Listener.Factory.forEach(
           NamedFunctions.validation(validationTerrainNames, validationTransformationNames, List.of(0), validationEpisodeTime),
           new CSVPrinter<>(
               Misc.concat(List.of(
@@ -287,12 +285,12 @@ public class Starter extends Worker {
                       Map.entry("episode.transient.time", episodeTransientTime)
                   );
                   //prepare target
-                  Robot<?> target = new Robot<>(
+                  Robot target = new Robot(
                       Controller.empty(),
                       RobotUtils.buildSensorizingFunction(targetSensorConfigName).apply(RobotUtils.buildShape(targetShapeName))
                   );
                   //build evolver
-                  Evolver<?, Robot<?>, Outcome> evolver;
+                  Evolver<?, Robot, Outcome> evolver;
                   try {
                     evolver = buildEvolver(evolverName, mapperName, target, fitnessFunction);
                   } catch (ClassCastException | IllegalArgumentException e) {
@@ -304,7 +302,7 @@ public class Starter extends Worker {
                     ));
                     continue;
                   }
-                  Listener<Event<?, ? extends Robot<?>, ? extends Outcome>> listener = Listener.all(List.of(
+                  Listener<Evolver.Event<?, ? extends Robot, ? extends Outcome>> listener = Listener.all(List.of(
                       new EventAugmenter(keys),
                       factory.build()
                   ));
@@ -315,7 +313,7 @@ public class Starter extends Worker {
                   Stopwatch stopwatch = Stopwatch.createStarted();
                   progressMonitor.notify(((float) counter - 1) / nOfRuns, String.format("(%d/%d); Starting %s", counter, nOfRuns, keys));
                   try {
-                    Collection<Robot<?>> solutions = evolver.solve(
+                    Collection<Robot> solutions = evolver.solve(
                         buildTaskFromName(transformationName, terrainName, episodeTime, random, cacheOutcome).andThen(o -> o.subOutcome(episodeTransientTime, episodeTime)),
                         new FitnessEvaluations(nEvals),
                         random,
@@ -381,6 +379,7 @@ public class Starter extends Worker {
           params.get("remap").equals("t")
       );
     }
+    //noinspection UnusedAssignment
     if ((params = params(cmaES, name)) != null) {
       return new CMAES();
     }
@@ -407,6 +406,7 @@ public class Starter extends Worker {
     String functionGrid = "fGrid-(?<innerMapper>.*)";
     Map<String, String> params;
     //robot mappers
+    //noinspection UnusedAssignment
     if ((params = params(fixedCentralized, name)) != null) {
       return new FixedCentralized();
     }
@@ -505,6 +505,7 @@ public class Starter extends Worker {
 
       );
     }
+    //noinspection UnusedAssignment
     if ((params = params(fgraph, name)) != null) {
       return new FGraph();
     }
@@ -512,9 +513,11 @@ public class Starter extends Worker {
     if ((params = params(functionGrid, name)) != null) {
       return new FunctionGrid((PrototypedFunctionBuilder) getMapperBuilderFromName(params.get("innerMapper")));
     }
+    //noinspection UnusedAssignment
     if ((params = params(directNumGrid, name)) != null) {
       return new DirectNumbersGrid();
     }
+    //noinspection UnusedAssignment
     if ((params = params(functionNumGrid, name)) != null) {
       return new FunctionNumbersGrid();
     }
@@ -522,7 +525,7 @@ public class Starter extends Worker {
   }
 
   @SuppressWarnings({"unchecked", "rawtypes"})
-  private static Evolver<?, Robot<?>, Outcome> buildEvolver(String evolverName, String robotMapperName, Robot<?> target, Function<Outcome, Double> outcomeMeasure) {
+  private static Evolver<?, Robot, Outcome> buildEvolver(String evolverName, String robotMapperName, Robot target, Function<Outcome, Double> outcomeMeasure) {
     PrototypedFunctionBuilder<?, ?> mapperBuilder = null;
     for (String piece : robotMapperName.split(MAPPER_PIPE_CHAR)) {
       if (mapperBuilder == null) {
@@ -538,10 +541,10 @@ public class Starter extends Worker {
     );
   }
 
-  private static Function<Robot<?>, Outcome> buildTaskFromName(String transformationSequenceName, String terrainSequenceName, double episodeT, Random random, boolean cacheOutcome) {
+  private static Function<Robot, Outcome> buildTaskFromName(String transformationSequenceName, String terrainSequenceName, double episodeT, Random random, boolean cacheOutcome) {
     //for sequence, assume format '99:name>99:name'
     //transformations
-    Function<Robot<?>, Robot<?>> transformation;
+    Function<Robot, Robot> transformation;
     if (transformationSequenceName.contains(SEQUENCE_SEPARATOR_CHAR)) {
       transformation = new SequentialFunction<>(getSequence(transformationSequenceName).entrySet().stream()
           .collect(Collectors.toMap(
@@ -553,7 +556,7 @@ public class Starter extends Worker {
       transformation = RobotUtils.buildRobotTransformation(transformationSequenceName, random);
     }
     //terrains
-    Function<Robot<?>, Outcome> task;
+    Function<Robot, Outcome> task;
     if (terrainSequenceName.contains(SEQUENCE_SEPARATOR_CHAR)) {
       task = new SequentialFunction<>(getSequence(terrainSequenceName).entrySet().stream()
           .collect(Collectors.toMap(
@@ -567,7 +570,7 @@ public class Starter extends Worker {
     return task.compose(transformation);
   }
 
-  public static Function<Robot<?>, Outcome> buildLocomotionTask(String terrainName, double episodeT, Random random, boolean cacheOutcome) {
+  public static Function<Robot, Outcome> buildLocomotionTask(String terrainName, double episodeT, Random random, boolean cacheOutcome) {
     if (!terrainName.contains("-rnd") && cacheOutcome) {
       return Misc.cached(new Locomotion(
           episodeT,

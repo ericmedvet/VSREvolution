@@ -2,28 +2,20 @@ package it.units.erallab.builder.robot;
 
 import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.erallab.hmsrobots.behavior.PoseUtils;
-import it.units.erallab.hmsrobots.core.controllers.Controller;
 import it.units.erallab.hmsrobots.core.controllers.PosesController;
-import it.units.erallab.hmsrobots.core.controllers.TimedRealFunction;
-import it.units.erallab.hmsrobots.core.objects.ControllableVoxel;
 import it.units.erallab.hmsrobots.core.objects.Robot;
-import it.units.erallab.hmsrobots.core.objects.SensingVoxel;
-import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
+import it.units.erallab.hmsrobots.core.objects.Voxel;
 import it.units.erallab.hmsrobots.util.Grid;
-import it.units.erallab.hmsrobots.util.RobotUtils;
 import it.units.erallab.hmsrobots.util.SerializationUtils;
-import it.units.erallab.hmsrobots.viewers.GridOnlineViewer;
-import org.dyn4j.dynamics.Settings;
 
 import java.util.*;
-import java.util.concurrent.Executors;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
  * @author "Eric Medvet" on 2021/12/08 for VSREvolution
  */
-public class FixedAutoPoses implements PrototypedFunctionBuilder<List<Integer>, Robot<?>> {
+public class FixedAutoPoses implements PrototypedFunctionBuilder<List<Integer>, Robot> {
 
   private final int nUniquePoses;
   private final int nPoses;
@@ -40,14 +32,14 @@ public class FixedAutoPoses implements PrototypedFunctionBuilder<List<Integer>, 
   }
 
   @Override
-  public Function<List<Integer>, Robot<?>> buildFor(Robot<?> robot) {
+  public Function<List<Integer>, Robot> buildFor(Robot robot) {
     Grid<Boolean> shape = Grid.create(robot.getVoxels(), Objects::nonNull);
     List<Set<Grid.Key>> availablePoses = new ArrayList<>(PoseUtils.computeClusteredByPosturePoses(
         shape,
         PoseUtils.computeClusteredByPositionPoses(shape, nRegions, 1),
-        nUniquePoses, 1, new ControllableVoxel(), 4d, gridSize
+        nUniquePoses, 1, new Voxel(List.of()), 4d, gridSize
     ));
-    return genes -> new Robot<>(
+    return genes -> new Robot(
         new PosesController(stepT, genes.stream()
             .map(g -> availablePoses.get(Math.max(0, Math.min(availablePoses.size() - 1, g))))
             .collect(Collectors.toList())).smoothed(4d * 2d / stepT),
@@ -56,7 +48,7 @@ public class FixedAutoPoses implements PrototypedFunctionBuilder<List<Integer>, 
   }
 
   @Override
-  public List<Integer> exampleFor(Robot<?> robot) {
+  public List<Integer> exampleFor(Robot robot) {
     return Collections.nCopies(nPoses, nUniquePoses);
   }
 

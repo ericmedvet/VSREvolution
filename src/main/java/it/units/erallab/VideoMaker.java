@@ -26,13 +26,11 @@ import it.units.erallab.hmsrobots.viewers.drawers.Drawers;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
-import org.apache.commons.lang3.tuple.Pair;
 import org.dyn4j.dynamics.Settings;
 
 import java.io.*;
 import java.util.List;
 import java.util.Random;
-import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -61,7 +59,11 @@ public class VideoMaker {
     int h = i(a(args, "h", "400"));
     int frameRate = i(a(args, "frameRate", "30"));
     String encoderName = a(args, "encoder", VideoUtils.EncoderFacility.FFMPEG_LARGE.name());
-    SerializationUtils.Mode mode = SerializationUtils.Mode.valueOf(a(args, "deserializationMode", SerializationUtils.Mode.GZIPPED_JSON.name()).toUpperCase());
+    SerializationUtils.Mode mode = SerializationUtils.Mode.valueOf(a(
+        args,
+        "deserializationMode",
+        SerializationUtils.Mode.GZIPPED_JSON.name()
+    ).toUpperCase());
     //read data
     Reader reader = null;
     List<CSVRecord> records = null;
@@ -87,7 +89,8 @@ public class VideoMaker {
       }
       System.exit(-1);
     }
-    L.info(String.format("Read %d data lines from %s with columns %s",
+    L.info(String.format(
+        "Read %d data lines from %s with columns %s",
         records.size(),
         (inputFileName != null) ? inputFileName : "stdin",
         headers
@@ -106,12 +109,10 @@ public class VideoMaker {
     String yHeader = headers.get(1);
     List<String> xValues = records.stream()
         .map(r -> r.get(xHeader))
-        .distinct()
-        .collect(Collectors.toList());
+        .distinct().toList();
     List<String> yValues = records.stream()
         .map(r -> r.get(yHeader))
-        .distinct()
-        .collect(Collectors.toList());
+        .distinct().toList();
     //build grid
     List<CSVRecord> finalRecords = records;
     Grid<List<String>> rawGrid = Grid.create(
@@ -123,10 +124,10 @@ public class VideoMaker {
             .collect(Collectors.toList())
     );
     //build named grid of robots
-    Grid<Pair<String, Robot<?>>> namedRobotGrid = Grid.create(
+    Grid<NamedValue<Robot>> namedRobotGrid = Grid.create(
         rawGrid.getW(),
         rawGrid.getH(),
-        (x, y) -> rawGrid.get(x, y).isEmpty() ? null : Pair.of(
+        (x, y) -> rawGrid.get(x, y).isEmpty() ? null : new NamedValue<>(
             xValues.get(x) + " " + yValues.get(y),
             RobotUtils.buildRobotTransformation(transformationName, new Random(0))
                 .apply(SerializationUtils.deserialize(rawGrid.get(x, y).get(0), Robot.class, mode))
@@ -141,28 +142,23 @@ public class VideoMaker {
     //do simulations
     ScheduledExecutorService uiExecutor = Executors.newScheduledThreadPool(4);
     ExecutorService executor = Executors.newCachedThreadPool();
-    GridSnapshotListener gridSnapshotListener = null;
+    GridSnapshotListener gridSnapshotListener;
     if (outputFileName == null) {
       gridSnapshotListener = new GridOnlineViewer(
-          Grid.create(namedRobotGrid, p -> p == null ? null : p.getLeft()),
-          Grid.create(namedRobotGrid, p -> p == null ? null : Drawers.basicWithMiniWorld(p.getLeft())),
+          Grid.create(namedRobotGrid, p -> p == null ? null : p.name()),
+          Grid.create(namedRobotGrid, p -> p == null ? null : Drawers.basicWithMiniWorld(p.name())),
           uiExecutor
       );
       ((GridOnlineViewer) gridSnapshotListener).start(3);
     } else {
-      try {
-        gridSnapshotListener = new GridFileWriter(
-            w, h, startTime, frameRate, VideoUtils.EncoderFacility.valueOf(encoderName.toUpperCase()),
-            new File(outputFileName),
-            Grid.create(namedRobotGrid, p -> p == null ? null : p.getLeft()),
-            Grid.create(namedRobotGrid, p -> p == null ? null : Drawers.basicWithMiniWorld(p.getLeft()))
-        );
-      } catch (IOException e) {
-        L.severe(String.format("Cannot build grid file writer: %s", e));
-        System.exit(-1);
-      }
+      gridSnapshotListener = new GridFileWriter(
+          w, h, startTime, frameRate, VideoUtils.EncoderFacility.valueOf(encoderName.toUpperCase()),
+          new File(outputFileName),
+          Grid.create(namedRobotGrid, p -> p == null ? null : p.name()),
+          Grid.create(namedRobotGrid, p -> p == null ? null : Drawers.basicWithMiniWorld(p.name()))
+      );
     }
-    GridEpisodeRunner<Robot<?>> runner = new GridEpisodeRunner<>(
+    GridEpisodeRunner<Robot> runner = new GridEpisodeRunner<>(
         namedRobotGrid,
         locomotion,
         gridSnapshotListener,

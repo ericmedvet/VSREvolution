@@ -2,7 +2,7 @@ package it.units.erallab;
 
 import it.units.erallab.hmsrobots.core.controllers.Controller;
 import it.units.erallab.hmsrobots.core.objects.Robot;
-import it.units.erallab.hmsrobots.core.objects.SensingVoxel;
+import it.units.erallab.hmsrobots.core.objects.Voxel;
 import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
 import it.units.erallab.hmsrobots.util.Grid;
 import it.units.erallab.hmsrobots.util.SerializationUtils;
@@ -37,7 +37,6 @@ public class DevelopmentValidator extends Worker {
     super(args);
   }
 
-  @SuppressWarnings("unchecked")
   public void run() {
 
     int validationEpisodeTime = i(a("validationEpisodeTime", "30"));
@@ -99,7 +98,7 @@ public class DevelopmentValidator extends Worker {
     for (CSVRecord record : records) {
       List<String> values = colNames.stream().map(record::get).collect(Collectors.toList());
       String[] serializedRobots = record.get(robotsColumn).split(",");
-      List<Robot<SensingVoxel>> robots = new ArrayList<>();
+      List<Robot> robots = new ArrayList<>();
       for (String serializedRobot : serializedRobots) {
         robots.add(SerializationUtils.deserialize(serializedRobot, Robot.class, SerializationUtils.Mode.GZIPPED_JSON));
       }
@@ -119,7 +118,7 @@ public class DevelopmentValidator extends Worker {
       }
 
       // voxel removal speed
-      Robot<SensingVoxel> lastRobot = robots.get(robots.size() - 1);
+      Robot lastRobot = robots.get(robots.size() - 1);
       for (int removal : removals) {
         List<Double> velocities = getVelocitiesAfterRemoval(lastRobot, removal, validationEpisodeTime, validationTerrain);
         for (double v : velocities) {
@@ -154,7 +153,7 @@ public class DevelopmentValidator extends Worker {
 
   private static void printRecord(List<String> values, List<Number> additions, CSVPrinter printer) {
     List<String> descriptorsRecord = new ArrayList<>(values);
-    descriptorsRecord.addAll(additions.stream().map(d -> d + "").collect(Collectors.toList()));
+    descriptorsRecord.addAll(additions.stream().map(d -> d + "").toList());
     try {
       printer.printRecord(descriptorsRecord);
     } catch (IOException e) {
@@ -162,28 +161,28 @@ public class DevelopmentValidator extends Worker {
     }
   }
 
-  private static List<Double> getVelocitiesAfterRemoval(Robot<SensingVoxel> robot, int nVoxels, int validationEpisodeTime, String validationTerrain) {
-    Controller<SensingVoxel> controller = robot.getController();
-    Grid<? extends SensingVoxel> body = robot.getVoxels();
-    List<Grid<? extends SensingVoxel>> newBodies = getVoxelRemovalBodies(body, nVoxels);
-    List<Robot<? extends SensingVoxel>> robots = newBodies.stream().parallel().map(
-        b -> new Robot<>(SerializationUtils.clone(controller), b)
-    ).collect(Collectors.toList());
+  private static List<Double> getVelocitiesAfterRemoval(Robot robot, int nVoxels, int validationEpisodeTime, String validationTerrain) {
+    Controller controller = robot.getController();
+    Grid<Voxel> body = robot.getVoxels();
+    List<Grid<Voxel>> newBodies = getVoxelRemovalBodies(body, nVoxels);
+    List<Robot> robots = newBodies.stream().parallel().map(
+        b -> new Robot(SerializationUtils.clone(controller), b)
+    ).toList();
     return robots.stream().parallel()
         .map(r -> new Locomotion(validationEpisodeTime, Locomotion.createTerrain(validationTerrain), new Settings())
             .apply(r).getVelocity())
         .collect(Collectors.toList());
   }
 
-  private static List<Grid<? extends SensingVoxel>> getVoxelRemovalBodies(Grid<? extends SensingVoxel> body, int nVoxels) {
-    List<Pair<Integer, Integer>> voxelsPositions = body.stream()
-        .filter(Objects::nonNull).filter(v -> v.getValue() != null)
-        .map(c -> Pair.of(c.getX(), c.getY())).collect(Collectors.toList());
+  private static List<Grid<Voxel>> getVoxelRemovalBodies(Grid<Voxel> body, int nVoxels) {
+    List<Pair<Integer, Integer>> voxelsPositions = body.stream() // TODO to List<Grid.Key>
+        .filter(Objects::nonNull).filter(v -> v.value() != null)
+        .map(c -> Pair.of(c.key().x(), c.key().y())).collect(Collectors.toList());
     int targetNumberOfVoxels = voxelsPositions.size() - nVoxels;
     List<List<Pair<Integer, Integer>>> removalCandidates = getRemovalPositions(voxelsPositions, nVoxels);
-    List<Grid<? extends SensingVoxel>> newBodies = new ArrayList<>();
+    List<Grid<Voxel>> newBodies = new ArrayList<>();
     removalCandidates.stream().parallel().forEach(l -> {
-      Grid<? extends SensingVoxel> newBody = SerializationUtils.clone(body);
+      Grid<Voxel> newBody = SerializationUtils.clone(body);
       for (Pair<Integer, Integer> p : l) {
         newBody.set(p.first(), p.second(), null);
       }

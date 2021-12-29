@@ -1,7 +1,7 @@
 package it.units.erallab.builder.devofunction;
 
 import it.units.erallab.hmsrobots.core.objects.Robot;
-import it.units.erallab.hmsrobots.core.objects.SensingVoxel;
+import it.units.erallab.hmsrobots.core.objects.Voxel;
 import it.units.erallab.hmsrobots.util.Grid;
 import it.units.erallab.hmsrobots.util.SerializationUtils;
 import it.units.erallab.hmsrobots.util.Utils;
@@ -15,7 +15,7 @@ public class DevoRandomAdditionHomoMLP extends DevoHomoMLP {
   }
 
   @Override
-  protected Grid<? extends SensingVoxel> createBody(Robot<? extends SensingVoxel> previous, Grid<Double> strengths, SensingVoxel voxelPrototype) {
+  protected Grid<Voxel> createBody(Robot previous, Grid<Double> strengths, Voxel voxelPrototype) {
     Grid<Double> selected;
     if (previous == null) {
       selected = Utils.gridConnected(strengths, Double::compareTo, nInitial);
@@ -24,7 +24,7 @@ public class DevoRandomAdditionHomoMLP extends DevoHomoMLP {
       int n = (int) previous.getVoxels().values().stream().filter(Objects::nonNull).count() + nStep;
       selected = Utils.gridConnected(start, Double::compareTo, n);
     }
-    Grid<SensingVoxel> body = Grid.create(selected, v -> (v != null) ? SerializationUtils.clone(voxelPrototype) : null);
+    Grid<Voxel> body = Grid.create(selected, v -> (v != null) ? SerializationUtils.clone(voxelPrototype) : null);
     if (body.values().stream().noneMatch(Objects::nonNull)) {
       body = Grid.create(1, 1, SerializationUtils.clone(voxelPrototype));
     }
