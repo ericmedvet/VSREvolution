@@ -579,6 +579,11 @@ public class LocomotionEvolution extends Worker {
         "-(?<iConv>(unif|unif_mem))-(?<iFreq>\\d+(\\.\\d+)?)-(?<oConv>(avg|avg_mem))(-(?<oMem>\\d+))?-(?<oFreq>\\d+(\\.\\d+)?)" +
         "-(?<symmParam1>\\d+(\\.\\d+))-(?<symmParam2>\\d+(\\.\\d+))-(?<symmParam3>\\d+(\\.\\d+))-(?<symmParam4>\\d+(\\.\\d+))" +
         "-(?<asymmParam1>\\d+(\\.\\d+))-(?<asymmParam2>\\d+(\\.\\d+))-(?<asymmParam3>\\d+(\\.\\d+))-(?<asymmParam4>\\d+(\\.\\d+))";
+    String oneHotBinaryAndDoublesLearningMsnWithConverter = "LHMSN-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<spikeType>(lif|iz|lif_h))" +
+        "(-(?<lRestPot>-?\\d+(\\.\\d+)?)-(?<lThreshPot>-?\\d+(\\.\\d+)?)-(?<lambda>\\d+(\\.\\d+)?)(-(?<theta>\\d+(\\.\\d+)?))?)?" +
+        "(-(?<izParams>(regular_spiking_params)))?" +
+        "-(?<symmParam1>\\d+(\\.\\d+))-(?<symmParam2>\\d+(\\.\\d+))-(?<symmParam3>\\d+(\\.\\d+))-(?<symmParam4>\\d+(\\.\\d+))" +
+        "-(?<asymmParam1>\\d+(\\.\\d+))-(?<asymmParam2>\\d+(\\.\\d+))-(?<asymmParam3>\\d+(\\.\\d+))-(?<asymmParam4>\\d+(\\.\\d+))";
     String quantizedHebbianNumericLearningClippedWeightsMSNWithConverters = "QHLCWMSN-(?<maxWeight>\\d+(\\.\\d+)?)-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<spikeType>(lif|iz|lif_h))" +
         "(-(?<lRestPot>-?\\d+(\\.\\d+)?)-(?<lThreshPot>-?\\d+(\\.\\d+)?)-(?<lambda>\\d+(\\.\\d+)?)(-(?<theta>\\d+(\\.\\d+)?))?)?" +
         "(-(?<izParams>(regular_spiking_params)))?" +
@@ -1041,7 +1046,8 @@ public class LocomotionEvolution extends Worker {
         (params = params(quantizedHebbianNumericLearningWeightsMSNWithConverters, name)) != null ||
         (params = params(quantizedHebbianNumericLearningClippedWeightsMSNWithConverters, name)) != null ||
         (params = params(quantizedBinaryAndDoublesLearningMsnWithConverter, name)) != null ||
-        (params = params(quantizedNumericLearningWithFixedRuleValuesAnd0WeightsMSNWithConverters, name)) != null
+        (params = params(quantizedNumericLearningWithFixedRuleValuesAnd0WeightsMSNWithConverters, name)) != null ||
+        (params = params(oneHotBinaryAndDoublesLearningMsnWithConverter, name)) != null
     ) {
       BiFunction<Integer, Integer, QuantizedSpikingFunction> neuronBuilder = null;
       if (params.containsKey("spikeType") && params.get("spikeType").equals("lif")) {
@@ -1110,6 +1116,19 @@ public class LocomotionEvolution extends Worker {
             Integer.parseInt(params.get("nLayers")),
             neuronBuilder,
             5, 5
+        );
+      }
+      if ((params = params(oneHotBinaryAndDoublesLearningMsnWithConverter, name)) != null) {
+        double[] symmetricParams = {Double.parseDouble(params.get("symmParam1")), Double.parseDouble(params.get("symmParam2")),
+            Double.parseDouble(params.get("symmParam3")), Double.parseDouble(params.get("symmParam4"))};
+        double[] asymmetricParams = {Double.parseDouble(params.get("asymmParam1")), Double.parseDouble(params.get("asymmParam2")),
+            Double.parseDouble(params.get("asymmParam3")), Double.parseDouble(params.get("asymmParam4"))};
+        return new LearningOneHotMSNWithConverters(
+            Double.parseDouble(params.get("ratio")),
+            Integer.parseInt(params.get("nLayers")),
+            neuronBuilder,
+            5, 5,
+            symmetricParams, asymmetricParams
         );
       }
       if ((params = params(quantizedMsnWithConverter, name)) != null ||
