@@ -32,7 +32,7 @@ public class DevoTreePhases implements PrototypedFunctionBuilder<Tree<Pair<Doubl
 
   }
 
-  private static class DecoratedValue { // TODO to record
+  private static class DecoratedValue {
     int x;
     int y;
     double value;

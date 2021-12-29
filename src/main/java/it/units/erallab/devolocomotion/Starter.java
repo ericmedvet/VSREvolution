@@ -51,20 +51,10 @@ public class Starter extends Worker {
     new Starter(args);
   }
 
-  public static class DevoValidationOutcome { // TODO to record
-    private final Evolver.Event<?, ? extends UnaryOperator<Robot>, ? extends DevoOutcome> event;
-    private final Map<String, Object> keys;
-    private final DevoOutcome devoOutcome;
-
-    public DevoValidationOutcome(
-        Evolver.Event<?, ? extends UnaryOperator<Robot>, ? extends DevoOutcome> event,
-        Map<String, Object> keys,
-        DevoOutcome devoOutcome
-    ) {
-      this.event = event;
-      this.keys = keys;
-      this.devoOutcome = devoOutcome;
-    }
+  public record DevoValidationOutcome(
+      Evolver.Event<?, ? extends UnaryOperator<Robot>, ? extends DevoOutcome> event,
+      Map<String, Object> keys,
+      DevoOutcome devoOutcome) {
   }
 
   @Override

@@ -63,16 +63,10 @@ public class Starter extends Worker {
 
   public final static Settings PHYSICS_SETTINGS = new Settings();
 
-  public static class ValidationOutcome { // TODO to record
-    private final Evolver.Event<?, ? extends Robot, ? extends Outcome> event;
-    private final Map<String, Object> keys;
-    private final Outcome outcome;
-
-    public ValidationOutcome(Evolver.Event<?, ? extends Robot, ? extends Outcome> event, Map<String, Object> keys, Outcome outcome) {
-      this.event = event;
-      this.keys = keys;
-      this.outcome = outcome;
-    }
+  public record ValidationOutcome(
+      Evolver.Event<?, ? extends Robot, ? extends Outcome> event,
+      Map<String, Object> keys,
+      Outcome outcome) {
   }
 
   public static final int CACHE_SIZE = 1000;

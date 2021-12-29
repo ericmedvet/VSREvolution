@@ -8,7 +8,6 @@ import it.units.erallab.hmsrobots.util.Grid;
 import it.units.erallab.hmsrobots.util.SerializationUtils;
 import it.units.erallab.hmsrobots.util.Utils;
 import it.units.malelab.jgea.Worker;
-import it.units.malelab.jgea.core.util.Pair;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.csv.CSVRecord;
@@ -120,7 +119,12 @@ public class DevelopmentValidator extends Worker {
       // voxel removal speed
       Robot lastRobot = robots.get(robots.size() - 1);
       for (int removal : removals) {
-        List<Double> velocities = getVelocitiesAfterRemoval(lastRobot, removal, validationEpisodeTime, validationTerrain);
+        List<Double> velocities = getVelocitiesAfterRemoval(
+            lastRobot,
+            removal,
+            validationEpisodeTime,
+            validationTerrain
+        );
         for (double v : velocities) {
           List<Number> removalAddition = List.of(removal, v);
           printRecord(values, removalAddition, voxelRemovalPrinter);
@@ -161,7 +165,12 @@ public class DevelopmentValidator extends Worker {
     }
   }
 
-  private static List<Double> getVelocitiesAfterRemoval(Robot robot, int nVoxels, int validationEpisodeTime, String validationTerrain) {
+  private static List<Double> getVelocitiesAfterRemoval(
+      Robot robot,
+      int nVoxels,
+      int validationEpisodeTime,
+      String validationTerrain
+  ) {
     Controller controller = robot.getController();
     Grid<Voxel> body = robot.getVoxels();
     List<Grid<Voxel>> newBodies = getVoxelRemovalBodies(body, nVoxels);
@@ -175,16 +184,16 @@ public class DevelopmentValidator extends Worker {
   }
 
   private static List<Grid<Voxel>> getVoxelRemovalBodies(Grid<Voxel> body, int nVoxels) {
-    List<Pair<Integer, Integer>> voxelsPositions = body.stream() // TODO to List<Grid.Key>
-        .filter(Objects::nonNull).filter(v -> v.value() != null)
-        .map(c -> Pair.of(c.key().x(), c.key().y())).collect(Collectors.toList());
+    List<Grid.Key> voxelsPositions = body.stream()
+        .filter(v -> v.value() != null)
+        .map(Grid.Entry::key).toList();
     int targetNumberOfVoxels = voxelsPositions.size() - nVoxels;
-    List<List<Pair<Integer, Integer>>> removalCandidates = getRemovalPositions(voxelsPositions, nVoxels);
+    List<List<Grid.Key>> removalCandidates = getRemovalPositions(voxelsPositions, nVoxels);
     List<Grid<Voxel>> newBodies = new ArrayList<>();
     removalCandidates.stream().parallel().forEach(l -> {
       Grid<Voxel> newBody = SerializationUtils.clone(body);
-      for (Pair<Integer, Integer> p : l) {
-        newBody.set(p.first(), p.second(), null);
+      for (Grid.Key key : l) {
+        newBody.set(key.x(), key.y(), null);
       }
       if (Utils.gridLargestConnected(newBody, Objects::nonNull).count(Objects::nonNull) == targetNumberOfVoxels) {
         newBodies.add(newBody);
@@ -200,7 +209,7 @@ public class DevelopmentValidator extends Worker {
     return List.of(shapeCompactness, shapeElongation);
   }
 
-  private static List<List<Pair<Integer, Integer>>> getRemovalPositions(List<Pair<Integer, Integer>> coordinates, int nRemovals) {
+  private static List<List<Grid.Key>> getRemovalPositions(List<Grid.Key> coordinates, int nRemovals) {
     List<int[]> combinations = generateCombinations(coordinates.size(), nRemovals);
     return combinations.stream().map(
         list -> Arrays.stream(list).mapToObj(
