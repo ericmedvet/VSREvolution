@@ -50,15 +50,13 @@ public class DoublesSpeciated implements EvolverBuilder<List<Double>> {
     Function<Evolver.Individual<List<Double>, T, F>, double[]> converter = switch (criterion) {
       case GENOTYPE -> i -> i.genotype().stream().mapToDouble(Double::doubleValue).toArray();
       case POSTURE -> i -> {
-        if (i.fitness() instanceof Outcome) {
-          Outcome o = (Outcome) i.fitness();
+        if (i.fitness() instanceof Outcome o) {
           return o.getAveragePosture(8).values().stream().mapToDouble(b -> b ? 1d : 0d).toArray();
         }
         throw new IllegalStateException(String.format("Cannot obtain double[] from %s: Outcome expected", i.fitness().getClass().getSimpleName()));
       };
       case CENTER -> i -> {
-        if (i.fitness() instanceof Outcome) {
-          Outcome o = (Outcome) i.fitness();
+        if (i.fitness() instanceof Outcome o) {
           double[] xSpectrum = o.getCenterXPositionSpectrum(SPECTRUM_MIN_FREQ, SPECTRUM_MAX_FREQ, SPECTRUM_SIZE).values().stream()
               .mapToDouble(d -> d)
               .toArray();
@@ -77,8 +75,7 @@ public class DoublesSpeciated implements EvolverBuilder<List<Double>> {
         throw new IllegalStateException(String.format("Cannot obtain double[] from %s: Outcome expected", i.fitness().getClass().getSimpleName()));
       };
       case FOOTPRINTS -> i -> {
-        if (i.fitness() instanceof Outcome) {
-          Outcome o = (Outcome) i.fitness();
+        if (i.fitness() instanceof Outcome o) {
           List<SortedMap<DoubleRange, Double>> footprintsSpectra = o.getFootprintsSpectra(4, SPECTRUM_MIN_FREQ, SPECTRUM_MAX_FREQ, SPECTRUM_SIZE);
           return footprintsSpectra.stream()
               .map(SortedMap::values)
