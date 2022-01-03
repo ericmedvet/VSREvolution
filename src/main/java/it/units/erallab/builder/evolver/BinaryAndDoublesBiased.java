@@ -35,7 +35,7 @@ public class BinaryAndDoublesBiased implements EvolverBuilder<Pair<BitString, Li
   private final int nPop;
   private final int nTournament;
   private final double xOverProb;
-  protected final boolean diversityEnforcement;
+  private final boolean diversityEnforcement;
   private final boolean remap;
 
   public BinaryAndDoublesBiased(int nPop, int nTournament, double xOverProb, boolean diversityEnforcement, boolean remap) {

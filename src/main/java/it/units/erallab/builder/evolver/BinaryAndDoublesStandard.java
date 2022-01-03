@@ -34,13 +34,15 @@ public class BinaryAndDoublesStandard implements EvolverBuilder<Pair<BitString, 
   private final int nPop;
   private final int nTournament;
   private final double xOverProb;
-  protected final boolean diversityEnforcement;
+  private final boolean diversityEnforcement;
+  private final boolean remap;
 
-  public BinaryAndDoublesStandard(int nPop, int nTournament, double xOverProb, boolean diversityEnforcement) {
+  public BinaryAndDoublesStandard(int nPop, int nTournament, double xOverProb, boolean diversityEnforcement, boolean remap) {
     this.nPop = nPop;
     this.nTournament = nTournament;
     this.xOverProb = xOverProb;
     this.diversityEnforcement = diversityEnforcement;
+    this.remap = remap;
   }
 
   @Override
@@ -74,7 +76,7 @@ public class BinaryAndDoublesStandard implements EvolverBuilder<Pair<BitString, 
           new Last(),
           nPop,
           true,
-          true
+          remap
       );
     }
     return new StandardWithEnforcedDiversityEvolver<>(
@@ -87,7 +89,7 @@ public class BinaryAndDoublesStandard implements EvolverBuilder<Pair<BitString, 
         new Last(),
         nPop,
         true,
-        true,
+        remap,
         100
     );
   }
