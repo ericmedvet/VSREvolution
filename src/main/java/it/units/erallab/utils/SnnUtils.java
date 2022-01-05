@@ -1,4 +1,4 @@
-package it.units.erallab.locomotion;
+package it.units.erallab.utils;
 
 import it.units.erallab.builder.FunctionGrid;
 import it.units.erallab.builder.PrototypedFunctionBuilder;

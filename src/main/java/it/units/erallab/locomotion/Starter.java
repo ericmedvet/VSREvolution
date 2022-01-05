@@ -33,6 +33,7 @@ import it.units.erallab.hmsrobots.tasks.locomotion.Outcome;
 import it.units.erallab.hmsrobots.util.RobotUtils;
 import it.units.erallab.hmsrobots.viewers.drawers.Drawer;
 import it.units.erallab.hmsrobots.viewers.drawers.Drawers;
+import it.units.erallab.utils.SnnUtils;
 import it.units.malelab.jgea.Worker;
 import it.units.malelab.jgea.core.evolver.Evolver;
 import it.units.malelab.jgea.core.evolver.stopcondition.FitnessEvaluations;
@@ -100,7 +101,7 @@ public class Starter extends Worker {
     List<String> targetShapeNames = l(a("shape", "biped-4x3"));
     List<String> targetSensorConfigNames = l(a("sensorConfig", "spinedTouchSighted-f-f-0.01"));
     List<String> transformationNames = l(a("transformation", "identity"));
-    List<String> evolverNames = l(a("evolver", "ES-40-0.35"));
+    List<String> evolverNames = l(a("evolver", "ES-40-0.35-t"));
     List<String> mapperNames = l(a("mapper", "fixedCentralized<MLP-1-1-tanh"));
     String bestFileName = a("bestFile", null);
     String lastFileName = a("lastFile", null);
@@ -355,7 +356,7 @@ public class Starter extends Worker {
     String bitGA = "bitGA-(?<nPop>\\d+)-(?<diversity>(t|f))-(?<remap>(t|f))";
     String ternaryGA = "terGA-(?<nPop>\\d+)-(?<diversity>(t|f))-(?<remap>(t|f))";
     String cmaES = "CMAES";
-    String eS = "ES-(?<nPop>\\d+)-(?<sigma>\\d+(\\.\\d+)?)";
+    String eS = "ES-(?<nPop>\\d+)-(?<sigma>\\d+(\\.\\d+)?)-(?<remap>(t|f))";
     String STDPStandardGA = "STDP_GA-(?<nPop>\\d+)-(?<diversity>(t|f))";
     String bitNumGA = "bitNumGA-(?<nPop>\\d+)-(?<diversity>(t|f))-(?<remap>(t|f))";
     String biasedBitNumGA = "biasedBitNumGA-(?<nPop>\\d+)-(?<diversity>(t|f))-(?<remap>(t|f))";
