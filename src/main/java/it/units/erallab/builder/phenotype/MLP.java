@@ -2,7 +2,6 @@ package it.units.erallab.builder.phenotype;
 
 import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.erallab.hmsrobots.core.controllers.MultiLayerPerceptron;
-import it.units.erallab.hmsrobots.core.controllers.RealFunction;
 import it.units.erallab.hmsrobots.core.controllers.TimedRealFunction;
 
 import java.util.Collections;

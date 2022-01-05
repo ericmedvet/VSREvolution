@@ -81,8 +81,7 @@ public class FixedHomoQuantizedSpikingDistributed implements PrototypedFunctionB
     int nOfOutputs = DistributedSensing.nOfOutputs(voxel, signals);
     List<Grid.Entry<Voxel>> wrongVoxels = body.stream()
         .filter(e -> e.value() != null)
-        .filter(e -> DistributedSensing.nOfInputs(e.value(), signals) != nOfInputs)
-        .collect(Collectors.toList());
+        .filter(e -> DistributedSensing.nOfInputs(e.value(), signals) != nOfInputs).toList();
     if (!wrongVoxels.isEmpty()) {
       throw new IllegalArgumentException(String.format(
           "Cannot build %s robot mapper for this body: all voxels should have %d inputs, but voxels at positions %s have %s",

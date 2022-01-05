@@ -95,12 +95,12 @@ public class RobotsValidator extends Worker {
     oldHeaders = oldHeaders.stream().filter(headersToKeep::contains).collect(Collectors.toList());
     List<NamedFunction<Outcome, ?>> basicOutcomeFunctions = NamedFunctions.basicOutcomeFunctions();
     List<NamedFunction<Outcome, ?>> detailedOutcomeFunctions = NamedFunctions.detailedOutcomeFunctions(spectrumMinFreq, spectrumMaxFreq, spectrumSize);
-    List<String> basicOutcomeFunctionsNames = basicOutcomeFunctions.stream().map(NamedFunction::getName).collect(Collectors.toList());
-    List<String> detailedOutcomeFunctionsNames = detailedOutcomeFunctions.stream().map(NamedFunction::getName).collect(Collectors.toList());
+    List<String> basicOutcomeFunctionsNames = basicOutcomeFunctions.stream().map(NamedFunction::getName).toList();
+    List<String> detailedOutcomeFunctionsNames = detailedOutcomeFunctions.stream().map(NamedFunction::getName).toList();
     List<String> headers = oldHeaders.stream().map(h -> "event." + h).collect(Collectors.toList());
     headers.addAll(List.of("keys.validation.transformation", "keys.validation.seed", "keys.validation.terrain"));
-    headers.addAll(basicOutcomeFunctionsNames.stream().map(h -> "outcome." + h).collect(Collectors.toList()));
-    headers.addAll(detailedOutcomeFunctionsNames.stream().map(h -> "outcome." + h).collect(Collectors.toList()));
+    headers.addAll(basicOutcomeFunctionsNames.stream().map(h -> "outcome." + h).toList());
+    headers.addAll(detailedOutcomeFunctionsNames.stream().map(h -> "outcome." + h).toList());
 
     try {
       printer.printRecord(headers);
@@ -112,7 +112,7 @@ public class RobotsValidator extends Worker {
       // read robot and record
       Robot robot = SerializationUtils.deserialize(record.get(serializedRobotColumnName), Robot.class, mode);
       robot.reset();
-      List<String> oldRecord = oldHeaders.stream().map(record::get).collect(Collectors.toList());
+      List<String> oldRecord = oldHeaders.stream().map(record::get).toList();
 
       for (String validationTransformationName : validationTransformationNames) {
         for (int seed : seeds) {
@@ -126,10 +126,10 @@ public class RobotsValidator extends Worker {
                 cells.addAll(List.of(validationTransformationName, seed, terrainName));
                 Locomotion locomotion = new Locomotion(episodeTime, Locomotion.createTerrain(terrainName), new Settings());
                 Outcome outcome = locomotion.apply(SerializationUtils.clone(transformedRobot));
-                cells.addAll(basicOutcomeFunctions.stream().map(f -> f.apply(outcome.subOutcome(episodeTransientTime, episodeTime))).collect(Collectors.toList()));
-                cells.addAll(detailedOutcomeFunctions.stream().map(f -> f.apply(outcome.subOutcome(episodeTransientTime, episodeTime))).collect(Collectors.toList()));
+                cells.addAll(basicOutcomeFunctions.stream().map(f -> f.apply(outcome.subOutcome(episodeTransientTime, episodeTime))).toList());
+                cells.addAll(detailedOutcomeFunctions.stream().map(f -> f.apply(outcome.subOutcome(episodeTransientTime, episodeTime))).toList());
                 return cells;
-              }).collect(Collectors.toList());
+              }).toList();
           rows.forEach(row -> {
             try {
               printer.printRecord(row);

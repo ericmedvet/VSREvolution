@@ -39,9 +39,9 @@ public class ThresholdEvolutionPlotter {
 
   @SuppressWarnings("unchecked")
   private static SortedMap<Double, Double>[][] simulateAndGetThresholdEvolution(Robot robot, Task<Robot, ?> task) {
-    MultilayerSpikingNetworkWithConverters multilayerSpikingNetworkWithConverters;
+    MultilayerSpikingNetworkWithConverters<?> multilayerSpikingNetworkWithConverters;
     if (robot.getController() instanceof CentralizedSensing && ((CentralizedSensing) robot.getController()).getFunction() instanceof MultilayerSpikingNetworkWithConverters) {
-      multilayerSpikingNetworkWithConverters = (MultilayerSpikingNetworkWithConverters) ((CentralizedSensing) robot.getController()).getFunction();
+      multilayerSpikingNetworkWithConverters = (MultilayerSpikingNetworkWithConverters<?>) ((CentralizedSensing) robot.getController()).getFunction();
       multilayerSpikingNetworkWithConverters.setSpikesTracker(true);
       multilayerSpikingNetworkWithConverters.setPlotMode(true);
       multilayerSpikingNetworkWithConverters.reset();

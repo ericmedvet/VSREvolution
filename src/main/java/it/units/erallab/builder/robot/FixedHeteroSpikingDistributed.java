@@ -78,11 +78,10 @@ public class FixedHeteroSpikingDistributed implements PrototypedFunctionBuilder<
 
   @Override
   public Grid<MultivariateSpikingFunction> exampleFor(Robot robot) {
-    Grid<MultivariateSpikingFunction> grid = Grid.create(
+    return Grid.create(
         getIODims(robot),
         dim -> dim == null ? null : MultivariateSpikingFunction.build(d -> d, dim[0], dim[1])
     );
-    return grid;
   }
 
   private Grid<int[]> getIODims(Robot robot) {

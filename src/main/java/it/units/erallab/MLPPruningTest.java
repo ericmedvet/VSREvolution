@@ -111,7 +111,7 @@ public class MLPPruningTest {
     for (PruningMultiLayerPerceptron.Context context : PruningMultiLayerPerceptron.Context.values()) {
       for (PruningMultiLayerPerceptron.Criterion criterion : PruningMultiLayerPerceptron.Criterion.values()) {
         MultiLayerPerceptron nn = new MultiLayerPerceptron(MultiLayerPerceptron.ActivationFunction.TANH, nOfInput, innerLayers, 1);
-        List<PruningMultiLayerPerceptron> pnns = Arrays.stream(rates).mapToObj(r -> new PruningMultiLayerPerceptron(MultiLayerPerceptron.ActivationFunction.TANH, nOfInput, innerLayers, 1, pruningT, context, criterion, r)).collect(Collectors.toList());
+        List<PruningMultiLayerPerceptron> pnns = Arrays.stream(rates).mapToObj(r -> new PruningMultiLayerPerceptron(MultiLayerPerceptron.ActivationFunction.TANH, nOfInput, innerLayers, 1, pruningT, context, criterion, r)).toList();
         Random r = new Random(2);
         double[] ws = IntStream.range(0, nn.getParams().length).mapToDouble(i -> r.nextDouble() * 2d - 1d).toArray();
         nn.setParams(ws);

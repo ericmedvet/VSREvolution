@@ -30,7 +30,7 @@ public class SNNWeightsTracker {
     System.out.println(record.get("best→fitness→fitness"));
     Robot robot = SerializationUtils.deserialize(record.get("best→solution→serialized"), Robot.class, SerializationUtils.Mode.GZIPPED_JSON);
     CentralizedSensing centralizedSensing = (CentralizedSensing) robot.getController();
-    QuantizedMultilayerSpikingNetworkWithConverters quantizedMultilayerSpikingNetworkWithConverters = (QuantizedMultilayerSpikingNetworkWithConverters) centralizedSensing.getFunction();
+    QuantizedMultilayerSpikingNetworkWithConverters<?> quantizedMultilayerSpikingNetworkWithConverters = (QuantizedMultilayerSpikingNetworkWithConverters<?>) centralizedSensing.getFunction();
     quantizedMultilayerSpikingNetworkWithConverters.setWeightsTracker(true);
     new Locomotion(episodeTime, Locomotion.createTerrain(terrainName), new Settings()).apply(robot);
     //Map<Double, Map<Double, Double>> weightsDistributionInTime = quantizedMultilayerSpikingNetworkWithConverters.getWeightsDistributionInTime();

@@ -81,8 +81,7 @@ public class RulesParamsExtractor extends Worker {
     List<String> existingRulesNames = existingRulesClasses.stream()
         .map(Class::getSimpleName)
         .map(s -> s.replaceAll("([a-z])([A-Z]+)", "$1.$2").toLowerCase())
-        .map(s -> s.replace(".learning.", "."))
-        .collect(Collectors.toList());
+        .map(s -> s.replace(".learning.", ".")).toList();
     // parse old file and print headers to new file
     readRecordsFromFile(inputFileName);
     List<String> headers = new ArrayList<>(headersToKeep);
@@ -101,12 +100,11 @@ public class RulesParamsExtractor extends Worker {
       CentralizedSensing centralizedSensing = (CentralizedSensing) robot.getController();
       QuantizedMultilayerSpikingNetworkWithConverters<?> qmsnConv = (QuantizedMultilayerSpikingNetworkWithConverters<?>) centralizedSensing.getFunction();
       QuantizedMultilayerSpikingNetwork qmsn = qmsnConv.getMultilayerSpikingNetwork();
-      if (!(qmsn instanceof QuantizedLearningMultilayerSpikingNetwork)) {
+      if (!(qmsn instanceof QuantizedLearningMultilayerSpikingNetwork qlmsn)) {
         continue;
       }
-      QuantizedLearningMultilayerSpikingNetwork qlmsn = (QuantizedLearningMultilayerSpikingNetwork) qmsn;
       STDPLearningRule[][][] rules = qlmsn.getLearningRules();
-      List<String> oldRecord = headersToKeep.stream().map(record::get).collect(Collectors.toList());
+      List<String> oldRecord = headersToKeep.stream().map(record::get).toList();
       int[] rulesCounter = new int[existingRulesClasses.size()];
       for (STDPLearningRule[][] rule : rules) {
         for (STDPLearningRule[] stdpLearningRules : rule) {
@@ -123,7 +121,7 @@ public class RulesParamsExtractor extends Worker {
       }
 
       List<String> printableRecord = new ArrayList<>(oldRecord);
-      printableRecord.addAll(Arrays.stream(rulesCounter).mapToObj(i -> i + "").collect(Collectors.toList()));
+      printableRecord.addAll(Arrays.stream(rulesCounter).mapToObj(i -> i + "").toList());
       try {
         printer.printRecord(printableRecord);
       } catch (IOException e) {

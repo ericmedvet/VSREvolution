@@ -2,13 +2,9 @@ package it.units.erallab.builder.phenotype;
 
 import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.erallab.hmsrobots.core.controllers.MultiLayerPerceptron;
-import it.units.erallab.hmsrobots.core.controllers.TimedRealFunction;
 import it.units.erallab.hmsrobots.core.controllers.snn.MultilayerSpikingNetwork;
-import it.units.erallab.hmsrobots.core.controllers.snn.MultilayerSpikingNetworkWithConverters;
 import it.units.erallab.hmsrobots.core.controllers.snn.MultivariateSpikingFunction;
 import it.units.erallab.hmsrobots.core.controllers.snn.SpikingFunction;
-import it.units.erallab.hmsrobots.core.controllers.snn.converters.stv.SpikeTrainToValueConverter;
-import it.units.erallab.hmsrobots.core.controllers.snn.converters.vts.ValueToSpikeTrainConverter;
 
 import java.util.Collections;
 import java.util.List;

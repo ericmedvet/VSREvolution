@@ -63,10 +63,6 @@ public class WeightPerturbationValidator extends Worker {
 
   @Override
   public void run() {
-    int spectrumSize = 10;
-    double spectrumMinFreq = 0d;
-    double spectrumMaxFreq = 5d;
-
     Logger logger = Logger.getAnonymousLogger();
     System.setProperty("java.util.logging.SimpleFormatter.format", "[%1$tF %1$tT] [%4$-6s] %5$s %n");
     // params
@@ -95,11 +91,11 @@ public class WeightPerturbationValidator extends Worker {
     List<String> oldHeaders = readRecordsFromFile(inputFileName);
     oldHeaders = oldHeaders.stream().filter(headersToKeep::contains).collect(Collectors.toList());
     List<NamedFunction<Outcome, ?>> basicOutcomeFunctions = NamedFunctions.basicOutcomeFunctions();
-    List<String> basicOutcomeFunctionsNames = basicOutcomeFunctions.stream().map(NamedFunction::getName).collect(Collectors.toList());
+    List<String> basicOutcomeFunctionsNames = basicOutcomeFunctions.stream().map(NamedFunction::getName).toList();
     List<String> headers = oldHeaders.stream().map(h -> "event." + h).collect(Collectors.toList());
     headers.addAll(List.of("event.weight", "keys.validation.weight"));
     headers.addAll(List.of("keys.validation.transformation", "keys.validation.seed", "keys.validation.terrain"));
-    headers.addAll(basicOutcomeFunctionsNames.stream().map(h -> "outcome." + h).collect(Collectors.toList()));
+    headers.addAll(basicOutcomeFunctionsNames.stream().map(h -> "outcome." + h).toList());
 
     try {
       printer.printRecord(headers);
@@ -111,7 +107,7 @@ public class WeightPerturbationValidator extends Worker {
       // read robot and record
       Robot robot = SerializationUtils.deserialize(record.get(serializedRobotColumnName), Robot.class, mode);
       robot.reset();
-      List<String> oldRecord = oldHeaders.stream().map(record::get).collect(Collectors.toList());
+      List<String> oldRecord = oldHeaders.stream().map(record::get).toList();
       CentralizedSensing centralizedSensing = (CentralizedSensing) robot.getController();
       Parametrized parametrized = (Parametrized) centralizedSensing.getFunction();
       double[] params = parametrized.getParams();
@@ -130,9 +126,9 @@ public class WeightPerturbationValidator extends Worker {
             cells.addAll(List.of(originalWeight, weight, "identity", 0, "flat"));
             Locomotion locomotion = new Locomotion(episodeTime, Locomotion.createTerrain("flat"), new Settings());
             Outcome outcome = locomotion.apply(newRobot);
-            cells.addAll(basicOutcomeFunctions.stream().map(f -> f.apply(outcome.subOutcome(episodeTransientTime, episodeTime))).collect(Collectors.toList()));
+            cells.addAll(basicOutcomeFunctions.stream().map(f -> f.apply(outcome.subOutcome(episodeTransientTime, episodeTime))).toList());
             return cells;
-          }).collect(Collectors.toList());
+          }).toList();
       rows.forEach(row -> {
         try {
           printer.printRecord(row);

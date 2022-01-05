@@ -15,7 +15,7 @@ public interface PrototypedFunctionBuilder<A, B> {
 
   default <C> PrototypedFunctionBuilder<C, B> compose(PrototypedFunctionBuilder<C, A> other) {
     PrototypedFunctionBuilder<A, B> thisB = this;
-    return new PrototypedFunctionBuilder<C, B>() {
+    return new PrototypedFunctionBuilder<>() {
       @Override
       public Function<C, B> buildFor(B b) {
         return thisB.buildFor(b).compose(other.buildFor(thisB.exampleFor(b)));
