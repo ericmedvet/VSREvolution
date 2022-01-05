@@ -24,6 +24,7 @@ public class DoublesStandard implements EvolverBuilder<List<Double>> {
   private final int nPop;
   private final int nTournament;
   private final double xOverProb;
+  private final double sigmaMutation = 0.35;
   protected final boolean diversityEnforcement;
   private final boolean remap;
 
@@ -45,8 +46,8 @@ public class DoublesStandard implements EvolverBuilder<List<Double>> {
           comparator.comparing(Evolver.Individual::fitness),
           nPop,
           Map.of(
-              new GaussianMutation(.35d), 1d - xOverProb,
-              new GeometricCrossover(Range.closed(-.5d, 1.5d)).andThen(new GaussianMutation(.1d)), xOverProb
+              new GaussianMutation(sigmaMutation), 1d - xOverProb,
+              new GeometricCrossover(Range.closed(-.5d, 1.5d)).andThen(new GaussianMutation(sigmaMutation)), xOverProb
           ),
           new Tournament(nTournament),
           new Last(),
@@ -61,8 +62,8 @@ public class DoublesStandard implements EvolverBuilder<List<Double>> {
         comparator.comparing(Evolver.Individual::fitness),
         nPop,
         Map.of(
-            new GaussianMutation(1d), 1d - xOverProb,
-            new GeometricCrossover(Range.closed(-.5d, 1.5d)).andThen(new GaussianMutation(.1d)), xOverProb
+            new GaussianMutation(sigmaMutation), 1d - xOverProb,
+            new GeometricCrossover(Range.closed(-.5d, 1.5d)).andThen(new GaussianMutation(sigmaMutation)), xOverProb
         ),
         new Tournament(nTournament),
         new Last(),
