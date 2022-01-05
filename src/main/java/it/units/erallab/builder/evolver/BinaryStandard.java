@@ -48,7 +48,7 @@ public class BinaryStandard implements EvolverBuilder<BitString> {
           Map.of(
               new BitFlipMutation(pMut), 1d - xOverProb,
               new UniformCrossover<>(factory)
-                  .andThen(new BitFlipMutation(.01d)), xOverProb
+                  .andThen(new BitFlipMutation(pMut)), xOverProb
           ),
           new Tournament(nTournament),
           new Last(),
@@ -65,7 +65,7 @@ public class BinaryStandard implements EvolverBuilder<BitString> {
         Map.of(
             new BitFlipMutation(.01d), 1d - xOverProb,
             new UniformCrossover<>(new BitStringFactory(length))
-                .andThen(new BitFlipMutation(.01d)), xOverProb
+                .andThen(new BitFlipMutation(pMut)), xOverProb
         ),
         new Tournament(nTournament),
         new Last(),
