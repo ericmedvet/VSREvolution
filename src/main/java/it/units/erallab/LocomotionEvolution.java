@@ -370,9 +370,9 @@ public class LocomotionEvolution extends Worker {
   }
 
   private static EvolverBuilder<?> getEvolverBuilderFromName(String name) {
-    String numGA = "numGA-(?<nPop>\\d+)-(?<diversity>(t|f))";
+    String numGA = "numGA-(?<nPop>\\d+)-(?<diversity>(t|f))-(?<remap>(t|f))";
     String numGASpeciated = "numGASpec-(?<nPop>\\d+)-(?<nSpecies>\\d+)-(?<criterion>(" + Arrays.stream(DoublesSpeciated.SpeciationCriterion.values()).map(c -> c.name().toLowerCase(Locale.ROOT)).collect(Collectors.joining("|")) + "))";
-    String bitGA = "bitGA-(?<nPop>\\d+)-(?<diversity>(t|f))";
+    String bitGA = "bitGA-(?<nPop>\\d+)-(?<diversity>(t|f))-(?<remap>(t|f))";
     String ternaryGA = "terGA-(?<nPop>\\d+)-(?<diversity>(t|f))-(?<remap>(t|f))";
     String cmaES = "CMAES";
     String eS = "ES-(?<nPop>\\d+)-(?<sigma>\\d+(\\.\\d+)?)";
@@ -386,7 +386,8 @@ public class LocomotionEvolution extends Worker {
           Integer.parseInt(params.get("nPop")),
           (int) Math.max(Math.round((double) Integer.parseInt(params.get("nPop")) / 10d), 3),
           0.75d,
-          params.get("diversity").equals("t")
+          params.get("diversity").equals("t"),
+          params.get("diversity").equals("remap")
       );
     }
     if ((params = params(bitGA, name)) != null) {
@@ -394,7 +395,8 @@ public class LocomotionEvolution extends Worker {
           Integer.parseInt(params.get("nPop")),
           (int) Math.max(Math.round((double) Integer.parseInt(params.get("nPop")) / 10d), 3),
           0.75d,
-          params.get("diversity").equals("t")
+          params.get("diversity").equals("t"),
+          params.get("diversity").equals("remap")
       );
     }
     if ((params = params(ternaryGA, name)) != null) {
