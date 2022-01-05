@@ -357,7 +357,7 @@ public class Starter extends Worker {
     String ternaryGA = "terGA-(?<nPop>\\d+)-(?<diversity>(t|f))-(?<remap>(t|f))";
     String cmaES = "CMAES";
     String eS = "ES-(?<nPop>\\d+)-(?<sigma>\\d+(\\.\\d+)?)-(?<remap>(t|f))";
-    String STDPStandardGA = "STDP_GA-(?<nPop>\\d+)-(?<diversity>(t|f))";
+    String STDPStandardGA = "STDP_GA-(?<nPop>\\d+)-(?<diversity>(t|f))-(?<remap>(t|f))";
     String bitNumGA = "bitNumGA-(?<nPop>\\d+)-(?<diversity>(t|f))-(?<remap>(t|f))";
     String biasedBitNumGA = "biasedBitNumGA-(?<nPop>\\d+)-(?<diversity>(t|f))-(?<remap>(t|f))";
     String bitNumMutation = "bitNumMut-(?<nPop>\\d+)-(?<diversity>(t|f))-(?<remap>(t|f))";
@@ -441,7 +441,8 @@ public class Starter extends Worker {
           Integer.parseInt(params.get("nPop")),
           (int) Math.max(Math.round((double) Integer.parseInt(params.get("nPop")) / 10d), 3),
           0d,
-          params.get("diversity").equals("t")
+          params.get("diversity").equals("t"),
+          params.get("remap").equals("t")
       );
     }
     throw new IllegalArgumentException(String.format("Unknown evolver builder name: %s", name));

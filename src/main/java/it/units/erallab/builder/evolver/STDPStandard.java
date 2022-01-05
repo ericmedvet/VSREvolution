@@ -25,12 +25,14 @@ public class STDPStandard implements EvolverBuilder<List<STDPLearningRule>> {
   private final int nTournament;
   private final double xOverProb;
   protected final boolean diversityEnforcement;
+  private final boolean remap;
 
-  public STDPStandard(int nPop, int nTournament, double xOverProb, boolean diversityEnforcement) {
+  public STDPStandard(int nPop, int nTournament, double xOverProb, boolean diversityEnforcement, boolean remap) {
     this.nPop = nPop;
     this.nTournament = nTournament;
     this.xOverProb = xOverProb;
     this.diversityEnforcement = diversityEnforcement;
+    this.remap = remap;
   }
 
   @Override
@@ -52,7 +54,7 @@ public class STDPStandard implements EvolverBuilder<List<STDPLearningRule>> {
           new Last(),
           nPop,
           true,
-          true
+          remap
       );
     }
     return new StandardWithEnforcedDiversityEvolver<>(
@@ -65,7 +67,7 @@ public class STDPStandard implements EvolverBuilder<List<STDPLearningRule>> {
         new Last(),
         nPop,
         true,
-        true,
+        remap,
         100
     );
   }

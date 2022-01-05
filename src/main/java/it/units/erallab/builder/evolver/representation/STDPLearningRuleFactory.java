@@ -3,7 +3,6 @@ package it.units.erallab.builder.evolver.representation;
 import it.units.erallab.hmsrobots.core.controllers.snn.learning.*;
 import it.units.malelab.jgea.core.IndependentFactory;
 
-import java.util.Random;
 import java.util.random.RandomGenerator;
 import java.util.stream.IntStream;
 

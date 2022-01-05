@@ -4,7 +4,6 @@ import it.units.erallab.hmsrobots.core.controllers.snn.learning.STDPLearningRule
 import it.units.erallab.hmsrobots.core.controllers.snn.learning.SymmetricSTPDLearningRule;
 import it.units.malelab.jgea.core.operator.Mutation;
 
-import java.util.Random;
 import java.util.random.RandomGenerator;
 import java.util.stream.IntStream;
 
