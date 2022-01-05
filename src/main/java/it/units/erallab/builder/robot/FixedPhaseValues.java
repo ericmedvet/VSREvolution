@@ -1,11 +1,11 @@
 package it.units.erallab.builder.robot;
 
+import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.erallab.hmsrobots.core.controllers.PhaseSin;
-import it.units.erallab.hmsrobots.core.objects.ControllableVoxel;
 import it.units.erallab.hmsrobots.core.objects.Robot;
+import it.units.erallab.hmsrobots.core.objects.Voxel;
 import it.units.erallab.hmsrobots.util.Grid;
 import it.units.erallab.hmsrobots.util.SerializationUtils;
-import it.units.erallab.builder.PrototypedFunctionBuilder;
 
 import java.util.Collections;
 import java.util.List;
@@ -15,7 +15,7 @@ import java.util.function.Function;
 /**
  * @author eric
  */
-public class FixedPhaseValues implements PrototypedFunctionBuilder<List<Double>, Robot<?>> {
+public class FixedPhaseValues implements PrototypedFunctionBuilder<List<Double>, Robot> {
 
   private final double frequency;
   private final double amplitude;
@@ -26,8 +26,8 @@ public class FixedPhaseValues implements PrototypedFunctionBuilder<List<Double>,
   }
 
   @Override
-  public Function<List<Double>, Robot<?>> buildFor(Robot<?> robot) {
-    Grid<? extends ControllableVoxel> body = robot.getVoxels();
+  public Function<List<Double>, Robot> buildFor(Robot robot) {
+    Grid<Voxel> body = robot.getVoxels();
     long nOfVoxel = body.values().stream().filter(Objects::nonNull).count();
     return values -> {
       if (nOfVoxel != values.size()) {
@@ -40,12 +40,12 @@ public class FixedPhaseValues implements PrototypedFunctionBuilder<List<Double>,
       int c = 0;
       Grid<Double> phases = Grid.create(body);
       for (Grid.Entry<?> entry : body) {
-        if (entry.getValue() != null) {
-          phases.set(entry.getX(), entry.getY(), values.get(c));
+        if (entry.value() != null) {
+          phases.set(entry.key().x(), entry.key().y(), values.get(c));
           c = c + 1;
         }
       }
-      return new Robot<>(
+      return new Robot(
           new PhaseSin(frequency, amplitude, phases),
           SerializationUtils.clone(body)
       );
@@ -53,7 +53,7 @@ public class FixedPhaseValues implements PrototypedFunctionBuilder<List<Double>,
   }
 
   @Override
-  public List<Double> exampleFor(Robot<?> robot) {
+  public List<Double> exampleFor(Robot robot) {
     long nOfVoxel = robot.getVoxels().values().stream().filter(Objects::nonNull).count();
     return Collections.nCopies((int) nOfVoxel, 0d);
   }

@@ -16,11 +16,11 @@ import java.util.List;
 
 public class RasterPlotCreator {
 
-  public static void createLocomotionRasterPlotFile(Robot<?> robot, String terrainName, double duration, String fileName) throws IOException {
+  public static void createLocomotionRasterPlotFile(Robot robot, String terrainName, double duration, String fileName) throws IOException {
     createRasterPlotFile(robot, new Locomotion(duration, Locomotion.createTerrain(terrainName), new Settings()), fileName);
   }
 
-  public static void createRasterPlotFile(Robot<?> robot, Task<Robot<?>, ?> task, String fileName) throws IOException {
+  public static void createRasterPlotFile(Robot robot, Task<Robot, ?> task, String fileName) throws IOException {
     List<Double>[][] spikes = simulateAndGetSpikes(robot, task);
     CSVPrinter printer = new CSVPrinter(new PrintStream(fileName), CSVFormat.DEFAULT.withDelimiter(';'));
     printer.printRecord(List.of("layer", "neuron", "spikeTime"));
@@ -35,7 +35,7 @@ public class RasterPlotCreator {
     printer.close();
   }
 
-  private static List<Double>[][] simulateAndGetSpikes(Robot<?> robot, Task<Robot<?>, ?> task) {
+  private static List<Double>[][] simulateAndGetSpikes(Robot robot, Task<Robot, ?> task) {
     if (robot.getController() instanceof CentralizedSensing && ((CentralizedSensing) robot.getController()).getFunction() instanceof MultilayerSpikingNetwork) {
       MultilayerSpikingNetwork multilayerSpikingNetwork = (MultilayerSpikingNetwork) ((CentralizedSensing) robot.getController()).getFunction();
       multilayerSpikingNetwork.setSpikesTracker(true);

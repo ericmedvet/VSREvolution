@@ -2,8 +2,8 @@ package it.units.erallab.builder.robot;
 
 import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.erallab.hmsrobots.core.controllers.TimeFunctions;
-import it.units.erallab.hmsrobots.core.objects.ControllableVoxel;
 import it.units.erallab.hmsrobots.core.objects.Robot;
+import it.units.erallab.hmsrobots.core.objects.Voxel;
 import it.units.erallab.hmsrobots.util.Grid;
 import it.units.erallab.hmsrobots.util.SerializationUtils;
 import it.units.erallab.hmsrobots.util.Utils;
@@ -16,7 +16,7 @@ import java.util.function.Function;
 /**
  * @author eric
  */
-public class BodyAndSinusoidal implements PrototypedFunctionBuilder<Grid<double[]>, Robot<?>> {
+public class BodyAndSinusoidal implements PrototypedFunctionBuilder<Grid<double[]>, Robot> {
 
   public enum Component {FREQUENCY, AMPLITUDE, PHASE}
 
@@ -33,8 +33,8 @@ public class BodyAndSinusoidal implements PrototypedFunctionBuilder<Grid<double[
   }
 
   @Override
-  public Function<Grid<double[]>, Robot<?>> buildFor(Robot<?> robot) {
-    ControllableVoxel voxelPrototype = robot.getVoxels().values().stream().filter(Objects::nonNull).findFirst().orElse(null);
+  public Function<Grid<double[]>, Robot> buildFor(Robot robot) {
+    Voxel voxelPrototype = robot.getVoxels().values().stream().filter(Objects::nonNull).findFirst().orElse(null);
     if (voxelPrototype == null) {
       throw new IllegalArgumentException("Target robot has no valid voxels");
     }
@@ -50,15 +50,15 @@ public class BodyAndSinusoidal implements PrototypedFunctionBuilder<Grid<double[
       }
       //check grid element size
       if (grid.values().stream().anyMatch(v -> v.length != 1 + components.size())) {
-        Grid.Entry<double[]> firstWrong = grid.stream().filter(e -> e.getValue().length != 1 + components.size()).findFirst().orElse(null);
+        Grid.Entry<double[]> firstWrong = grid.stream().filter(e -> e.value().length != 1 + components.size()).findFirst().orElse(null);
         if (firstWrong == null) {
-          throw new NullPointerException("Unexpected empty wrong grid item");
+          throw new IllegalArgumentException("Unexpected empty wrong grid item");
         }
         throw new IllegalArgumentException(String.format(
-            "Wrong number of values in grid at %d,%d size: %d expected, %d found",
-            firstWrong.getX(), firstWrong.getY(),
+            "Wrong number of values in grid at %d,%d: %d expected, %d found",
+            firstWrong.key().x(), firstWrong.key().y(),
             1 + components.size(),
-            firstWrong.getValue().length
+            firstWrong.value().length
         ));
       }
       //build body
@@ -67,7 +67,7 @@ public class BodyAndSinusoidal implements PrototypedFunctionBuilder<Grid<double[
           Grid.create(grid, v -> v[0] >= threshold ? v : null),
           Objects::nonNull
       ), Objects::nonNull);
-      Grid<ControllableVoxel> body = Grid.create(cropped, v -> (v != null) ? SerializationUtils.clone(voxelPrototype) : null);
+      Grid<Voxel> body = Grid.create(cropped, v -> (v != null) ? SerializationUtils.clone(voxelPrototype) : null);
       if (body.values().stream().noneMatch(Objects::nonNull)) {
         body = Grid.create(1, 1, SerializationUtils.clone(voxelPrototype));
       }
@@ -105,7 +105,7 @@ public class BodyAndSinusoidal implements PrototypedFunctionBuilder<Grid<double[
             return t -> amplitude * Math.sin(2 * Math.PI * freq * t + phase);
           }
       ));
-      return new Robot<>(controller, body);
+      return new Robot(controller, body);
     };
   }
 
@@ -114,8 +114,8 @@ public class BodyAndSinusoidal implements PrototypedFunctionBuilder<Grid<double[
   }
 
   @Override
-  public Grid<double[]> exampleFor(Robot<?> robot) {
-    ControllableVoxel prototypeVoxel = robot.getVoxels().values().stream().filter(Objects::nonNull).findFirst().orElse(null);
+  public Grid<double[]> exampleFor(Robot robot) {
+    Voxel prototypeVoxel = robot.getVoxels().values().stream().filter(Objects::nonNull).findFirst().orElse(null);
     if (prototypeVoxel == null) {
       throw new IllegalArgumentException("Target robot has no valid voxels");
     }

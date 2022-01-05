@@ -97,7 +97,7 @@ public class RulesParamsExtractor extends Worker {
     int validationsCounter = 0;
     for (CSVRecord record : records) {
       // read robot and record
-      Robot<?> robot = SerializationUtils.deserialize(record.get(serializedRobotColumnName), Robot.class, mode);
+      Robot robot = SerializationUtils.deserialize(record.get(serializedRobotColumnName), Robot.class, mode);
       CentralizedSensing centralizedSensing = (CentralizedSensing) robot.getController();
       QuantizedMultilayerSpikingNetworkWithConverters<?> qmsnConv = (QuantizedMultilayerSpikingNetworkWithConverters<?>) centralizedSensing.getFunction();
       QuantizedMultilayerSpikingNetwork qmsn = qmsnConv.getMultilayerSpikingNetwork();

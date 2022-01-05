@@ -1,7 +1,6 @@
 package it.units.erallab.builder.evolver;
 
 import it.units.erallab.builder.PrototypedFunctionBuilder;
-import it.units.malelab.jgea.core.Individual;
 import it.units.malelab.jgea.core.evolver.CMAESEvolver;
 import it.units.malelab.jgea.core.evolver.Evolver;
 import it.units.malelab.jgea.core.order.PartialComparator;
@@ -20,7 +19,7 @@ public class CMAES implements EvolverBuilder<List<Double>> {
     return new CMAESEvolver<>(
         builder.buildFor(target),
         new FixedLengthListFactory<>(length, new UniformDoubleFactory(-1d, 1d)),
-        comparator.comparing(Individual::getFitness)
+        comparator.comparing(Evolver.Individual::fitness)
     );
   }
 }

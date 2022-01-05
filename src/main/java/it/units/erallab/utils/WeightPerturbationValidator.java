@@ -6,6 +6,7 @@ import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
 import it.units.erallab.hmsrobots.tasks.locomotion.Outcome;
 import it.units.erallab.hmsrobots.util.Parametrized;
 import it.units.erallab.hmsrobots.util.SerializationUtils;
+import it.units.erallab.locomotion.NamedFunctions;
 import it.units.malelab.jgea.Worker;
 import it.units.malelab.jgea.core.listener.NamedFunction;
 import org.apache.commons.csv.CSVFormat;
@@ -93,7 +94,7 @@ public class WeightPerturbationValidator extends Worker {
     // parse old file and print headers to new file
     List<String> oldHeaders = readRecordsFromFile(inputFileName);
     oldHeaders = oldHeaders.stream().filter(headersToKeep::contains).collect(Collectors.toList());
-    List<NamedFunction<Outcome, ?>> basicOutcomeFunctions = Utils.basicOutcomeFunctions();
+    List<NamedFunction<Outcome, ?>> basicOutcomeFunctions = NamedFunctions.basicOutcomeFunctions();
     List<String> basicOutcomeFunctionsNames = basicOutcomeFunctions.stream().map(NamedFunction::getName).collect(Collectors.toList());
     List<String> headers = oldHeaders.stream().map(h -> "event." + h).collect(Collectors.toList());
     headers.addAll(List.of("event.weight", "keys.validation.weight"));
@@ -108,7 +109,7 @@ public class WeightPerturbationValidator extends Worker {
     int validationsCounter = 0;
     for (CSVRecord record : records) {
       // read robot and record
-      Robot<?> robot = SerializationUtils.deserialize(record.get(serializedRobotColumnName), Robot.class, mode);
+      Robot robot = SerializationUtils.deserialize(record.get(serializedRobotColumnName), Robot.class, mode);
       robot.reset();
       List<String> oldRecord = oldHeaders.stream().map(record::get).collect(Collectors.toList());
       CentralizedSensing centralizedSensing = (CentralizedSensing) robot.getController();
@@ -121,7 +122,7 @@ public class WeightPerturbationValidator extends Worker {
       List<List<Object>> rows = validationWeights.stream().parallel()
           .map(weight -> {
             double[] newWeights = Arrays.stream(mappedParams).map(d -> d * weight).toArray();
-            Robot<?> newRobot = SerializationUtils.clone(robot);
+            Robot newRobot = SerializationUtils.clone(robot);
             CentralizedSensing newCentralizedSensing = (CentralizedSensing) newRobot.getController();
             Parametrized newParametrized = (Parametrized) newCentralizedSensing.getFunction();
             newParametrized.setParams(newWeights);

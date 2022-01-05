@@ -5,6 +5,7 @@ import it.units.erallab.hmsrobots.core.controllers.snn.learning.SymmetricSTPDLea
 import it.units.malelab.jgea.core.operator.Mutation;
 
 import java.util.Random;
+import java.util.random.RandomGenerator;
 import java.util.stream.IntStream;
 
 public class STDPLearningRuleMutation implements Mutation<STDPLearningRule> {
@@ -25,7 +26,7 @@ public class STDPLearningRuleMutation implements Mutation<STDPLearningRule> {
   }
 
   @Override
-  public STDPLearningRule mutate(STDPLearningRule stdpLearningRule, Random random) {
+  public STDPLearningRule mutate(STDPLearningRule stdpLearningRule, RandomGenerator random) {
     if (random.nextDouble() <= pChangeRule) {
       return stdpLearningRuleFactory.build(random);
     }

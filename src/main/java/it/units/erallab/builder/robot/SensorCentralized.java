@@ -5,7 +5,7 @@ import it.units.erallab.hmsrobots.core.controllers.CentralizedSensing;
 import it.units.erallab.hmsrobots.core.controllers.RealFunction;
 import it.units.erallab.hmsrobots.core.controllers.TimedRealFunction;
 import it.units.erallab.hmsrobots.core.objects.Robot;
-import it.units.erallab.hmsrobots.core.objects.SensingVoxel;
+import it.units.erallab.hmsrobots.core.objects.Voxel;
 import it.units.erallab.hmsrobots.core.sensors.Sensor;
 import it.units.erallab.hmsrobots.util.Grid;
 import it.units.erallab.hmsrobots.util.SerializationUtils;
@@ -17,10 +17,10 @@ import java.util.function.Function;
 /**
  * @author eric on 2021/01/02 for VSREvolution
  */
-public class SensorCentralized implements PrototypedFunctionBuilder<List<TimedRealFunction>, Robot<? extends SensingVoxel>> {
+public class SensorCentralized implements PrototypedFunctionBuilder<List<TimedRealFunction>, Robot> {
 
   @Override
-  public Function<List<TimedRealFunction>, Robot<? extends SensingVoxel>> buildFor(Robot<? extends SensingVoxel> robot) {
+  public Function<List<TimedRealFunction>, Robot> buildFor(Robot robot) {
     List<Sensor> prototypeSensors = SensorAndBodyAndHomoDistributed.getPrototypeSensors(robot);
     int nOfVoxels = (int) robot.getVoxels().values().stream().filter(Objects::nonNull).count();
     int sensorDim = prototypeSensors.get(0).getDomains().length;
@@ -63,24 +63,24 @@ public class SensorCentralized implements PrototypedFunctionBuilder<List<TimedRe
           w, h,
           (x, y) -> sensorizingFunction.apply(0, new double[]{(double) x / ((double) w - 1d), (double) y / ((double) h - 1d)})
       );
-      Grid<? extends SensingVoxel> body = Grid.create(
+      Grid<Voxel> body = Grid.create(
           w, h,
           (x, y) -> {
             if (robot.getVoxels().get(x, y) == null) {
               return null;
             }
             List<Sensor> availableSensors = robot.getVoxels().get(x, y).getSensors();
-            return new SensingVoxel(List.of(
+            return new Voxel(List.of(
                 SerializationUtils.clone(availableSensors.get(SensorAndBodyAndHomoDistributed.indexOfMax(values.get(x, y))))
             ));
           }
       );
-      return new Robot<>(new CentralizedSensing(body, brainFunction), body);
+      return new Robot(new CentralizedSensing(body, brainFunction), body);
     };
   }
 
   @Override
-  public List<TimedRealFunction> exampleFor(Robot<? extends SensingVoxel> robot) {
+  public List<TimedRealFunction> exampleFor(Robot robot) {
     List<Sensor> prototypeSensors = SensorAndBodyAndHomoDistributed.getPrototypeSensors(robot);
     int nOfVoxels = (int) robot.getVoxels().values().stream().filter(Objects::nonNull).count();
     int sensorDim = prototypeSensors.get(0).getDomains().length;

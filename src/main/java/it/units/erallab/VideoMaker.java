@@ -36,7 +36,10 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.dyn4j.dynamics.Settings;
 
 import java.io.*;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -142,10 +145,10 @@ public class VideoMaker {
         nRows = terrainNames.size();
       }
     }
-    w = w*nCols;
-    h = h*nRows;
+    w = w * nCols;
+    h = h * nRows;
 
-    List<Robot<?>> readRobots = new ArrayList<>();
+    List<Robot> readRobots = new ArrayList<>();
     List<String> readRobotDescriptions = new ArrayList<>();
     records.forEach(
         record -> {
@@ -153,7 +156,7 @@ public class VideoMaker {
           readRobotDescriptions.add(record.get(descriptionColumn));
         }
     );
-    List<Robot<?>> robots = new ArrayList<>(readRobots);
+    List<Robot> robots = new ArrayList<>(readRobots);
     List<String> robotDescriptions = new ArrayList<>(readRobotDescriptions);
     IntStream.range(1, terrainNames.size()).forEach(x -> {
       robots.addAll(readRobots);
@@ -161,24 +164,33 @@ public class VideoMaker {
     });
     List<CSVRecord> finalRecords = records;
     List<String> terrainRepeatedNames = terrainNames.stream().map(terrainName ->
-        Collections.nCopies(finalRecords.size(), terrainName)).flatMap(List::stream).collect(Collectors.toList());
+        Collections.nCopies(finalRecords.size(), terrainName)).flatMap(List::stream).toList();
 
     List<String> descriptions = IntStream.range(0, robotDescriptions.size()).mapToObj(i ->
-        robotDescriptions.get(i) + "\n" + terrainRepeatedNames.get(i)).collect(Collectors.toList());
+        robotDescriptions.get(i) + "\n" + terrainRepeatedNames.get(i)).toList();
 
-    Grid<String> descriptionsGrid = new Grid<>(nCols, nRows, descriptions);
-    List<Task<Robot<?>, ?>> locomotionList = new ArrayList<>();
+    List<Task<Robot, ?>> locomotionList = new ArrayList<>();
     terrainRepeatedNames.forEach(terrainName ->
         locomotionList.add(new Locomotion(endTime, Locomotion.createTerrain(terrainName), new Settings())));
-
-    List<Pair<Robot<?>, Task<Robot<?>, ?>>> pairsList = IntStream.range(0, descriptions.size()).mapToObj(i ->
-        new ImmutablePair<Robot<?>, Task<Robot<?>, ?>>(robots.get(i), locomotionList.get(i))
+    List<Pair<Robot, Task<Robot, ?>>> pairsList = IntStream.range(0, descriptions.size()).mapToObj(i ->
+        new ImmutablePair<Robot, Task<Robot, ?>>(robots.get(i), locomotionList.get(i))
     ).collect(Collectors.toList());
-    Grid<Pair<Robot<?>, Task<Robot<?>, ?>>> pairsGrid = new Grid<>(nCols, nRows, pairsList);
+
+    Grid<String> descriptionsGrid = Grid.create(nCols, nRows);
+    Grid<Pair<Robot, Task<Robot, ?>>> pairsGrid = Grid.create(descriptionsGrid);
+
+    int listIndex = 0;
+    for (int x = 0; x < nCols; x++) {
+      for (int y = 0; y < nRows; y++) {
+        descriptionsGrid.set(x, y, descriptions.get(listIndex));
+        pairsGrid.set(x, y, pairsList.get(listIndex));
+        listIndex = listIndex + 1;
+      }
+    }
 
     ScheduledExecutorService uiExecutor = Executors.newScheduledThreadPool(4);
     ExecutorService executor = Executors.newCachedThreadPool();
-    GridSnapshotListener gridSnapshotListener = null;
+    GridSnapshotListener gridSnapshotListener;
     if (outputFileName == null) {
       gridSnapshotListener = new GridOnlineViewer(
           Grid.create(pairsGrid, p -> null),
@@ -187,19 +199,14 @@ public class VideoMaker {
       );
       ((GridOnlineViewer) gridSnapshotListener).start(3);
     } else {
-      try {
-        gridSnapshotListener = new GridFileWriter(
-            w, h, startTime, frameRate, VideoUtils.EncoderFacility.valueOf(encoderName.toUpperCase()),
-            new File(outputFileName),
-            Grid.create(descriptionsGrid, p -> p),
-            Grid.create(descriptionsGrid, drawerSupplier)
-        );
-      } catch (IOException e) {
-        L.severe(String.format("Cannot build grid file writer: %s", e));
-        System.exit(-1);
-      }
+      gridSnapshotListener = new GridFileWriter(
+          w, h, startTime, frameRate, VideoUtils.EncoderFacility.valueOf(encoderName.toUpperCase()),
+          new File(outputFileName),
+          Grid.create(descriptionsGrid, p -> p),
+          Grid.create(descriptionsGrid, drawerSupplier)
+      );
     }
-    GridMultipleEpisodesRunner<Robot<?>> runner = new GridMultipleEpisodesRunner<>(
+    GridMultipleEpisodesRunner<Robot> runner = new GridMultipleEpisodesRunner<>(
         pairsGrid,
         gridSnapshotListener,
         executor

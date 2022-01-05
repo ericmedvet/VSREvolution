@@ -28,24 +28,22 @@ public class SNNWeightsTracker {
     CSVParser csvParser = CSVFormat.DEFAULT.withDelimiter(';').withFirstRecordAsHeader().parse(new FileReader(inputFileName));
     CSVRecord record = csvParser.getRecords().get(0);
     System.out.println(record.get("best→fitness→fitness"));
-    Robot<?> robot = SerializationUtils.deserialize(record.get("best→solution→serialized"), Robot.class, SerializationUtils.Mode.GZIPPED_JSON);
+    Robot robot = SerializationUtils.deserialize(record.get("best→solution→serialized"), Robot.class, SerializationUtils.Mode.GZIPPED_JSON);
     CentralizedSensing centralizedSensing = (CentralizedSensing) robot.getController();
     QuantizedMultilayerSpikingNetworkWithConverters quantizedMultilayerSpikingNetworkWithConverters = (QuantizedMultilayerSpikingNetworkWithConverters) centralizedSensing.getFunction();
     quantizedMultilayerSpikingNetworkWithConverters.setWeightsTracker(true);
     new Locomotion(episodeTime, Locomotion.createTerrain(terrainName), new Settings()).apply(robot);
     //Map<Double, Map<Double, Double>> weightsDistributionInTime = quantizedMultilayerSpikingNetworkWithConverters.getWeightsDistributionInTime();
-    Map<Double,double[]> weightsInTime = quantizedMultilayerSpikingNetworkWithConverters.getWeightsInTime();
+    Map<Double, double[]> weightsInTime = quantizedMultilayerSpikingNetworkWithConverters.getWeightsInTime();
     CSVPrinter printer = new CSVPrinter(new PrintStream(outputFileName), CSVFormat.DEFAULT.withDelimiter(';'));
     printer.printRecord("time", "weight");
-    weightsInTime.forEach((time, weights) -> {
-      Arrays.stream(weights).forEach(weight -> {
-        try {
-          printer.printRecord(time, weight);
-        } catch (IOException e) {
-          e.printStackTrace();
-        }
-      });
-    });
+    weightsInTime.forEach((time, weights) -> Arrays.stream(weights).forEach(weight -> {
+      try {
+        printer.printRecord(time, weight);
+      } catch (IOException e) {
+        e.printStackTrace();
+      }
+    }));
     printer.close();
   }
 

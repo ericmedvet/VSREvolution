@@ -5,7 +5,7 @@ import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
 import it.units.erallab.hmsrobots.tasks.locomotion.Outcome;
 import it.units.erallab.hmsrobots.util.RobotUtils;
 import it.units.erallab.hmsrobots.util.SerializationUtils;
-import it.units.erallab.utils.Utils;
+import it.units.erallab.locomotion.NamedFunctions;
 import it.units.malelab.jgea.Worker;
 import it.units.malelab.jgea.core.listener.NamedFunction;
 import org.apache.commons.csv.CSVFormat;
@@ -93,8 +93,8 @@ public class RobotsValidator extends Worker {
     // parse old file and print headers to new file
     List<String> oldHeaders = readRecordsFromFile(inputFileName);
     oldHeaders = oldHeaders.stream().filter(headersToKeep::contains).collect(Collectors.toList());
-    List<NamedFunction<Outcome, ?>> basicOutcomeFunctions = Utils.basicOutcomeFunctions();
-    List<NamedFunction<Outcome, ?>> detailedOutcomeFunctions = Utils.detailedOutcomeFunctions(spectrumMinFreq, spectrumMaxFreq, spectrumSize);
+    List<NamedFunction<Outcome, ?>> basicOutcomeFunctions = NamedFunctions.basicOutcomeFunctions();
+    List<NamedFunction<Outcome, ?>> detailedOutcomeFunctions = NamedFunctions.detailedOutcomeFunctions(spectrumMinFreq, spectrumMaxFreq, spectrumSize);
     List<String> basicOutcomeFunctionsNames = basicOutcomeFunctions.stream().map(NamedFunction::getName).collect(Collectors.toList());
     List<String> detailedOutcomeFunctionsNames = detailedOutcomeFunctions.stream().map(NamedFunction::getName).collect(Collectors.toList());
     List<String> headers = oldHeaders.stream().map(h -> "event." + h).collect(Collectors.toList());
@@ -110,7 +110,7 @@ public class RobotsValidator extends Worker {
     int validationsCounter = 0;
     for (CSVRecord record : records) {
       // read robot and record
-      Robot<?> robot = SerializationUtils.deserialize(record.get(serializedRobotColumnName), Robot.class, mode);
+      Robot robot = SerializationUtils.deserialize(record.get(serializedRobotColumnName), Robot.class, mode);
       robot.reset();
       List<String> oldRecord = oldHeaders.stream().map(record::get).collect(Collectors.toList());
 
@@ -118,7 +118,7 @@ public class RobotsValidator extends Worker {
         for (int seed : seeds) {
           Random random = new Random(seed);
           robot = SerializationUtils.clone(robot, SerializationUtils.Mode.GZIPPED_JSON);
-          Robot<?> transformedRobot = RobotUtils.buildRobotTransformation(validationTransformationName, random).apply(robot);
+          Robot transformedRobot = RobotUtils.buildRobotTransformation(validationTransformationName, random).apply(robot);
           // validate robot on all terrains
           List<List<Object>> rows = validationTerrainNames.stream().parallel()
               .map(terrainName -> {

@@ -2,15 +2,13 @@ package it.units.erallab.builder.robot;
 
 import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.erallab.hmsrobots.core.controllers.DistributedSensing;
-import it.units.erallab.hmsrobots.core.controllers.RealFunction;
-import it.units.erallab.hmsrobots.core.controllers.TimedRealFunction;
 import it.units.erallab.hmsrobots.core.controllers.snn.DistributedSpikingSensing;
 import it.units.erallab.hmsrobots.core.controllers.snn.LIFNeuron;
 import it.units.erallab.hmsrobots.core.controllers.snn.MultivariateSpikingFunction;
 import it.units.erallab.hmsrobots.core.controllers.snn.converters.stv.SpikeTrainToValueConverter;
 import it.units.erallab.hmsrobots.core.controllers.snn.converters.vts.ValueToSpikeTrainConverter;
 import it.units.erallab.hmsrobots.core.objects.Robot;
-import it.units.erallab.hmsrobots.core.objects.SensingVoxel;
+import it.units.erallab.hmsrobots.core.objects.Voxel;
 import it.units.erallab.hmsrobots.util.Grid;
 import it.units.erallab.hmsrobots.util.SerializationUtils;
 
@@ -22,7 +20,7 @@ import java.util.stream.Collectors;
 /**
  * @author eric
  */
-public class FixedHomoSpikingDistributed implements PrototypedFunctionBuilder<MultivariateSpikingFunction, Robot<? extends SensingVoxel>> {
+public class FixedHomoSpikingDistributed implements PrototypedFunctionBuilder<MultivariateSpikingFunction, Robot> {
   private final int signals;
   private final ValueToSpikeTrainConverter valueToSpikeTrainConverter;
   private final SpikeTrainToValueConverter spikeTrainToValueConverter;
@@ -34,9 +32,9 @@ public class FixedHomoSpikingDistributed implements PrototypedFunctionBuilder<Mu
   }
 
   @Override
-  public Function<MultivariateSpikingFunction, Robot<? extends SensingVoxel>> buildFor(Robot<? extends SensingVoxel> robot) {
+  public Function<MultivariateSpikingFunction, Robot> buildFor(Robot robot) {
     int[] dim = getIODim(robot);
-    Grid<? extends SensingVoxel> body = robot.getVoxels();
+    Grid<Voxel> body = robot.getVoxels();
     int nOfInputs = dim[0];
     int nOfOutputs = dim[1];
     return function -> {
@@ -55,12 +53,12 @@ public class FixedHomoSpikingDistributed implements PrototypedFunctionBuilder<Mu
         ));
       }
       DistributedSpikingSensing controller = new DistributedSpikingSensing(body, signals, new LIFNeuron(), valueToSpikeTrainConverter, spikeTrainToValueConverter);
-      for (Grid.Entry<? extends SensingVoxel> entry : body) {
-        if (entry.getValue() != null) {
-          controller.getFunctions().set(entry.getX(), entry.getY(), SerializationUtils.clone(function));
+      for (Grid.Entry<Voxel> entry : body) {
+        if (entry.value() != null) {
+          controller.getFunctions().set(entry.key().x(), entry.key().y(), SerializationUtils.clone(function));
         }
       }
-      return new Robot<>(
+      return new Robot(
           controller,
           SerializationUtils.clone(body)
       );
@@ -68,22 +66,22 @@ public class FixedHomoSpikingDistributed implements PrototypedFunctionBuilder<Mu
   }
 
   @Override
-  public MultivariateSpikingFunction exampleFor(Robot<? extends SensingVoxel> robot) {
+  public MultivariateSpikingFunction exampleFor(Robot robot) {
     int[] dim = getIODim(robot);
     return MultivariateSpikingFunction.build(d -> d, dim[0], dim[1]);
   }
 
-  private int[] getIODim(Robot<? extends SensingVoxel> robot) {
-    Grid<? extends SensingVoxel> body = robot.getVoxels();
-    SensingVoxel voxel = body.values().stream().filter(Objects::nonNull).findFirst().orElse(null);
+  private int[] getIODim(Robot robot) {
+    Grid<Voxel> body = robot.getVoxels();
+    Voxel voxel = body.values().stream().filter(Objects::nonNull).findFirst().orElse(null);
     if (voxel == null) {
       throw new IllegalArgumentException("Target robot has no voxels");
     }
     int nOfInputs = DistributedSensing.nOfInputs(voxel, signals);
     int nOfOutputs = DistributedSensing.nOfOutputs(voxel, signals);
-    List<Grid.Entry<? extends SensingVoxel>> wrongVoxels = body.stream()
-        .filter(e -> e.getValue() != null)
-        .filter(e -> DistributedSensing.nOfInputs(e.getValue(), signals) != nOfInputs)
+    List<Grid.Entry<Voxel>> wrongVoxels = body.stream()
+        .filter(e -> e.value() != null)
+        .filter(e -> DistributedSensing.nOfInputs(e.value(), signals) != nOfInputs)
         .collect(Collectors.toList());
     if (!wrongVoxels.isEmpty()) {
       throw new IllegalArgumentException(String.format(
@@ -91,10 +89,10 @@ public class FixedHomoSpikingDistributed implements PrototypedFunctionBuilder<Mu
           getClass().getSimpleName(),
           nOfInputs,
           wrongVoxels.stream()
-              .map(e -> String.format("(%d,%d)", e.getX(), e.getY()))
+              .map(e -> String.format("(%d,%d)", e.key().x(), e.key().y()))
               .collect(Collectors.joining(",")),
           wrongVoxels.stream()
-              .map(e -> String.format("%d", DistributedSensing.nOfInputs(e.getValue(), signals)))
+              .map(e -> String.format("%d", DistributedSensing.nOfInputs(e.value(), signals)))
               .collect(Collectors.joining(","))
       ));
     }

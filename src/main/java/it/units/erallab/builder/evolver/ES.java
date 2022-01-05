@@ -1,7 +1,6 @@
 package it.units.erallab.builder.evolver;
 
 import it.units.erallab.builder.PrototypedFunctionBuilder;
-import it.units.malelab.jgea.core.Individual;
 import it.units.malelab.jgea.core.evolver.BasicEvolutionaryStrategy;
 import it.units.malelab.jgea.core.evolver.Evolver;
 import it.units.malelab.jgea.core.order.PartialComparator;
@@ -14,12 +13,15 @@ import java.util.List;
  * @author eric
  */
 public class ES implements EvolverBuilder<List<Double>> {
+
   private final double sigma;
   private final int nPop;
+  private final boolean remap;
 
-  public ES(double sigma, int nPop) {
+  public ES(double sigma, int nPop, boolean remap) {
     this.sigma = sigma;
     this.nPop = nPop;
+    this.remap = remap;
   }
 
   @Override
@@ -28,12 +30,12 @@ public class ES implements EvolverBuilder<List<Double>> {
     return new BasicEvolutionaryStrategy<>(
         builder.buildFor(target),
         new FixedLengthListFactory<>(length, new UniformDoubleFactory(-1d, 1d)),
-        comparator.comparing(Individual::getFitness),
+        comparator.comparing(Evolver.Individual::fitness),
         sigma,
         nPop,
         nPop / 4,
         1,
-        true
+        remap
     );
   }
 }

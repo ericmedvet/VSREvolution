@@ -4,7 +4,6 @@ import com.google.common.collect.Range;
 import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.malelab.jgea.core.Factory;
 import it.units.malelab.jgea.core.IndependentFactory;
-import it.units.malelab.jgea.core.Individual;
 import it.units.malelab.jgea.core.evolver.Evolver;
 import it.units.malelab.jgea.core.evolver.StandardEvolver;
 import it.units.malelab.jgea.core.evolver.StandardWithEnforcedDiversityEvolver;
@@ -80,7 +79,7 @@ public class BinaryAndDoublesBiased implements EvolverBuilder<Pair<BitString, Li
       return new StandardEvolver<>(
           builder.buildFor(target),
           factory,
-          comparator.comparing(Individual::getFitness),
+          comparator.comparing(Evolver.Individual::fitness),
           nPop,
           geneticOperators,
           new Tournament(nTournament),
@@ -93,7 +92,7 @@ public class BinaryAndDoublesBiased implements EvolverBuilder<Pair<BitString, Li
     return new StandardWithEnforcedDiversityEvolver<>(
         builder.buildFor(target),
         factory,
-        comparator.comparing(Individual::getFitness),
+        comparator.comparing(Evolver.Individual::fitness),
         nPop,
         geneticOperators,
         new Tournament(nTournament),

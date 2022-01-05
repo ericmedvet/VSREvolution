@@ -5,14 +5,13 @@ import it.units.erallab.builder.evolver.representation.STDPLearningRuleFactory;
 import it.units.erallab.builder.evolver.representation.STDPLearningRuleMutation;
 import it.units.erallab.hmsrobots.core.controllers.snn.learning.STDPLearningRule;
 import it.units.malelab.jgea.core.IndependentFactory;
-import it.units.malelab.jgea.core.Individual;
 import it.units.malelab.jgea.core.evolver.Evolver;
 import it.units.malelab.jgea.core.evolver.StandardEvolver;
 import it.units.malelab.jgea.core.evolver.StandardWithEnforcedDiversityEvolver;
 import it.units.malelab.jgea.core.operator.GeneticOperator;
 import it.units.malelab.jgea.core.order.PartialComparator;
-import it.units.malelab.jgea.core.selector.Tournament;
 import it.units.malelab.jgea.core.selector.Last;
+import it.units.malelab.jgea.core.selector.Tournament;
 import it.units.malelab.jgea.representation.sequence.FixedLengthListFactory;
 import it.units.malelab.jgea.representation.sequence.ProbabilisticMutation;
 import it.units.malelab.jgea.representation.sequence.SameTwoPointsCrossover;
@@ -46,7 +45,7 @@ public class STDPStandard implements EvolverBuilder<List<STDPLearningRule>> {
       return new StandardEvolver<>(
           builder.buildFor(target),
           factory,
-          comparator.comparing(Individual::getFitness),
+          comparator.comparing(Evolver.Individual::fitness),
           nPop,
           operators,
           new Tournament(nTournament),
@@ -59,7 +58,7 @@ public class STDPStandard implements EvolverBuilder<List<STDPLearningRule>> {
     return new StandardWithEnforcedDiversityEvolver<>(
         builder.buildFor(target),
         factory,
-        comparator.comparing(Individual::getFitness),
+        comparator.comparing(Evolver.Individual::fitness),
         nPop,
         operators,
         new Tournament(nTournament),

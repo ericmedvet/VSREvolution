@@ -1,7 +1,6 @@
 package it.units.erallab.builder.evolver;
 
 import it.units.erallab.builder.PrototypedFunctionBuilder;
-import it.units.malelab.jgea.core.Individual;
 import it.units.malelab.jgea.core.evolver.Evolver;
 import it.units.malelab.jgea.core.evolver.StandardEvolver;
 import it.units.malelab.jgea.core.evolver.StandardWithEnforcedDiversityEvolver;
@@ -43,7 +42,7 @@ public class BinaryStandard implements EvolverBuilder<BitString> {
       return new StandardEvolver<>(
           builder.buildFor(target),
           factory,
-          comparator.comparing(Individual::getFitness),
+          comparator.comparing(Evolver.Individual::fitness),
           nPop,
           Map.of(
               new BitFlipMutation(pMut), 1d - xOverProb,
@@ -60,7 +59,7 @@ public class BinaryStandard implements EvolverBuilder<BitString> {
     return new StandardWithEnforcedDiversityEvolver<>(
         builder.buildFor(target),
         new BitStringFactory(length),
-        comparator.comparing(Individual::getFitness),
+        comparator.comparing(Evolver.Individual::fitness),
         nPop,
         Map.of(
             new BitFlipMutation(.01d), 1d - xOverProb,

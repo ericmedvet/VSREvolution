@@ -59,7 +59,7 @@ public class NNDistanceCalculator {
 
   }
 
-  private static String extractNeuralNetworkAsString(Robot<?> robot) {
+  private static String extractNeuralNetworkAsString(Robot robot) {
     robot.reset();
     CentralizedSensing centralizedSensing = (CentralizedSensing) robot.getController();
     Parametrized parametrized = (Parametrized) centralizedSensing.getFunction();

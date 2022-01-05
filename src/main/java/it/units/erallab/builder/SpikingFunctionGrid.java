@@ -25,14 +25,14 @@ public class SpikingFunctionGrid implements PrototypedFunctionBuilder<List<Doubl
       Grid<MultivariateSpikingFunction> functions = Grid.create(targetFunctions);
       int c = 0;
       for (Grid.Entry<MultivariateSpikingFunction> entry : targetFunctions) {
-        if (entry.getValue() == null) {
+        if (entry.value() == null) {
           continue;
         }
-        int size = itemBuilder.exampleFor(entry.getValue()).size();
+        int size = itemBuilder.exampleFor(entry.value()).size();
         functions.set(
-            entry.getX(),
-            entry.getY(),
-            itemBuilder.buildFor(entry.getValue()).apply(values.subList(c, c + size))
+            entry.key().x(),
+            entry.key().y(),
+            itemBuilder.buildFor(entry.value()).apply(values.subList(c, c + size))
         );
         c = c + size;
       }

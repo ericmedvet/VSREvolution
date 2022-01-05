@@ -2,7 +2,6 @@ package it.units.erallab.utils;
 
 import it.units.erallab.hmsrobots.core.controllers.CentralizedSensing;
 import it.units.erallab.hmsrobots.core.controllers.snn.LIFNeuronWithHomeostasis;
-import it.units.erallab.hmsrobots.core.controllers.snn.MultilayerSpikingNetwork;
 import it.units.erallab.hmsrobots.core.controllers.snn.MultilayerSpikingNetworkWithConverters;
 import it.units.erallab.hmsrobots.core.controllers.snn.SpikingFunction;
 import it.units.erallab.hmsrobots.core.objects.Robot;
@@ -19,11 +18,11 @@ import java.util.SortedMap;
 
 public class ThresholdEvolutionPlotter {
 
-  public static void createLocomotionThresholdEvolutionFile(Robot<?> robot, String terrainName, double duration, String fileName) throws IOException {
+  public static void createLocomotionThresholdEvolutionFile(Robot robot, String terrainName, double duration, String fileName) throws IOException {
     createThresholdEvolutionFile(robot, new Locomotion(duration, Locomotion.createTerrain(terrainName), new Settings()), fileName);
   }
 
-  public static void createThresholdEvolutionFile(Robot<?> robot, Task<Robot<?>, ?> task, String fileName) throws IOException {
+  public static void createThresholdEvolutionFile(Robot robot, Task<Robot, ?> task, String fileName) throws IOException {
     SortedMap<Double, Double>[][] thresholdValues = simulateAndGetThresholdEvolution(robot, task);
     CSVPrinter printer = new CSVPrinter(new PrintStream(fileName), CSVFormat.DEFAULT.withDelimiter(';'));
     printer.printRecord(List.of("layer", "neuron", "time", "thresholdValue"));
@@ -39,10 +38,10 @@ public class ThresholdEvolutionPlotter {
   }
 
   @SuppressWarnings("unchecked")
-  private static SortedMap<Double,Double>[][] simulateAndGetThresholdEvolution(Robot<?> robot, Task<Robot<?>, ?> task) {
+  private static SortedMap<Double, Double>[][] simulateAndGetThresholdEvolution(Robot robot, Task<Robot, ?> task) {
     MultilayerSpikingNetworkWithConverters multilayerSpikingNetworkWithConverters;
-    if (robot.getController() instanceof CentralizedSensing && ((CentralizedSensing)robot.getController()).getFunction() instanceof MultilayerSpikingNetworkWithConverters ) {
-      multilayerSpikingNetworkWithConverters = (MultilayerSpikingNetworkWithConverters)((CentralizedSensing)robot.getController()).getFunction();
+    if (robot.getController() instanceof CentralizedSensing && ((CentralizedSensing) robot.getController()).getFunction() instanceof MultilayerSpikingNetworkWithConverters) {
+      multilayerSpikingNetworkWithConverters = (MultilayerSpikingNetworkWithConverters) ((CentralizedSensing) robot.getController()).getFunction();
       multilayerSpikingNetworkWithConverters.setSpikesTracker(true);
       multilayerSpikingNetworkWithConverters.setPlotMode(true);
       multilayerSpikingNetworkWithConverters.reset();

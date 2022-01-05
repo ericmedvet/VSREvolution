@@ -2,7 +2,6 @@ package it.units.erallab.builder.evolver;
 
 import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.malelab.jgea.core.IndependentFactory;
-import it.units.malelab.jgea.core.Individual;
 import it.units.malelab.jgea.core.evolver.Evolver;
 import it.units.malelab.jgea.core.evolver.StandardEvolver;
 import it.units.malelab.jgea.core.evolver.StandardWithEnforcedDiversityEvolver;
@@ -47,7 +46,7 @@ public class IntegersStandard implements EvolverBuilder<List<Integer>> {
       return new StandardEvolver<>(
           builder.buildFor(target),
           factory,
-          comparator.comparing(Individual::getFitness),
+          comparator.comparing(Evolver.Individual::fitness),
           nPop,
           Map.of(
               new ProbabilisticMutation<>(pMut, factory, mutation), 1d - xOverProb,
@@ -64,7 +63,7 @@ public class IntegersStandard implements EvolverBuilder<List<Integer>> {
     return new StandardWithEnforcedDiversityEvolver<>(
         builder.buildFor(target),
         factory,
-        comparator.comparing(Individual::getFitness),
+        comparator.comparing(Evolver.Individual::fitness),
         nPop,
         Map.of(
             new ProbabilisticMutation<>(1d / (double) length, factory, mutation), 1d - xOverProb,
