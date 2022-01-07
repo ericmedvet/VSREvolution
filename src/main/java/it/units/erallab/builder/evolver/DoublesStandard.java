@@ -5,6 +5,7 @@ import it.units.malelab.jgea.core.IndependentFactory;
 import it.units.malelab.jgea.core.evolver.Evolver;
 import it.units.malelab.jgea.core.evolver.StandardEvolver;
 import it.units.malelab.jgea.core.evolver.StandardWithEnforcedDiversityEvolver;
+import it.units.malelab.jgea.core.operator.GeneticOperator;
 import it.units.malelab.jgea.core.order.PartialComparator;
 import it.units.malelab.jgea.core.selector.Last;
 import it.units.malelab.jgea.core.selector.Tournament;
@@ -24,8 +25,7 @@ public class DoublesStandard implements EvolverBuilder<List<Double>> {
   private final int nPop;
   private final int nTournament;
   private final double xOverProb;
-  private final double sigmaMutation = 0.35;
-  protected final boolean diversityEnforcement;
+  private final boolean diversityEnforcement;
   private final boolean remap;
 
   public DoublesStandard(int nPop, int nTournament, double xOverProb, boolean diversityEnforcement, boolean remap) {
@@ -40,16 +40,18 @@ public class DoublesStandard implements EvolverBuilder<List<Double>> {
   public <T, F> Evolver<List<Double>, T, F> build(PrototypedFunctionBuilder<List<Double>, T> builder, T target, PartialComparator<F> comparator) {
     int length = builder.exampleFor(target).size();
     IndependentFactory<List<Double>> doublesFactory = new FixedLengthListFactory<>(length, new UniformDoubleFactory(-1d, 1d));
+    double sigmaMut = 0.35;
+    Map<GeneticOperator<List<Double>>, Double> geneticOperators = Map.of(
+        new GaussianMutation(sigmaMut), 1d - xOverProb,
+        new UniformCrossover<>(doublesFactory).andThen(new GaussianMutation(sigmaMut)), xOverProb
+    );
     if (!diversityEnforcement) {
       return new StandardEvolver<>(
           builder.buildFor(target),
           doublesFactory,
           comparator.comparing(Evolver.Individual::fitness),
           nPop,
-          Map.of(
-              new GaussianMutation(sigmaMutation), 1d - xOverProb,
-              new UniformCrossover<>(doublesFactory).andThen(new GaussianMutation(sigmaMutation)), xOverProb
-          ),
+          geneticOperators,
           new Tournament(nTournament),
           new Last(),
           nPop,
@@ -62,10 +64,7 @@ public class DoublesStandard implements EvolverBuilder<List<Double>> {
         doublesFactory,
         comparator.comparing(Evolver.Individual::fitness),
         nPop,
-        Map.of(
-            new GaussianMutation(sigmaMutation), 1d - xOverProb,
-            new UniformCrossover<>(doublesFactory).andThen(new GaussianMutation(sigmaMutation)), xOverProb
-        ),
+        geneticOperators,
         new Tournament(nTournament),
         new Last(),
         nPop,
