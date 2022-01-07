@@ -381,7 +381,7 @@ public class Starter extends Worker {
       );
     }
     if ((params = params(bitGA, name)) != null) {
-      return new BinaryStandard(
+      return new BitsStandard(
           Integer.parseInt(params.get("nPop")),
           (int) Math.max(Math.round((double) Integer.parseInt(params.get("nPop")) / 10d), 3),
           0.75d,

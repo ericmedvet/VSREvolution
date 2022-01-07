@@ -17,7 +17,7 @@ import java.util.Map;
 /**
  * @author eric
  */
-public class BinaryStandard implements EvolverBuilder<BitString> {
+public class BitsStandard implements EvolverBuilder<BitString> {
 
   private final int nPop;
   private final int nTournament;
@@ -25,7 +25,7 @@ public class BinaryStandard implements EvolverBuilder<BitString> {
   protected final boolean diversityEnforcement;
   private final boolean remap;
 
-  public BinaryStandard(int nPop, int nTournament, double xOverProb, boolean diversityEnforcement, boolean remap) {
+  public BitsStandard(int nPop, int nTournament, double xOverProb, boolean diversityEnforcement, boolean remap) {
     this.nPop = nPop;
     this.nTournament = nTournament;
     this.xOverProb = xOverProb;
