@@ -5,7 +5,7 @@ import it.units.malelab.jgea.core.IndependentFactory;
 import it.units.malelab.jgea.core.evolver.Evolver;
 import it.units.malelab.jgea.core.evolver.StandardEvolver;
 import it.units.malelab.jgea.core.evolver.StandardWithEnforcedDiversityEvolver;
-import it.units.malelab.jgea.core.operator.Mutation;
+import it.units.malelab.jgea.core.operator.GeneticOperator;
 import it.units.malelab.jgea.core.order.PartialComparator;
 import it.units.malelab.jgea.core.selector.Last;
 import it.units.malelab.jgea.core.selector.Tournament;
@@ -39,20 +39,19 @@ public class IntegersStandard implements EvolverBuilder<List<Integer>> {
   public <T, F> Evolver<List<Integer>, T, F> build(PrototypedFunctionBuilder<List<Integer>, T> builder, T target, PartialComparator<F> comparator) {
     int length = builder.exampleFor(target).size();
     int maxValue = builder.exampleFor(target).get(0);
-    IndependentFactory<List<Integer>> factory = new FixedLengthListFactory<>(length, random -> random.nextInt(maxValue));
-    Mutation<Integer> mutation = (i, random) -> random.nextInt(maxValue);
+    IndependentFactory<List<Integer>> integersFactory = new FixedLengthListFactory<>(length, random -> random.nextInt(maxValue));
     double pMut = Math.max(0.01, 1d / (double) length);
+    Map<GeneticOperator<List<Integer>>, Double> geneticOperators = Map.of(
+        new ProbabilisticMutation<>(pMut, integersFactory, (i, random) -> random.nextInt(maxValue)), 1d - xOverProb,
+        new UniformCrossover<>(integersFactory), xOverProb
+    );
     if (!diversityEnforcement) {
       return new StandardEvolver<>(
           builder.buildFor(target),
-          factory,
+          integersFactory,
           comparator.comparing(Evolver.Individual::fitness),
           nPop,
-          Map.of(
-              new ProbabilisticMutation<>(pMut, factory, mutation), 1d - xOverProb,
-              new UniformCrossover<>(factory)
-                  .andThen(new ProbabilisticMutation<>(pMut, factory, mutation)), xOverProb
-          ),
+          geneticOperators,
           new Tournament(nTournament),
           new Last(),
           nPop,
@@ -62,13 +61,10 @@ public class IntegersStandard implements EvolverBuilder<List<Integer>> {
     }
     return new StandardWithEnforcedDiversityEvolver<>(
         builder.buildFor(target),
-        factory,
+        integersFactory,
         comparator.comparing(Evolver.Individual::fitness),
         nPop,
-        Map.of(
-            new ProbabilisticMutation<>(1d / (double) length, factory, mutation), 1d - xOverProb,
-            new UniformCrossover<>(factory), xOverProb
-        ),
+        geneticOperators,
         new Tournament(nTournament),
         new Last(),
         nPop,
