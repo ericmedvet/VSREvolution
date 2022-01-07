@@ -354,7 +354,7 @@ public class Starter extends Worker {
     String numGA = "numGA-(?<nPop>\\d+)-(?<diversity>(t|f))-(?<remap>(t|f))";
     String numGASpeciated = "numGASpec-(?<nPop>\\d+)-(?<nSpecies>\\d+)-(?<criterion>(" + Arrays.stream(DoublesSpeciated.SpeciationCriterion.values()).map(c -> c.name().toLowerCase(Locale.ROOT)).collect(Collectors.joining("|")) + "))-(?<remap>(t|f))";
     String bitGA = "bitGA-(?<nPop>\\d+)-(?<diversity>(t|f))-(?<remap>(t|f))";
-    String ternaryGA = "terGA-(?<nPop>\\d+)-(?<diversity>(t|f))-(?<remap>(t|f))";
+    String intGA = "intGA-(?<nPop>\\d+)-(?<diversity>(t|f))-(?<remap>(t|f))";
     String cmaES = "CMAES";
     String eS = "ES-(?<nPop>\\d+)-(?<sigma>\\d+(\\.\\d+)?)-(?<remap>(t|f))";
     String STDPStandardGA = "STDP_GA-(?<nPop>\\d+)-(?<diversity>(t|f))-(?<remap>(t|f))";
@@ -389,7 +389,7 @@ public class Starter extends Worker {
           params.get("remap").equals("t")
       );
     }
-    if ((params = params(ternaryGA, name)) != null) {
+    if ((params = params(intGA, name)) != null) {
       return new IntegersStandard(
           Integer.parseInt(params.get("nPop")),
           (int) Math.max(Math.round((double) Integer.parseInt(params.get("nPop")) / 10d), 3),
