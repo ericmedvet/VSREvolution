@@ -1,6 +1,5 @@
 package it.units.erallab;
 
-import it.units.erallab.hmsrobots.core.controllers.Controller;
 import it.units.erallab.hmsrobots.core.controllers.DistributedSensing;
 import it.units.erallab.hmsrobots.core.controllers.TimedRealFunction;
 import it.units.erallab.hmsrobots.core.objects.Robot;
@@ -22,11 +21,9 @@ import org.apache.commons.csv.CSVRecord;
 
 import java.io.*;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.List;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
-import java.util.zip.GZIPInputStream;
 
 import static it.units.malelab.jgea.core.util.Args.d;
 
@@ -72,9 +69,9 @@ public class RobotsValidator extends Worker {
     Logger logger = Logger.getAnonymousLogger();
     System.setProperty("java.util.logging.SimpleFormatter.format", "[%1$tF %1$tT] [%4$-6s] %5$s %n");
     // params
-    String inputFileName = a("inputFile", "C:\\Users\\giorg\\Documents\\UNITS\\PHD\\Hebbian_homo\\hebbian-homo\\last-0.1.txt");
+    String inputFileName = a("inputFile", "C:\\Users\\giorg\\Documents\\UNITS\\PHD\\HomoHebbian\\hebbian-homo-new\\last.txt");
     String serializedRobotColumnName = a("serializedRobotColumn", "best→solution→serialized");
-    String outputFileName = a("outputFile", "C:\\Users\\giorg\\Documents\\UNITS\\PHD\\Hebbian_homo\\hebbian-homo\\validation-new-shapes-0.1.txt");
+    String outputFileName = a("outputFile", "C:\\Users\\giorg\\Documents\\UNITS\\PHD\\HomoHebbian\\hebbian-homo-new\\validation-new-shapes.txt");
     double episodeTime = d(a("episodeTime", "60"));
     double episodeTransientTime = d(a("episodeTransientTime", "0"));
     List<String> headersToKeep = List.of("seed", "shape", "sensor.config", "mapper", "evolver");
@@ -105,15 +102,9 @@ public class RobotsValidator extends Worker {
       String sensorConfig = record.get("sensor.config");
       String initialShape = record.get("shape");
       String robotString = record.get(serializedRobotColumnName);
-      String json = null;
-      try {
-        json = new String(ungzip(decode(robotString)));
-      } catch (IOException e) {
-        e.printStackTrace();
-      }
-      assert json != null;
-      String controllerJson = json.substring(14, json.indexOf(",\"voxels\""));
-      DistributedSensing distributedSensing = (DistributedSensing) SerializationUtils.deserialize(controllerJson, Controller.class, SerializationUtils.Mode.JSON);
+      Robot robot = SerializationUtils.deserialize(robotString, Robot.class, SerializationUtils.Mode.GZIPPED_JSON);
+      DistributedSensing distributedSensing = (DistributedSensing) robot.getController();
+
       List<String> oldRecord = oldHeaders.stream().map(record::get).toList();
 
       TimedRealFunction function = distributedSensing.getFunctions().get(0, 0);
@@ -205,24 +196,6 @@ public class RobotsValidator extends Worker {
 
   private static List<Pair<Grid<Boolean>, String>> buildShapes(String shape) {
     return shape.startsWith("biped") ? buildBipeds() : buildWorms();
-  }
-
-  private static byte[] ungzip(byte[] raw) throws IOException {
-    try (ByteArrayInputStream bais = new ByteArrayInputStream(raw); GZIPInputStream gis = new GZIPInputStream(bais); ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-      byte[] buf = new byte[1024];
-      while (true) {
-        int read = gis.read(buf);
-        if (read == -1) {
-          break;
-        }
-        baos.write(buf, 0, read);
-      }
-      return baos.toByteArray();
-    }
-  }
-
-  private static byte[] decode(String string) {
-    return Base64.getDecoder().decode(string);
   }
 
 }
