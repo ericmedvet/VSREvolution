@@ -18,7 +18,6 @@ package it.units.erallab;
 
 import it.units.erallab.hmsrobots.core.geometry.BoundingBox;
 import it.units.erallab.hmsrobots.core.objects.Robot;
-import it.units.erallab.hmsrobots.core.snapshots.SNNState;
 import it.units.erallab.hmsrobots.tasks.Task;
 import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
 import it.units.erallab.hmsrobots.util.Grid;
@@ -26,8 +25,6 @@ import it.units.erallab.hmsrobots.util.SerializationUtils;
 import it.units.erallab.hmsrobots.viewers.*;
 import it.units.erallab.hmsrobots.viewers.drawers.Drawer;
 import it.units.erallab.hmsrobots.viewers.drawers.Drawers;
-import it.units.erallab.hmsrobots.viewers.drawers.MLPDrawer;
-import it.units.erallab.hmsrobots.viewers.drawers.SubtreeDrawer;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
@@ -36,7 +33,9 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.dyn4j.dynamics.Settings;
 
 import java.io.*;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -57,12 +56,24 @@ public class VideoMaker {
   private static final Logger L = Logger.getLogger(VideoMaker.class.getName());
 
   public static void main(String[] args) {
+    List<String> names = List.of("biped-best", "worm-best", "comb-best", "ca-best");
+    //List<String> names = List.of("homo_worm","homo_biped","homo_comb","hetero_worm","hetero_biped","hetero_comb");
+    String[] sample = {"robotFile=D:\\Research\\SNN\\iclr\\NAME.txt", "outputFile=D:\\Research\\SNN\\iclr\\video\\NAME.mov"};
+    for (String name : names) {
+      String[] newArgs = {sample[0].replace("NAME", name), sample[1].replace("NAME", name)};
+      worker(newArgs);
+      System.out.println("DONE -> " + name);
+    }
+
+  }
+
+  public static void worker(String[] args) {
     //get params
     List<String> terrainNames = l(a(args, "terrainNames", "flat"));
-    String robotFileName = a(args, "robotFile", "last.txt");
-    String serializedRobotColumn = a(args, "serializedRobotColumnName", "best→solution→serialized");
-    String descriptionColumn = a(args, "descriptionColumnName", "mapper");
-    String outputFileName = a(args, "outputFile", "video.mov");
+    String robotFileName = a(args, "robotFile", "D:\\Research\\SNN\\iclr\\hetero-best.txt");
+    String serializedRobotColumn = a(args, "serializedRobotColumnName", "best.solution.serialized");
+    String descriptionColumn = a(args, "descriptionColumnName", "descriptor");
+    String outputFileName = a(args, "outputFile", "D:\\Research\\SNN\\iclr\\video\\hetero-best.mov");
     SerializationUtils.Mode mode = SerializationUtils.Mode.valueOf(a(args, "deserializationMode", SerializationUtils.Mode.GZIPPED_JSON.name()).toUpperCase());
     boolean specifyRowsAndCols = a(args, "specifyRowsAndCols", "f").startsWith("t");
     String colNum = a(args, "nCol", "10");
@@ -70,24 +81,17 @@ public class VideoMaker {
 
     // video features
     double startTime = d(a(args, "startTime", "0.0"));
-    double endTime = d(a(args, "endTime", "15.0"));
+    double endTime = d(a(args, "endTime", "30.0"));
     int w = i(a(args, "w", "400"));
-    int h = i(a(args, "h", "300"));
+    int h = i(a(args, "h", "200"));
     int frameRate = i(a(args, "frameRate", "30"));
     String encoderName = a(args, "encoder", VideoUtils.EncoderFacility.JCODEC.name());
 
     // type of representation
     Function<String, Drawer> drawerSupplier = s -> Drawer.of(
         Drawer.clip(
-            BoundingBox.of(0d, 0d, 1d, 0.5d),
+            BoundingBox.of(0d, 0d, 1d, 1d),
             Drawers.basicWithMiniWorld(s)
-        ),
-        Drawer.clip(
-            BoundingBox.of(0d, 0.5d, 1d, 1d),
-            Drawer.of(
-                Drawer.clear(),
-                new MLPDrawer(SubtreeDrawer.Extractor.matches(SNNState.class, null, null), 15d, EnumSet.allOf(MLPDrawer.Part.class))
-            )
         )
     );
 
@@ -142,8 +146,8 @@ public class VideoMaker {
         nRows = terrainNames.size();
       }
     }
-    w = w*nCols;
-    h = h*nRows;
+    w = w * nCols;
+    h = h * nRows;
 
     List<Robot<?>> readRobots = new ArrayList<>();
     List<String> readRobotDescriptions = new ArrayList<>();
@@ -164,7 +168,7 @@ public class VideoMaker {
         Collections.nCopies(finalRecords.size(), terrainName)).flatMap(List::stream).collect(Collectors.toList());
 
     List<String> descriptions = IntStream.range(0, robotDescriptions.size()).mapToObj(i ->
-        robotDescriptions.get(i) + "\n" + terrainRepeatedNames.get(i)).collect(Collectors.toList());
+        robotDescriptions.get(i) + " " + terrainRepeatedNames.get(i) + " ").collect(Collectors.toList());
 
     Grid<String> descriptionsGrid = new Grid<>(nCols, nRows, descriptions);
     List<Task<Robot<?>, ?>> locomotionList = new ArrayList<>();

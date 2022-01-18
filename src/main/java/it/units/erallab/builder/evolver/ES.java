@@ -16,10 +16,12 @@ import java.util.List;
 public class ES implements EvolverBuilder<List<Double>> {
   private final double sigma;
   private final int nPop;
+  private final boolean remap;
 
-  public ES(double sigma, int nPop) {
+  public ES(double sigma, int nPop, boolean remap) {
     this.sigma = sigma;
     this.nPop = nPop;
+    this.remap = remap;
   }
 
   @Override
@@ -33,7 +35,7 @@ public class ES implements EvolverBuilder<List<Double>> {
         nPop,
         nPop / 4,
         1,
-        true
+        remap
     );
   }
 }
