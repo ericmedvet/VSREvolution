@@ -518,7 +518,7 @@ public class LocomotionEvolution extends Worker {
     String ternary = "ternary-(?<value>\\d+(\\.\\d+)?)";
     String fixedCentralized = "fixedCentralized";
     String fixedHomoDistributed = "fixedHomoDist-(?<nSignals>\\d+)";
-    String fixedHomoCA = "fixedHomoCA-(?<nSignals>\\d+)";
+    String fixedHomoNonDirDistributed = "fixedHomoNonDirDist-(?<nSignals>\\d+)";
     String fixedHeteroDistributed = "fixedHeteroDist-(?<nSignals>\\d+)";
     String fixedHomoSpikingDistributed = "fixedHomoSpikeDist-(?<nSignals>\\d+)" +
         "-(?<iConv>(unif|unif_mem))-(?<iFreq>\\d+(\\.\\d+)?)-(?<oConv>(avg|avg_mem))(-(?<oMem>\\d+))?-(?<oFreq>\\d+(\\.\\d+)?)";
@@ -526,7 +526,7 @@ public class LocomotionEvolution extends Worker {
         "-(?<iConv>(unif|unif_mem))-(?<iFreq>\\d+(\\.\\d+)?)-(?<oConv>(avg|avg_mem))(-(?<oMem>\\d+))?-(?<oFreq>\\d+(\\.\\d+)?)";
     String fixedHomoQuantizedSpikingDistributed = "fixedHomoQuantSpikeDist-(?<nSignals>\\d+)" +
         "-(?<iConv>(unif|unif_mem))-(?<iFreq>\\d+(\\.\\d+)?)-(?<oConv>(avg|avg_mem))(-(?<oMem>\\d+))?-(?<oFreq>\\d+(\\.\\d+)?)";
-    String fixedHomoQuantizedSpikingCA = "fixedHomoQuantSpikeCA-(?<nSignals>\\d+)" +
+    String fixedHomoQuantizedSpikingNonDirDistributed = "fixedHomoQuantSpikeNonDirDist-(?<nSignals>\\d+)" +
         "-(?<iConv>(unif|unif_mem))-(?<iFreq>\\d+(\\.\\d+)?)-(?<oConv>(avg|avg_mem))(-(?<oMem>\\d+))?-(?<oFreq>\\d+(\\.\\d+)?)";
     String fixedHeteroQuantizedSpikingDistributed = "fixedHeteroQuantSpikeDist-(?<nSignals>\\d+)" +
         "-(?<iConv>(unif|unif_mem))-(?<iFreq>\\d+(\\.\\d+)?)-(?<oConv>(avg|avg_mem))(-(?<oMem>\\d+))?-(?<oFreq>\\d+(\\.\\d+)?)";
@@ -625,8 +625,8 @@ public class LocomotionEvolution extends Worker {
           Integer.parseInt(params.get("nSignals"))
       );
     }
-    if ((params = params(fixedHomoCA, name)) != null) {
-      return new FixedHomoCA(
+    if ((params = params(fixedHomoNonDirDistributed, name)) != null) {
+      return new FixedHomoNonDirectionalDistributed(
           Integer.parseInt(params.get("nSignals"))
       );
     }
@@ -744,7 +744,7 @@ public class LocomotionEvolution extends Worker {
       );
     }
     if ((params = params(fixedHomoQuantizedSpikingDistributed, name)) != null ||
-        (params = params(fixedHomoQuantizedSpikingCA, name)) != null) {
+        (params = params(fixedHomoQuantizedSpikingNonDirDistributed, name)) != null) {
       QuantizedValueToSpikeTrainConverter valueToSpikeTrainConverter = new QuantizedUniformValueToSpikeTrainConverter();
       QuantizedSpikeTrainToValueConverter spikeTrainToValueConverter = new QuantizedAverageFrequencySpikeTrainToValueConverter();
       if (params.containsKey("iConv")) {
@@ -799,8 +799,8 @@ public class LocomotionEvolution extends Worker {
             spikeTrainToValueConverter
         );
       } else {
-        params = params(fixedHomoQuantizedSpikingCA, name);
-        return new FixedHomoQuantizedSpikingCA(
+        params = params(fixedHomoQuantizedSpikingNonDirDistributed, name);
+        return new FixedHomoQuantizedSpikingNonDirectionalDistributed(
             Integer.parseInt(params.get("nSignals")),
             valueToSpikeTrainConverter,
             spikeTrainToValueConverter

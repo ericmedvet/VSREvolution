@@ -1,9 +1,12 @@
 package it.units.erallab.builder.robot;
 
 import it.units.erallab.builder.PrototypedFunctionBuilder;
-import it.units.erallab.hmsrobots.core.controllers.DistributedSensingCALike;
-import it.units.erallab.hmsrobots.core.controllers.RealFunction;
-import it.units.erallab.hmsrobots.core.controllers.TimedRealFunction;
+import it.units.erallab.hmsrobots.core.controllers.DistributedSensingNonDirectional;
+import it.units.erallab.hmsrobots.core.controllers.snndiscr.QuantizedDistributedSpikingSensing;
+import it.units.erallab.hmsrobots.core.controllers.snndiscr.QuantizedLIFNeuron;
+import it.units.erallab.hmsrobots.core.controllers.snndiscr.QuantizedMultivariateSpikingFunction;
+import it.units.erallab.hmsrobots.core.controllers.snndiscr.converters.stv.QuantizedSpikeTrainToValueConverter;
+import it.units.erallab.hmsrobots.core.controllers.snndiscr.converters.vts.QuantizedValueToSpikeTrainConverter;
 import it.units.erallab.hmsrobots.core.objects.Robot;
 import it.units.erallab.hmsrobots.core.objects.SensingVoxel;
 import it.units.erallab.hmsrobots.util.Grid;
@@ -17,15 +20,19 @@ import java.util.stream.Collectors;
 /**
  * @author eric
  */
-public class FixedHomoCA implements PrototypedFunctionBuilder<TimedRealFunction, Robot<? extends SensingVoxel>> {
+public class FixedHomoQuantizedSpikingNonDirectionalDistributed implements PrototypedFunctionBuilder<QuantizedMultivariateSpikingFunction, Robot<? extends SensingVoxel>> {
   private final int signals;
+  private final QuantizedValueToSpikeTrainConverter valueToSpikeTrainConverter;
+  private final QuantizedSpikeTrainToValueConverter spikeTrainToValueConverter;
 
-  public FixedHomoCA(int signals) {
+  public FixedHomoQuantizedSpikingNonDirectionalDistributed(int signals, QuantizedValueToSpikeTrainConverter valueToSpikeTrainConverter, QuantizedSpikeTrainToValueConverter spikeTrainToValueConverter) {
     this.signals = signals;
+    this.valueToSpikeTrainConverter = valueToSpikeTrainConverter;
+    this.spikeTrainToValueConverter = spikeTrainToValueConverter;
   }
 
   @Override
-  public Function<TimedRealFunction, Robot<? extends SensingVoxel>> buildFor(Robot<? extends SensingVoxel> robot) {
+  public Function<QuantizedMultivariateSpikingFunction, Robot<? extends SensingVoxel>> buildFor(Robot<? extends SensingVoxel> robot) {
     int[] dim = getIODim(robot);
     Grid<? extends SensingVoxel> body = robot.getVoxels();
     int nOfInputs = dim[0];
@@ -45,7 +52,7 @@ public class FixedHomoCA implements PrototypedFunctionBuilder<TimedRealFunction,
             function.getOutputDimension()
         ));
       }
-      DistributedSensingCALike controller = new DistributedSensingCALike(body, signals);
+      QuantizedDistributedSpikingSensing controller = new QuantizedDistributedSpikingSensing(body, signals, new QuantizedLIFNeuron(), valueToSpikeTrainConverter, spikeTrainToValueConverter);
       for (Grid.Entry<? extends SensingVoxel> entry : body) {
         if (entry.getValue() != null) {
           controller.getFunctions().set(entry.getX(), entry.getY(), SerializationUtils.clone(function));
@@ -59,9 +66,9 @@ public class FixedHomoCA implements PrototypedFunctionBuilder<TimedRealFunction,
   }
 
   @Override
-  public TimedRealFunction exampleFor(Robot<? extends SensingVoxel> robot) {
+  public QuantizedMultivariateSpikingFunction exampleFor(Robot<? extends SensingVoxel> robot) {
     int[] dim = getIODim(robot);
-    return RealFunction.build(d -> d, dim[0], dim[1]);
+    return QuantizedMultivariateSpikingFunction.build(d -> d, dim[0], dim[1]);
   }
 
   private int[] getIODim(Robot<? extends SensingVoxel> robot) {
@@ -70,11 +77,11 @@ public class FixedHomoCA implements PrototypedFunctionBuilder<TimedRealFunction,
     if (voxel == null) {
       throw new IllegalArgumentException("Target robot has no voxels");
     }
-    int nOfInputs = DistributedSensingCALike.nOfInputs(voxel, signals);
-    int nOfOutputs = DistributedSensingCALike.nOfOutputs(voxel, signals);
+    int nOfInputs = DistributedSensingNonDirectional.nOfInputs(voxel, signals);
+    int nOfOutputs = DistributedSensingNonDirectional.nOfOutputs(voxel, signals);
     List<Grid.Entry<? extends SensingVoxel>> wrongVoxels = body.stream()
         .filter(e -> e.getValue() != null)
-        .filter(e -> DistributedSensingCALike.nOfInputs(e.getValue(), signals) != nOfInputs)
+        .filter(e -> DistributedSensingNonDirectional.nOfInputs(e.getValue(), signals) != nOfInputs)
         .collect(Collectors.toList());
     if (!wrongVoxels.isEmpty()) {
       throw new IllegalArgumentException(String.format(
@@ -85,7 +92,7 @@ public class FixedHomoCA implements PrototypedFunctionBuilder<TimedRealFunction,
               .map(e -> String.format("(%d,%d)", e.getX(), e.getY()))
               .collect(Collectors.joining(",")),
           wrongVoxels.stream()
-              .map(e -> String.format("%d", DistributedSensingCALike.nOfInputs(e.getValue(), signals)))
+              .map(e -> String.format("%d", DistributedSensingNonDirectional.nOfInputs(e.getValue(), signals)))
               .collect(Collectors.joining(","))
       ));
     }
