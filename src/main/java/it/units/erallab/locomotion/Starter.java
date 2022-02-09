@@ -35,12 +35,11 @@ import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
 import it.units.erallab.hmsrobots.tasks.locomotion.Outcome;
 import it.units.erallab.hmsrobots.util.RobotUtils;
 import it.units.malelab.jgea.Worker;
-import it.units.malelab.jgea.core.evolver.Evolver;
-import it.units.malelab.jgea.core.evolver.stopcondition.FitnessEvaluations;
 import it.units.malelab.jgea.core.listener.*;
 import it.units.malelab.jgea.core.listener.telegram.TelegramProgressMonitor;
 import it.units.malelab.jgea.core.listener.telegram.TelegramUpdater;
 import it.units.malelab.jgea.core.order.PartialComparator;
+import it.units.malelab.jgea.core.solver.state.POSetPopulationState;
 import it.units.malelab.jgea.core.util.Misc;
 import it.units.malelab.jgea.core.util.Pair;
 import it.units.malelab.jgea.core.util.SequentialFunction;
@@ -64,7 +63,7 @@ public class Starter extends Worker {
   public final static Settings PHYSICS_SETTINGS = new Settings();
 
   public record ValidationOutcome(
-      Evolver.Event<?, ? extends Robot, ? extends Outcome> event,
+      POSetPopulationState<?, ? extends Robot, ? extends Outcome> event,
       Map<String, Object> keys,
       Outcome outcome) {
   }
@@ -118,8 +117,8 @@ public class Starter extends Worker {
     List<String> validationTerrainNames = l(a("validationTerrain", "flat,downhill-30")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
     Function<Outcome, Double> fitnessFunction = Outcome::getVelocity;
     //consumers
-    List<NamedFunction<Evolver.Event<?, ? extends Robot, ? extends Outcome>, ?>> keysFunctions = NamedFunctions.keysFunctions();
-    List<NamedFunction<Evolver.Event<?, ? extends Robot, ? extends Outcome>, ?>> basicFunctions = NamedFunctions.basicFunctions();
+    //List<NamedFunction<Evolver.Event<?, ? extends Robot, ? extends Outcome>, ?>> keysFunctions = NamedFunctions.keysFunctions();
+    List<NamedFunction<? super POSetPopulationState<?, ? extends Robot, ? extends Outcome>, ?>> basicFunctions = NamedFunctions.basicFunctions();
     List<NamedFunction<Evolver.Individual<?, ? extends Robot, ? extends Outcome>, ?>> basicIndividualFunctions = NamedFunctions.individualFunctions(fitnessFunction);
     List<NamedFunction<Evolver.Event<?, ? extends Robot, ? extends Outcome>, ?>> populationFunctions = NamedFunctions.populationFunctions(fitnessFunction);
     List<NamedFunction<Evolver.Event<?, ? extends Robot, ? extends Outcome>, ?>> visualFunctions = Misc.concat(List.of(
