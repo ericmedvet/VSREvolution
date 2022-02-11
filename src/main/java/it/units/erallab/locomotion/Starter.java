@@ -18,6 +18,7 @@ package it.units.erallab.locomotion;
 
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import it.units.erallab.builder.DirectNumbersGrid;
 import it.units.erallab.builder.FunctionGrid;
 import it.units.erallab.builder.FunctionNumbersGrid;
@@ -31,8 +32,11 @@ import it.units.erallab.hmsrobots.core.controllers.Controller;
 import it.units.erallab.hmsrobots.core.controllers.MultiLayerPerceptron;
 import it.units.erallab.hmsrobots.core.controllers.PruningMultiLayerPerceptron;
 import it.units.erallab.hmsrobots.core.objects.Robot;
+import it.units.erallab.hmsrobots.core.objects.Voxel;
 import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
 import it.units.erallab.hmsrobots.tasks.locomotion.Outcome;
+import it.units.erallab.hmsrobots.util.DoubleRange;
+import it.units.erallab.hmsrobots.util.Grid;
 import it.units.erallab.hmsrobots.util.RobotUtils;
 import it.units.malelab.jgea.Worker;
 import it.units.malelab.jgea.core.evolver.Evolver;
@@ -51,6 +55,7 @@ import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static it.units.erallab.hmsrobots.util.Utils.params;
 import static it.units.malelab.jgea.core.listener.NamedFunctions.*;
@@ -117,6 +122,16 @@ public class Starter extends Worker {
     List<String> validationTransformationNames = l(a("validationTransformation", "")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
     List<String> validationTerrainNames = l(a("validationTerrain", "flat,downhill-30")).stream().filter(s -> !s.isEmpty()).collect(Collectors.toList());
     Function<Outcome, Double> fitnessFunction = Outcome::getVelocity;
+
+    List<String> springF = l(a("springF", ""));
+    List<String> springD = l(a("springD", ""));
+    List<String> friction = l(a("friction", ""));
+    List<String> passiveDelta = l(a("passiveDelta", ""));
+    List<String> activeDelta = l(a("activeDelta", ""));
+    List<String> propertyNames = List.of("springF", "springD", "friction", "passiveDelta", "activeDelta");
+    List<List<String>> propertyValues = List.of(springF, springD, friction, passiveDelta, activeDelta);
+    List<Map<String, Double>> voxelPropertiesCombinations = buildVoxelPropertiesCombinations(propertyNames, propertyValues);
+
     //consumers
     List<NamedFunction<Evolver.Event<?, ? extends Robot, ? extends Outcome>, ?>> keysFunctions = NamedFunctions.keysFunctions();
     List<NamedFunction<Evolver.Event<?, ? extends Robot, ? extends Outcome>, ?>> basicFunctions = NamedFunctions.basicFunctions();
@@ -254,7 +269,7 @@ public class Starter extends Worker {
     L.info("Transformations: " + transformationNames);
     L.info("Validations: " + Lists.cartesianProduct(validationTerrainNames, validationTransformationNames));
     //start iterations
-    int nOfRuns = seeds.length * terrainNames.size() * targetShapeNames.size() * targetSensorConfigNames.size() * mapperNames.size() * transformationNames.size() * evolverNames.size();
+    int nOfRuns = seeds.length * terrainNames.size() * targetShapeNames.size() * targetSensorConfigNames.size() * mapperNames.size() * transformationNames.size() * evolverNames.size() * voxelPropertiesCombinations.size();
     int counter = 0;
     for (int seed : seeds) {
       for (String terrainName : terrainNames) {
@@ -263,64 +278,69 @@ public class Starter extends Worker {
             for (String mapperName : mapperNames) {
               for (String transformationName : transformationNames) {
                 for (String evolverName : evolverNames) {
-                  counter = counter + 1;
-                  final Random random = new Random(seed);
-                  //prepare keys
-                  Map<String, Object> keys = Map.ofEntries(
-                      Map.entry("experiment.name", experimentName),
-                      Map.entry("seed", seed),
-                      Map.entry("terrain", terrainName),
-                      Map.entry("shape", targetShapeName),
-                      Map.entry("sensor.config", targetSensorConfigName),
-                      Map.entry("mapper", mapperName),
-                      Map.entry("transformation", transformationName),
-                      Map.entry("evolver", evolverName),
-                      Map.entry("episode.time", episodeTime),
-                      Map.entry("episode.transient.time", episodeTransientTime)
-                  );
-                  //prepare target
-                  Robot target = new Robot(
-                      Controller.empty(),
-                      RobotUtils.buildSensorizingFunction(targetSensorConfigName).apply(RobotUtils.buildShape(targetShapeName))
-                  );
-                  //build evolver
-                  Evolver<?, Robot, Outcome> evolver;
-                  try {
-                    evolver = buildEvolver(evolverName, mapperName, target, fitnessFunction);
-                  } catch (ClassCastException | IllegalArgumentException e) {
-                    L.warning(String.format(
-                        "Cannot instantiate %s for %s: %s",
-                        evolverName,
-                        mapperName,
-                        e
-                    ));
-                    continue;
-                  }
-                  Listener<Evolver.Event<?, ? extends Robot, ? extends Outcome>> listener = Listener.all(List.of(
-                      new EventAugmenter(keys),
-                      factory.build()
-                  ));
-                  if (deferred) {
-                    listener = listener.deferred(executorService);
-                  }
-                  //optimize
-                  Stopwatch stopwatch = Stopwatch.createStarted();
-                  progressMonitor.notify(((float) counter - 1) / nOfRuns, String.format("(%d/%d); Starting %s", counter, nOfRuns, keys));
-                  try {
-                    Collection<Robot> solutions = evolver.solve(
-                        buildTaskFromName(transformationName, terrainName, episodeTime, random, cacheOutcome).andThen(o -> o.subOutcome(episodeTransientTime, episodeTime)),
-                        new FitnessEvaluations(nEvals),
-                        random,
-                        executorService,
-                        listener
+                  for (Map<String, Double> voxelProperties : voxelPropertiesCombinations) {
+                    counter = counter + 1;
+                    final Random random = new Random(seed);
+                    //prepare keys
+                    Map<String, Object> keys = Map.ofEntries(
+                        Map.entry("experiment.name", experimentName),
+                        Map.entry("seed", seed),
+                        Map.entry("terrain", terrainName),
+                        Map.entry("shape", targetShapeName),
+                        Map.entry("sensor.config", targetSensorConfigName),
+                        Map.entry("mapper", mapperName),
+                        Map.entry("transformation", transformationName),
+                        Map.entry("evolver", evolverName),
+                        Map.entry("episode.time", episodeTime),
+                        Map.entry("episode.transient.time", episodeTransientTime)
                     );
-                    progressMonitor.notify((float) counter / nOfRuns, String.format("(%d/%d); Done: %d solutions in %4ds", counter, nOfRuns, solutions.size(), stopwatch.elapsed(TimeUnit.SECONDS)));
-                  } catch (Exception e) {
-                    L.severe(String.format("Cannot complete %s due to %s",
-                        keys,
-                        e
+                    //prepare target
+                    Robot target = new Robot(
+                        Controller.empty(),
+                        changeRobotsPhysicalProperties(
+                            RobotUtils.buildSensorizingFunction(targetSensorConfigName).apply(RobotUtils.buildShape(targetShapeName)),
+                            voxelProperties
+                        )
+                    );
+                    //build evolver
+                    Evolver<?, Robot, Outcome> evolver;
+                    try {
+                      evolver = buildEvolver(evolverName, mapperName, target, fitnessFunction);
+                    } catch (ClassCastException | IllegalArgumentException e) {
+                      L.warning(String.format(
+                          "Cannot instantiate %s for %s: %s",
+                          evolverName,
+                          mapperName,
+                          e
+                      ));
+                      continue;
+                    }
+                    Listener<Evolver.Event<?, ? extends Robot, ? extends Outcome>> listener = Listener.all(List.of(
+                        new EventAugmenter(keys),
+                        factory.build()
                     ));
-                    e.printStackTrace(); // TODO possibly to be removed
+                    if (deferred) {
+                      listener = listener.deferred(executorService);
+                    }
+                    //optimize
+                    Stopwatch stopwatch = Stopwatch.createStarted();
+                    progressMonitor.notify(((float) counter - 1) / nOfRuns, String.format("(%d/%d); Starting %s", counter, nOfRuns, keys));
+                    try {
+                      Collection<Robot> solutions = evolver.solve(
+                          buildTaskFromName(transformationName, terrainName, episodeTime, random, cacheOutcome).andThen(o -> o.subOutcome(episodeTransientTime, episodeTime)),
+                          new FitnessEvaluations(nEvals),
+                          random,
+                          executorService,
+                          listener
+                      );
+                      progressMonitor.notify((float) counter / nOfRuns, String.format("(%d/%d); Done: %d solutions in %4ds", counter, nOfRuns, solutions.size(), stopwatch.elapsed(TimeUnit.SECONDS)));
+                    } catch (Exception e) {
+                      L.severe(String.format("Cannot complete %s due to %s",
+                          keys,
+                          e
+                      ));
+                      e.printStackTrace(); // TODO possibly to be removed
+                    }
                   }
                 }
               }
@@ -584,6 +604,88 @@ public class Starter extends Worker {
         s -> s.contains(SEQUENCE_ITERATION_CHAR) ? Long.parseLong(s.split(SEQUENCE_ITERATION_CHAR)[0]) : 0,
         s -> s.contains(SEQUENCE_ITERATION_CHAR) ? s.split(SEQUENCE_ITERATION_CHAR)[1] : s
     )));
+  }
+
+  private static Grid<Voxel> changeRobotsPhysicalProperties(Grid<Voxel> originalBody, Map<String, Double> voxelProperties) {
+    double springF = voxelProperties.getOrDefault("springF", Voxel.SPRING_F);
+    double springD = voxelProperties.getOrDefault("springD", Voxel.SPRING_D);
+    double friction = voxelProperties.getOrDefault("friction", Voxel.FRICTION);
+    DoubleRange areaRatioPassiveRange;
+    if (voxelProperties.containsKey("passiveDelta")) {
+      double passiveDelta = voxelProperties.get("passiveDelta");
+      areaRatioPassiveRange = DoubleRange.of(1 - passiveDelta, 1 + passiveDelta);
+    } else {
+      areaRatioPassiveRange = Voxel.AREA_RATIO_PASSIVE_RANGE;
+    }
+    DoubleRange areaRatioActiveRange;
+    if (voxelProperties.containsKey("activeDelta")) {
+      double activeDelta = voxelProperties.get("activeDelta");
+      areaRatioActiveRange = DoubleRange.of(1 - activeDelta, 1 + activeDelta);
+    } else {
+      areaRatioActiveRange = Voxel.AREA_RATIO_ACTIVE_RANGE;
+    }
+    return Grid.create(originalBody, v -> new Voxel(
+        Voxel.SIDE_LENGTH,
+        Voxel.MASS_SIDE_LENGTH_RATIO,
+        springF,
+        springD,
+        Voxel.MASS_LINEAR_DAMPING,
+        Voxel.MASS_ANGULAR_DAMPING,
+        friction,
+        Voxel.RESTITUTION,
+        Voxel.MASS,
+        areaRatioPassiveRange,
+        areaRatioActiveRange,
+        Voxel.SPRING_SCAFFOLDINGS,
+        v != null ? v.getSensors() : List.of()
+    ));
+  }
+
+  @SuppressWarnings("unchecked")
+  private List<Map<String, Double>> buildVoxelPropertiesCombinations(
+      List<Pair<String, Pair<DoubleRange, Integer>>> properties
+  ) {
+    if (properties.size() == 0) {
+      return List.of(Map.of());
+    }
+    List<String> propertyNames = properties.stream().map(Pair::first).toList();
+    Set<Double>[] sets = properties.stream()
+        .map(p -> sampleRange(p.second().first(), p.second().second()))
+        .toArray(Set[]::new);
+    Set<List<Double>> values = Sets.cartesianProduct(sets);
+    List<Map<String, Double>> propertiesCombinations = new ArrayList<>();
+    for (List<Double> propertiesValues : values) {
+      propertiesCombinations.add(
+          IntStream.range(0, propertyNames.size()).boxed().collect(Collectors.toMap(
+                  propertyNames::get, propertiesValues::get
+              )
+          )
+      );
+    }
+
+    return propertiesCombinations;
+  }
+
+  private List<Map<String, Double>> buildVoxelPropertiesCombinations(
+      List<String> propertyNames, List<List<String>> ranges
+  ) {
+    List<Pair<String, Pair<DoubleRange, Integer>>> properties = new ArrayList<>();
+    for (int i = 0; i < propertyNames.size(); i++) {
+      if (ranges.get(i) != null && ranges.get(i).size() == 3) {
+        DoubleRange doubleRange = DoubleRange.of(Double.parseDouble(ranges.get(i).get(0)), Double.parseDouble(ranges.get(i).get(1)));
+        int step = Integer.parseInt(ranges.get(i).get(2));
+        properties.add(Pair.of(propertyNames.get(i), Pair.of(doubleRange, step)));
+      }
+    }
+    return buildVoxelPropertiesCombinations(properties);
+  }
+
+  private Set<Double> sampleRange(DoubleRange range, int nSteps) {
+    if (nSteps <= 2) {
+      return Set.of();
+    }
+    double step = range.extent() / (nSteps - 1);
+    return IntStream.range(0, nSteps).mapToObj(i -> range.min() + i * step).collect(Collectors.toSet());
   }
 
 }
