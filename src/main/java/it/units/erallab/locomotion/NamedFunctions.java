@@ -80,39 +80,36 @@ public class NamedFunctions {
       double episodeTime,
       Settings settings
   ) {
-    return (AccumulatorFactory<POSetPopulationState<?, ? extends Robot, ? extends Outcome>, File, Map<String, Object>>) keys -> Accumulator.<POSetPopulationState<?, ? extends Robot, ? extends Outcome>>last()
-        .then(
-            state -> {
-              Random random = new Random(0);
-              SortedMap<Long, String> terrainSequence = Starter.getSequence((String) keys.get("terrain"));
-              SortedMap<Long, String> transformationSequence = Starter.getSequence((String) keys.get("transformation"));
-              String terrainName = terrainSequence.get(terrainSequence.lastKey());
-              String transformationName = transformationSequence.get(transformationSequence.lastKey());
-              Robot robot = SerializationUtils.clone(Misc.first(state.getPopulation().firsts()).solution());
-              robot = RobotUtils.buildRobotTransformation(transformationName, random).apply(robot);
-              Locomotion locomotion = new Locomotion(
-                  episodeTime,
-                  Locomotion.createTerrain(terrainName.replace("-rnd", "-" + random.nextInt(10000))),
-                  settings
-              );
-              File file;
-              try {
-                file = File.createTempFile("robot-video", ".mp4");
-                String robotName = keys.get("sensor.config") + " " + keys.get("mapper") + " (" + keys.get("seed") + ")";
-                GridFileWriter.save(
-                    locomotion,
-                    Grid.create(1, 1, new NamedValue<>(robotName, robot)),
-                    300, 200, transientTime,
-                    25, VideoUtils.EncoderFacility.JCODEC, file
-                );
-                file.deleteOnExit();
-              } catch (IOException ioException) {
-                L.warning(String.format("Cannot save video of best: %s", ioException));
-                return null;
-              }
-              return file;
-            }
+    return AccumulatorFactory.last((state, keys) -> {
+      Random random = new Random(0);
+      SortedMap<Long, String> terrainSequence = Starter.getSequence((String) keys.get("terrain"));
+      SortedMap<Long, String> transformationSequence = Starter.getSequence((String) keys.get("transformation"));
+      String terrainName = terrainSequence.get(terrainSequence.lastKey());
+      String transformationName = transformationSequence.get(transformationSequence.lastKey());
+      Robot robot = SerializationUtils.clone(Misc.first(state.getPopulation().firsts()).solution());
+      robot = RobotUtils.buildRobotTransformation(transformationName, random).apply(robot);
+      Locomotion locomotion = new Locomotion(
+          episodeTime,
+          Locomotion.createTerrain(terrainName.replace("-rnd", "-" + random.nextInt(10000))),
+          settings
+      );
+      File file;
+      try {
+        file = File.createTempFile("robot-video", ".mp4");
+        String robotName = keys.get("sensor.config") + " " + keys.get("mapper") + " (" + keys.get("seed") + ")";
+        GridFileWriter.save(
+            locomotion,
+            Grid.create(1, 1, new NamedValue<>(robotName, robot)),
+            300, 200, transientTime,
+            25, VideoUtils.EncoderFacility.JCODEC, file
         );
+        file.deleteOnExit();
+      } catch (IOException ioException) {
+        L.warning(String.format("Cannot save video of best: %s", ioException));
+        return null;
+      }
+      return file;
+    });
   }
 
   public static AccumulatorFactory<? super POSetPopulationState<?, ? extends Robot, ? extends Outcome>, BufferedImage, Map<String, Object>> centerPositionPlot() {
@@ -254,16 +251,15 @@ public class NamedFunctions {
                 NamedFunction.then(as(Outcome.class).of(fitness()).of(best()), basicOutcomeFunctions())
             ));
     List<NamedFunction<? super Map<String, Object>, ?>> keysFunctions = keysFunctions();
-    return (AccumulatorFactory<POSetPopulationState<?, ? extends Robot, ? extends Outcome>, String, Map<String, Object>>) attributes -> Accumulator.<POSetPopulationState<?, ? extends Robot, ? extends Outcome>>last()
-        .then(state -> {
-          String s = keysFunctions.stream()
-              .map(f -> String.format(f.getName() + ": " + f.getFormat(), f.apply(attributes)))
-              .collect(Collectors.joining("\n"));
-          s = s + functions.stream()
-              .map(f -> String.format(f.getName() + ": " + f.getFormat(), f.apply(state)))
-              .collect(Collectors.joining("\n"));
-          return s;
-        });
+    return AccumulatorFactory.last((state, keys) -> {
+      String s = keysFunctions.stream()
+          .map(f -> String.format(f.getName() + ": " + f.getFormat(), f.apply(keys)))
+          .collect(Collectors.joining("\n"));
+      s = s + functions.stream()
+          .map(f -> String.format(f.getName() + ": " + f.getFormat(), f.apply(state)))
+          .collect(Collectors.joining("\n"));
+      return s;
+    });
   }
 
   public static List<NamedFunction<? super POSetPopulationState<?, ? extends Robot, ? extends Outcome>, ?>> populationFunctions(
