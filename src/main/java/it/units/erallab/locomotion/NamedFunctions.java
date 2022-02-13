@@ -29,6 +29,7 @@ import it.units.erallab.hmsrobots.viewers.NamedValue;
 import it.units.erallab.hmsrobots.viewers.VideoUtils;
 import it.units.erallab.locomotion.Starter.ValidationOutcome;
 import it.units.malelab.jgea.core.listener.Accumulator;
+import it.units.malelab.jgea.core.listener.AccumulatorFactory;
 import it.units.malelab.jgea.core.listener.NamedFunction;
 import it.units.malelab.jgea.core.listener.TableBuilder;
 import it.units.malelab.jgea.core.solver.Individual;
@@ -74,64 +75,61 @@ public class NamedFunctions {
     );
   }
 
-  public static Accumulator.Factory<Evolver.Event<?, ? extends Robot, ? extends Outcome>, File> bestVideo(
+  public static AccumulatorFactory<? super POSetPopulationState<?, ? extends Robot, ? extends Outcome>, File, Map<String, Object>> bestVideo(
       double transientTime,
       double episodeTime,
       Settings settings
   ) {
-    return Accumulator.Factory.<Evolver.Event<?, ? extends Robot, ? extends Outcome>>last().then(
-        event -> {
-          Random random = new Random(0);
-          SortedMap<Long, String> terrainSequence = Starter.getSequence((String) event.attributes().get("terrain"));
-          SortedMap<Long, String> transformationSequence = Starter.getSequence((String) event.attributes()
-              .get("transformation"));
-          String terrainName = terrainSequence.get(terrainSequence.lastKey());
-          String transformationName = transformationSequence.get(transformationSequence.lastKey());
-          Robot robot = SerializationUtils.clone(Misc.first(event.orderedPopulation().firsts()).solution());
-          robot = RobotUtils.buildRobotTransformation(transformationName, random).apply(robot);
-          Locomotion locomotion = new Locomotion(
-              episodeTime,
-              Locomotion.createTerrain(terrainName.replace("-rnd", "-" + random.nextInt(10000))),
-              settings
-          );
-          File file;
-          try {
-            file = File.createTempFile("robot-video", ".mp4");
-            String robotName = event.attributes().get("sensor.config") + " " + event.attributes()
-                .get("mapper") + " (" + event.attributes().get("seed") + ")";
-            GridFileWriter.save(
-                locomotion,
-                Grid.create(1, 1, new NamedValue<>(robotName, robot)),
-                300, 200, transientTime,
-                25, VideoUtils.EncoderFacility.JCODEC, file
-            );
-            file.deleteOnExit();
-          } catch (IOException ioException) {
-            L.warning(String.format("Cannot save video of best: %s", ioException));
-            return null;
-          }
-          return file;
-        }
-    );
+    return (AccumulatorFactory<POSetPopulationState<?, ? extends Robot, ? extends Outcome>, File, Map<String, Object>>) keys -> Accumulator.<POSetPopulationState<?, ? extends Robot, ? extends Outcome>>last()
+        .then(
+            state -> {
+              Random random = new Random(0);
+              SortedMap<Long, String> terrainSequence = Starter.getSequence((String) keys.get("terrain"));
+              SortedMap<Long, String> transformationSequence = Starter.getSequence((String) keys.get("transformation"));
+              String terrainName = terrainSequence.get(terrainSequence.lastKey());
+              String transformationName = transformationSequence.get(transformationSequence.lastKey());
+              Robot robot = SerializationUtils.clone(Misc.first(state.getPopulation().firsts()).solution());
+              robot = RobotUtils.buildRobotTransformation(transformationName, random).apply(robot);
+              Locomotion locomotion = new Locomotion(
+                  episodeTime,
+                  Locomotion.createTerrain(terrainName.replace("-rnd", "-" + random.nextInt(10000))),
+                  settings
+              );
+              File file;
+              try {
+                file = File.createTempFile("robot-video", ".mp4");
+                String robotName = keys.get("sensor.config") + " " + keys.get("mapper") + " (" + keys.get("seed") + ")";
+                GridFileWriter.save(
+                    locomotion,
+                    Grid.create(1, 1, new NamedValue<>(robotName, robot)),
+                    300, 200, transientTime,
+                    25, VideoUtils.EncoderFacility.JCODEC, file
+                );
+                file.deleteOnExit();
+              } catch (IOException ioException) {
+                L.warning(String.format("Cannot save video of best: %s", ioException));
+                return null;
+              }
+              return file;
+            }
+        );
   }
 
-  public static Accumulator.Factory<Evolver.Event<?, ? extends Robot, ? extends Outcome>, BufferedImage> centerPositionPlot() {
-    return Accumulator.Factory.<Evolver.Event<?, ? extends Robot, ? extends Outcome>>last().then(
-            event -> {
-              Outcome o = Misc.first(event.orderedPopulation().firsts()).fitness();
-              Table<Number> table = new ArrayTable<>(List.of("x", "y", "terrain.y"));
-              o.getObservations().values().forEach(obs -> {
-                VoxelPoly poly = BehaviorUtils.getCentralElement(obs.voxelPolies());
-                table.addRow(List.of(
-                    poly.center().x(),
-                    poly.center().y(),
-                    obs.terrainHeight()
-                ));
-              });
-              return table;
-            }
-        )
-        .then(ImagePlotters.xyLines(600, 400));
+  public static AccumulatorFactory<? super POSetPopulationState<?, ? extends Robot, ? extends Outcome>, BufferedImage, Map<String, Object>> centerPositionPlot() {
+    return ((AccumulatorFactory<POSetPopulationState<?, ? extends Robot, ? extends Outcome>, POSetPopulationState<?, ? extends Robot, ? extends Outcome>, Map<String, Object>>) keys -> Accumulator.last()).then(
+        state -> {
+          Outcome o = Misc.first(state.getPopulation().firsts()).fitness();
+          Table<Number> table = new ArrayTable<>(List.of("x", "y", "terrain.y"));
+          o.getObservations().values().forEach(obs -> {
+            VoxelPoly poly = BehaviorUtils.getCentralElement(obs.voxelPolies());
+            table.addRow(List.of(
+                poly.center().x(),
+                poly.center().y(),
+                obs.terrainHeight()
+            ));
+          });
+          return ImagePlotters.xyLines(600, 400).apply(table);
+        });
   }
 
   public static List<NamedFunction<Outcome, ?>> detailedOutcomeFunctions(
@@ -196,12 +194,10 @@ public class NamedFunctions {
     ));
   }
 
-  public static Accumulator.Factory<? super POSetPopulationState<?, ? extends Robot, ? extends Outcome>,
-      BufferedImage, Map<String, Object>> fitnessPlot(
+  public static AccumulatorFactory<? super POSetPopulationState<?, ? extends Robot, ? extends Outcome>, BufferedImage, Map<String, Object>> fitnessPlot(
       Function<Outcome, Double> fitnessFunction
   ) {
-    return new TableBuilder<POSetPopulationState<?, ? extends Robot, ? extends Outcome>, Number, Map<String,
-        Object>>(
+    return new TableBuilder<POSetPopulationState<?, ? extends Robot, ? extends Outcome>, Number, Map<String, Object>>(
         List.of(
             iterations(),
             f("fitness", fitnessFunction).of(fitness()).of(best()),
@@ -209,7 +205,7 @@ public class NamedFunctions {
             median(Double::compare).of(each(f("fitness", fitnessFunction).of(fitness()))).of(all())
         ),
         List.of()
-    ).then(ImagePlotters.xyLines(600, 400));
+    ).then(t -> ImagePlotters.xyLines(600, 400).apply(t));
   }
 
   public static List<NamedFunction<Individual<?, ? extends Robot, ? extends Outcome>, ?>> individualFunctions(Function<Outcome, Double> fitnessFunction) {
@@ -230,7 +226,7 @@ public class NamedFunctions {
     );
   }
 
-  public static List<NamedFunction<? super Map<String,Object>, ?>> keysFunctions() {
+  public static List<NamedFunction<? super Map<String, Object>, ?>> keysFunctions() {
     return List.of(
         attribute("experiment.name"),
         attribute("seed").reformat("%2d"),
@@ -245,30 +241,29 @@ public class NamedFunctions {
     );
   }
 
-  public static Accumulator.Factory<? super POSetPopulationState<?, ? extends Robot, ? extends Outcome>, String,
+  public static AccumulatorFactory<? super POSetPopulationState<?, ? extends Robot, ? extends Outcome>, String,
       Map<String, Object>> lastEventToString(
       Function<Outcome, Double> fitnessFunction
   ) {
     final List<NamedFunction<? super POSetPopulationState<?, ? extends Robot, ? extends Outcome>, ?>> functions =
         Misc.concat(
-        List.of(
-            basicFunctions(),
-            populationFunctions(fitnessFunction),
-            NamedFunction.then(best(), individualFunctions(fitnessFunction)),
-            NamedFunction.then(as(Outcome.class).of(fitness()).of(best()), basicOutcomeFunctions())
-        ));
-    // TODO fix
-    return (Accumulator.Factory<POSetPopulationState<?, ? extends Robot, ? extends Outcome>, String, Map<String,
-        Object>>) stringObjectMap -> new Accumulator<>() {
-      @Override
-      public String get() {
-        return "";
-      }
-
-      @Override
-      public void listen(POSetPopulationState<?, ? extends Robot, ? extends Outcome> poSetPopulationState) {
-      }
-    };
+            List.of(
+                basicFunctions(),
+                populationFunctions(fitnessFunction),
+                NamedFunction.then(best(), individualFunctions(fitnessFunction)),
+                NamedFunction.then(as(Outcome.class).of(fitness()).of(best()), basicOutcomeFunctions())
+            ));
+    List<NamedFunction<? super Map<String, Object>, ?>> keysFunctions = keysFunctions();
+    return (AccumulatorFactory<POSetPopulationState<?, ? extends Robot, ? extends Outcome>, String, Map<String, Object>>) attributes -> Accumulator.<POSetPopulationState<?, ? extends Robot, ? extends Outcome>>last()
+        .then(state -> {
+          String s = keysFunctions.stream()
+              .map(f -> String.format(f.getName() + ": " + f.getFormat(), f.apply(attributes)))
+              .collect(Collectors.joining("\n"));
+          s = s + functions.stream()
+              .map(f -> String.format(f.getName() + ": " + f.getFormat(), f.apply(state)))
+              .collect(Collectors.joining("\n"));
+          return s;
+        });
   }
 
   public static List<NamedFunction<? super POSetPopulationState<?, ? extends Robot, ? extends Outcome>, ?>> populationFunctions(
@@ -278,7 +273,7 @@ public class NamedFunctions {
         each(f("fitness", fitnessFunction).of(fitness()))).of(all());
     NamedFunction<? super POSetPopulationState<?, ? extends Robot, ? extends Outcome>, ?> median =
         median(Double::compare).of(
-        each(f("fitness", fitnessFunction).of(fitness()))).of(all());
+            each(f("fitness", fitnessFunction).of(fitness()))).of(all());
     return List.of(
         size().of(all()),
         size().of(firsts()),
