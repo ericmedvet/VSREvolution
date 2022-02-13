@@ -28,10 +28,7 @@ import it.units.erallab.hmsrobots.viewers.GridFileWriter;
 import it.units.erallab.hmsrobots.viewers.NamedValue;
 import it.units.erallab.hmsrobots.viewers.VideoUtils;
 import it.units.erallab.locomotion.Starter.ValidationOutcome;
-import it.units.malelab.jgea.core.listener.Accumulator;
-import it.units.malelab.jgea.core.listener.AccumulatorFactory;
-import it.units.malelab.jgea.core.listener.NamedFunction;
-import it.units.malelab.jgea.core.listener.TableBuilder;
+import it.units.malelab.jgea.core.listener.*;
 import it.units.malelab.jgea.core.solver.Individual;
 import it.units.malelab.jgea.core.solver.state.POSetPopulationState;
 import it.units.malelab.jgea.core.util.*;
@@ -260,6 +257,24 @@ public class NamedFunctions {
           .collect(Collectors.joining("\n"));
       return s;
     });
+  }
+
+  public static void main(String[] args) {
+    List<NamedFunction<? super POSetPopulationState<?, Robot, Outcome>, ?>> functions = List.of(
+        iterations()
+    );
+    List<ListenerFactory<? super POSetPopulationState<?, Robot, Outcome>, Map<String, Object>>> factories = new ArrayList<>();
+    factories.add(new TabularPrinter<>(
+        functions,
+        keysFunctions()
+    ));
+    ListenerFactory.forEach(
+        (POSetPopulationState<?, Robot, Outcome> state) -> state.getPopulation().all().stream().map(i -> Pair.of(state, i)).toList(),
+        new TabularPrinter<>(
+            functions,
+            keysFunctions()
+        )
+    );
   }
 
   public static List<NamedFunction<? super POSetPopulationState<?, ? extends Robot, ? extends Outcome>, ?>> populationFunctions(
