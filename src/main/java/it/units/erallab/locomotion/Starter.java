@@ -18,15 +18,14 @@ package it.units.erallab.locomotion;
 
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.Lists;
-import it.units.erallab.builder.DirectNumbersGrid;
-import it.units.erallab.builder.FunctionGrid;
-import it.units.erallab.builder.FunctionNumbersGrid;
-import it.units.erallab.builder.PrototypedFunctionBuilder;
-import it.units.erallab.builder.evolver.*;
+import it.units.erallab.builder.*;
 import it.units.erallab.builder.phenotype.FGraph;
 import it.units.erallab.builder.phenotype.MLP;
 import it.units.erallab.builder.phenotype.PruningMLP;
 import it.units.erallab.builder.robot.*;
+import it.units.erallab.builder.solver.BitsStandard;
+import it.units.erallab.builder.solver.DoublesStandard;
+import it.units.erallab.builder.solver.SolverBuilder;
 import it.units.erallab.hmsrobots.core.controllers.Controller;
 import it.units.erallab.hmsrobots.core.controllers.MultiLayerPerceptron;
 import it.units.erallab.hmsrobots.core.controllers.PruningMultiLayerPerceptron;
@@ -56,6 +55,7 @@ import java.util.random.RandomGenerator;
 import java.util.stream.Collectors;
 
 import static it.units.erallab.hmsrobots.util.Utils.params;
+import static it.units.malelab.jgea.core.listener.NamedFunctions.f;
 import static it.units.malelab.jgea.core.listener.NamedFunctions.fitness;
 import static it.units.malelab.jgea.core.util.Args.*;
 
@@ -74,30 +74,17 @@ public class Starter extends Worker {
     super(args);
   }
 
-  public record Problem(Function<Robot, Outcome> qualityFunction,
-                        PartialComparator<Outcome> qualityComparator) implements QualityBasedProblem<Robot, Outcome> {}
+  public record Problem(
+      Function<Robot, Outcome> qualityFunction,
+      PartialComparator<Outcome> qualityComparator
+  ) implements QualityBasedProblem<Robot, Outcome> {}
 
-  public record ValidationOutcome(POSetPopulationState<?, Robot, Outcome> event, Map<String, Object> keys,
-                                  Outcome outcome) {}
-
-  @SuppressWarnings({"unchecked", "rawtypes"})
-  private static Evolver<?, Robot, Outcome> buildEvolver(
-      String evolverName, String robotMapperName, Robot target, Function<Outcome, Double> outcomeMeasure
-  ) {
-    PrototypedFunctionBuilder<?, ?> mapperBuilder = null;
-    for (String piece : robotMapperName.split(MAPPER_PIPE_CHAR)) {
-      if (mapperBuilder == null) {
-        mapperBuilder = getMapperBuilderFromName(piece);
-      } else {
-        mapperBuilder = mapperBuilder.compose((PrototypedFunctionBuilder) getMapperBuilderFromName(piece));
-      }
-    }
-    return getEvolverBuilderFromName(evolverName).build(
-        (PrototypedFunctionBuilder) mapperBuilder,
-        target,
-        PartialComparator.from(Double.class).comparing(outcomeMeasure).reversed()
-    );
-  }
+  public record ValidationOutcome(
+      String terrainName,
+      String transformationName,
+      int seed,
+      Outcome outcome
+  ) {}
 
   public static Function<Robot, Outcome> buildLocomotionTask(
       String terrainName, double episodeT, RandomGenerator random, boolean cacheOutcome
@@ -112,10 +99,23 @@ public class Starter extends Worker {
     ).apply(r);
   }
 
+  @SuppressWarnings({"unchecked", "rawtypes"})
   private static IterativeSolver<? extends POSetPopulationState<?, Robot, Outcome>, Problem, Robot> buildSolver(
-      String evolverName, String robotMapperName, Robot target, Function<Outcome, Double> outcomeMeasure
+      String solverName, String robotMapperName, Robot target,
+      NamedProvider<SolverBuilder<?>> solverBuilderProvider,
+      NamedProvider<PrototypedFunctionBuilder<?, ?>> mapperBuilderProvider
   ) {
-    return null;
+    PrototypedFunctionBuilder<?, ?> mapperBuilder = null;
+    for (String piece : robotMapperName.split(MAPPER_PIPE_CHAR)) {
+      if (mapperBuilder == null) {
+        mapperBuilder = mapperBuilderProvider.build(piece).orElseThrow();
+      } else {
+        mapperBuilder = mapperBuilder.compose((PrototypedFunctionBuilder) mapperBuilderProvider.build(piece).orElseThrow());
+      }
+    }
+    PrototypedFunctionBuilder<Object, Robot> robotMapperBuilder = (PrototypedFunctionBuilder<Object, Robot>)mapperBuilder;
+    SolverBuilder<Object> solverBuilder = (SolverBuilder<Object>) solverBuilderProvider.build(solverName).orElseThrow();
+    return solverBuilder.build(robotMapperBuilder,target);
   }
 
   private static Function<Robot, Outcome> buildTaskFromName(
@@ -153,12 +153,14 @@ public class Starter extends Worker {
     return task.compose(transformation);
   }
 
+  /*
   public static EvolverBuilder<?> getEvolverBuilderFromName(String name) {
     String numGA = "numGA-(?<nPop>\\d+)-(?<diversity>(t|f))-(?<remap>(t|f))";
     String intGA = "intGA-(?<nPop>\\d+)-(?<diversity>(t|f))-(?<remap>(t|f))";
-    String numGASpeciated = "numGASpec-(?<nPop>\\d+)-(?<nSpecies>\\d+)-(?<criterion>(" + Arrays.stream(DoublesSpeciated.SpeciationCriterion.values())
-        .map(c -> c.name().toLowerCase(Locale.ROOT))
-        .collect(Collectors.joining("|")) + "))-(?<remap>(t|f))";
+    String numGASpeciated =
+        "numGASpec-(?<nPop>\\d+)-(?<nSpecies>\\d+)-(?<criterion>(" + Arrays.stream(DoublesSpeciated.SpeciationCriterion.values())
+            .map(c -> c.name().toLowerCase(Locale.ROOT))
+            .collect(Collectors.joining("|")) + "))-(?<remap>(t|f))";
     String cmaES = "CMAES";
     String eS = "ES-(?<nPop>\\d+)-(?<sigma>\\d+(\\.\\d+)?)-(?<remap>(t|f))";
     Map<String, String> params;
@@ -202,6 +204,7 @@ public class Starter extends Worker {
     }
     throw new IllegalArgumentException(String.format("Unknown evolver builder name: %s", name));
   }
+  */
 
   @SuppressWarnings({"unchecked", "rawtypes"})
   private static PrototypedFunctionBuilder<?, ?> getMapperBuilderFromName(String name) {
@@ -210,13 +213,16 @@ public class Starter extends Worker {
     String fixedHeteroDistributed = "fixedHeteroDist-(?<nSignals>\\d+)";
     String fixedPhasesFunction = "fixedPhasesFunct-(?<f>\\d+)";
     String fixedPhases = "fixedPhases-(?<f>\\d+(\\.\\d+)?)";
-    String fixedAutoPoses = "fixedAutoPoses-(?<stepT>\\d+(\\.\\d+)?)-(?<nRegions>\\d+)-(?<nUniquePoses>\\d+)-(?<nPoses>\\d+)";
+    String fixedAutoPoses = "fixedAutoPoses-(?<stepT>\\d+(\\.\\d+)?)-(?<nRegions>\\d+)-(?<nUniquePoses>\\d+)-" +
+        "(?<nPoses>\\d+)";
     String bodySin = "bodySin-(?<fullness>\\d+(\\.\\d+)?)-(?<minF>\\d+(\\.\\d+)?)-(?<maxF>\\d+(\\.\\d+)?)";
     String bodyAndHomoDistributed = "bodyAndHomoDist-(?<fullness>\\d+(\\.\\d+)?)-(?<nSignals>\\d+)-(?<nLayers>\\d+)";
-    String sensorAndBodyAndHomoDistributed = "sensorAndBodyAndHomoDist-(?<fullness>\\d+(\\.\\d+)?)-(?<nSignals>\\d+)-(?<nLayers>\\d+)-(?<position>(t|f))";
+    String sensorAndBodyAndHomoDistributed = "sensorAndBodyAndHomoDist-(?<fullness>\\d+(\\.\\d+)?)-(?<nSignals>\\d+)-" +
+        "(?<nLayers>\\d+)-(?<position>(t|f))";
     String sensorCentralized = "sensorCentralized-(?<nLayers>\\d+)";
     String mlp = "MLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)(-(?<actFun>(sin|tanh|sigmoid|relu)))?";
-    String pruningMlp = "pMLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<actFun>(sin|tanh|sigmoid|relu))-(?<pruningTime>\\d+(\\.\\d+)?)-(?<pruningRate>0(\\.\\d+)?)-(?<criterion>(weight|abs_signal_mean|random))";
+    String pruningMlp = "pMLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<actFun>(sin|tanh|sigmoid|relu))-" +
+        "(?<pruningTime>\\d+(\\.\\d+)?)-(?<pruningRate>0(\\.\\d+)?)-(?<criterion>(weight|abs_signal_mean|random))";
     String directNumGrid = "directNumGrid";
     String functionNumGrid = "functionNumGrid";
     String fgraph = "fGraph";
@@ -345,6 +351,23 @@ public class Starter extends Worker {
     new Starter(args);
   }
 
+  public static ValidationOutcome validate(
+      Robot robot,
+      String terrainName,
+      String transformationName,
+      int seed,
+      double episodeTime
+  ) {
+    RandomGenerator random = new Random(seed);
+    robot = RobotUtils.buildRobotTransformation(transformationName, random).apply(robot);
+    return new ValidationOutcome(
+        terrainName,
+        transformationName,
+        seed,
+        Starter.buildLocomotionTask(terrainName, episodeTime, random, false).apply(robot)
+    );
+  }
+
   @Override
   public void run() {
     int spectrumSize = 8;
@@ -387,12 +410,20 @@ public class Starter extends Worker {
         .filter(s -> !s.isEmpty())
         .collect(Collectors.toList());
     Function<Outcome, Double> fitnessFunction = Outcome::getVelocity;
+    //providers
+    NamedProvider<SolverBuilder<?>> solverBuilderProvider = NamedProvider.empty();
+    solverBuilderProvider = solverBuilderProvider.and(new BitsStandard(0.75,0.05, 3, 0.01));
+    solverBuilderProvider = solverBuilderProvider.and(new DoublesStandard(0.75,0.05, 3, 0.35));
+    NamedProvider<PrototypedFunctionBuilder<?, ?>> mapperBuilderProvider  = NamedProvider.empty();
     //consumers
-    List<NamedFunction<? super POSetPopulationState<?, Robot, Outcome>, ?>> basicFunctions = NamedFunctions.basicFunctions();
-    List<NamedFunction<? super Individual<?, Robot, Outcome>, ?>> basicIndividualFunctions = NamedFunctions.individualFunctions(
-        fitnessFunction);
-    List<NamedFunction<? super POSetPopulationState<?, Robot, Outcome>, ?>> populationFunctions = NamedFunctions.populationFunctions(
-        fitnessFunction);
+    List<NamedFunction<? super POSetPopulationState<?, Robot, Outcome>, ?>> basicFunctions =
+        NamedFunctions.basicFunctions();
+    List<NamedFunction<? super Individual<?, Robot, Outcome>, ?>> basicIndividualFunctions =
+        NamedFunctions.individualFunctions(
+            fitnessFunction);
+    List<NamedFunction<? super POSetPopulationState<?, Robot, Outcome>, ?>> populationFunctions =
+        NamedFunctions.populationFunctions(
+            fitnessFunction);
     List<NamedFunction<? super POSetPopulationState<?, Robot, Outcome>, ?>> visualFunctions = Misc.concat(List.of(
         NamedFunctions.visualPopulationFunctions(fitnessFunction),
         detailedOutput ? NamedFunctions.best().then(NamedFunctions.visualIndividualFunctions()) : List.of()
@@ -403,11 +434,13 @@ public class Starter extends Worker {
         spectrumMaxFreq,
         spectrumSize
     );
-    List<NamedFunction<? super Outcome, ?>> visualOutcomeFunctions = detailedOutput ? NamedFunctions.visualOutcomeFunctions(
-        spectrumMinFreq,
-        spectrumMaxFreq
-    ) : List.of();
-    List<ListenerFactory<? super POSetPopulationState<?, Robot, Outcome>, Map<String, Object>>> factories = new ArrayList<>();
+    List<NamedFunction<? super Outcome, ?>> visualOutcomeFunctions = detailedOutput ?
+        NamedFunctions.visualOutcomeFunctions(
+            spectrumMinFreq,
+            spectrumMaxFreq
+        ) : List.of();
+    List<ListenerFactory<? super POSetPopulationState<?, Robot, Outcome>, Map<String, Object>>> factories =
+        new ArrayList<>();
     ProgressMonitor progressMonitor = new ScreenProgressMonitor(System.out);
     //screen listener
     if (bestFileName == null || output) {
@@ -473,54 +506,25 @@ public class Starter extends Worker {
       if (validationTerrainNames.isEmpty() && !validationTransformationNames.isEmpty()) {
         validationTerrainNames.add(terrainNames.get(0));
       }
-      /*ListenerFactory<POSetPopulationState<?, Robot, Outcome>> validationFactory = ListenerFactory.forEach(
-          NamedFunctions.validation(
-              validationTerrainNames,
-              validationTransformationNames,
-              List.of(0),
-              validationEpisodeTime
-          ),
-          new CSVPrinter<>(Misc.concat(List.of(
-              NamedFunction.then(
-                  f("event", (ValidationOutcome vo) -> vo.event),
-                  basicFunctions
-              ),
-              NamedFunction.then(f("event", (ValidationOutcome vo) -> vo.event), keysFunctions),
-              NamedFunction.then(
-                  f("keys", (ValidationOutcome vo) -> vo.keys),
-                  List.of(
-                      f("validation.terrain", (Map<String, Object> map) -> map.get("validation.terrain")),
-                      f(
-                          "validation.transformation",
-                          (Map<String, Object> map) -> map.get("validation.transformation")
-                      ),
-                      f("validation.seed", "%2d", (Map<String, Object> map) -> map.get("validation.seed")),
-                      f("validation.episode.time", (Map<String, Object> map) -> map.get("validation.episode.time")),
-                      f("validation.transient.time", (Map<String, Object> map) -> validationEpisodeTransientTime)
-                  )
-              ),
-              NamedFunction.then(f(
-                  "outcome",
-                  (ValidationOutcome vo) -> vo.outcome.subOutcome(
-                      validationEpisodeTransientTime,
-                      validationEpisodeTime
-                  )
-              ), basicOutcomeFunctions),
-              NamedFunction.then(f(
-                  "outcome",
-                  (ValidationOutcome vo) -> vo.outcome.subOutcome(
-                      validationEpisodeTransientTime,
-                      validationEpisodeTime
-                  )
-              ), detailedOutcomeFunctions)
-          )), new File(validationFileName))
-      ).onLast();
-      factory = factory.and(validationFactory);*/
+      List<NamedFunction<? super ValidationOutcome, ?>> functions = new ArrayList<>();
+      functions.add(f("validation.terrain", ValidationOutcome::terrainName));
+      functions.add(f("validation.transformation", ValidationOutcome::transformationName));
+      functions.add(f("validation.seed", ValidationOutcome::seed));
+      functions.addAll(f("validation.outcome", ValidationOutcome::outcome).then(basicOutcomeFunctions));
+      functions.addAll(f("validation.outcome", ValidationOutcome::outcome).then(detailedOutcomeFunctions));
+      factories.add(new CSVPrinter<>(
+          functions,
+          NamedFunctions.keysFunctions(),
+          new File(validationFileName)
+      ).forEach(NamedFunctions.best().andThen(NamedFunctions.validation(
+          validationTerrainNames,
+          validationTransformationNames,
+          List.of(0),
+          validationEpisodeTime
+      ))).onLast());
     }
     //telegram listener
     if (telegramBotId != null && telegramChatId != 0) {
-      List<AccumulatorFactory<POSetPopulationState<?, Robot, Outcome>, ?, Map<String, Object>>> accumulatorFactories = new ArrayList<>();
-      accumulatorFactories.add(NamedFunctions.lastEventToString(fitnessFunction));
       factories.add(new TelegramUpdater<>(List.of(
           NamedFunctions.lastEventToString(fitnessFunction),
           NamedFunctions.fitnessPlot(fitnessFunction),
@@ -541,7 +545,8 @@ public class Starter extends Worker {
     L.info("Transformations: " + transformationNames);
     L.info("Validations: " + Lists.cartesianProduct(validationTerrainNames, validationTransformationNames));
     //start iterations
-    int nOfRuns = seeds.length * terrainNames.size() * targetShapeNames.size() * targetSensorConfigNames.size() * mapperNames.size() * transformationNames.size() * evolverNames.size();
+    int nOfRuns =
+        seeds.length * terrainNames.size() * targetShapeNames.size() * targetSensorConfigNames.size() * mapperNames.size() * transformationNames.size() * evolverNames.size();
     int counter = 0;
     for (int seed : seeds) {
       for (String terrainName : terrainNames) {
@@ -549,7 +554,7 @@ public class Starter extends Worker {
           for (String targetSensorConfigName : targetSensorConfigNames) {
             for (String mapperName : mapperNames) {
               for (String transformationName : transformationNames) {
-                for (String evolverName : evolverNames) {
+                for (String solverName : evolverNames) {
                   counter = counter + 1;
                   final RandomGenerator random = new Random(seed);
                   //prepare keys
@@ -561,7 +566,7 @@ public class Starter extends Worker {
                       Map.entry("sensor.config", targetSensorConfigName),
                       Map.entry("mapper", mapperName),
                       Map.entry("transformation", transformationName),
-                      Map.entry("evolver", evolverName),
+                      Map.entry("solver", solverName),
                       Map.entry("episode.time", episodeTime),
                       Map.entry("episode.transient.time", episodeTransientTime)
                   );
@@ -574,9 +579,9 @@ public class Starter extends Worker {
                   //build evolver
                   IterativeSolver<? extends POSetPopulationState<?, Robot, Outcome>, Problem, Robot> solver;
                   try {
-                    solver = buildSolver(evolverName, mapperName, target, fitnessFunction);
+                    solver = buildSolver(solverName, mapperName, target,solverBuilderProvider,mapperBuilderProvider);
                   } catch (ClassCastException | IllegalArgumentException e) {
-                    L.warning(String.format("Cannot instantiate %s for %s: %s", evolverName, mapperName, e));
+                    L.warning(String.format("Cannot instantiate %s for %s: %s", solverName, mapperName, e));
                     continue;
                   }
                   //optimize

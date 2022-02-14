@@ -44,6 +44,7 @@ import java.io.IOException;
 import java.util.*;
 import java.util.function.Function;
 import java.util.logging.Logger;
+import java.util.random.RandomGenerator;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -234,7 +235,7 @@ public class NamedFunctions {
         attribute("sensor.config"),
         attribute("mapper"),
         attribute("transformation"),
-        attribute("evolver"),
+        attribute("solver"),
         attribute("episode.time"),
         attribute("episode.transient.time")
     );
@@ -307,7 +308,26 @@ public class NamedFunctions {
     );
   }
 
-  public static Function<? super POSetPopulationState<?, Robot, Outcome>, Collection<ValidationOutcome>> validation(
+  public static Function<? super Individual<?, Robot, Outcome>, Collection<ValidationOutcome>> validation(
+      List<String> terrainNames,
+      List<String> transformationNames,
+      List<Integer> seeds,
+      double episodeTime
+  ) {
+    return i -> {
+      List<ValidationOutcome> outcomes = new ArrayList<>();
+      for (String terrainName : terrainNames) {
+        for (String transformationName : transformationNames) {
+          for (int seed : seeds) {
+            outcomes.add(Starter.validate(i.solution(), terrainName,transformationName, seed, episodeTime));
+          }
+        }
+      }
+      return outcomes;
+    };
+  }
+
+  /*public static Function<? super POSetPopulationState<?, Robot, Outcome>, Collection<ValidationOutcome>> validation2(
       List<String> validationTerrainNames,
       List<String> validationTransformationNames,
       List<Integer> seeds,
@@ -343,7 +363,7 @@ public class NamedFunctions {
       }
       return validationOutcomes;
     };
-  }
+  }*/
 
   public static List<NamedFunction<? super Individual<?, Robot, Outcome>, ?>> visualIndividualFunctions() {
     return List.of(f(
