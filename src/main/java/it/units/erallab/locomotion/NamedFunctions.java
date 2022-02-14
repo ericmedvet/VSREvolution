@@ -312,14 +312,15 @@ public class NamedFunctions {
       List<String> terrainNames,
       List<String> transformationNames,
       List<Integer> seeds,
-      double episodeTime
+      double episodeTime,
+      double transientTime
   ) {
     return i -> {
       List<ValidationOutcome> outcomes = new ArrayList<>();
       for (String terrainName : terrainNames) {
         for (String transformationName : transformationNames) {
           for (int seed : seeds) {
-            outcomes.add(Starter.validate(i.solution(), terrainName,transformationName, seed, episodeTime));
+            outcomes.add(Starter.validate(i.solution(), terrainName,transformationName, seed, episodeTime, transientTime));
           }
         }
       }

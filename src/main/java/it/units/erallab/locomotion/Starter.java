@@ -24,6 +24,7 @@ import it.units.erallab.builder.phenotype.MLP;
 import it.units.erallab.builder.phenotype.PruningMLP;
 import it.units.erallab.builder.robot.*;
 import it.units.erallab.builder.solver.BitsStandard;
+import it.units.erallab.builder.solver.DoublesSpeciated;
 import it.units.erallab.builder.solver.DoublesStandard;
 import it.units.erallab.builder.solver.SolverBuilder;
 import it.units.erallab.hmsrobots.core.controllers.Controller;
@@ -34,11 +35,10 @@ import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
 import it.units.erallab.hmsrobots.tasks.locomotion.Outcome;
 import it.units.erallab.hmsrobots.util.RobotUtils;
 import it.units.malelab.jgea.Worker;
-import it.units.malelab.jgea.core.QualityBasedProblem;
+import it.units.malelab.jgea.core.TotalOrderQualityBasedProblem;
 import it.units.malelab.jgea.core.listener.*;
 import it.units.malelab.jgea.core.listener.telegram.TelegramProgressMonitor;
 import it.units.malelab.jgea.core.listener.telegram.TelegramUpdater;
-import it.units.malelab.jgea.core.order.PartialComparator;
 import it.units.malelab.jgea.core.solver.Individual;
 import it.units.malelab.jgea.core.solver.IterativeSolver;
 import it.units.malelab.jgea.core.solver.state.POSetPopulationState;
@@ -75,15 +75,11 @@ public class Starter extends Worker {
   }
 
   public record Problem(
-      Function<Robot, Outcome> qualityFunction,
-      PartialComparator<Outcome> qualityComparator
-  ) implements QualityBasedProblem<Robot, Outcome> {}
+      Function<Robot, Outcome> qualityFunction, Comparator<Outcome> totalOrderComparator
+  ) implements TotalOrderQualityBasedProblem<Robot, Outcome> {}
 
   public record ValidationOutcome(
-      String terrainName,
-      String transformationName,
-      int seed,
-      Outcome outcome
+      String terrainName, String transformationName, int seed, Outcome outcome
   ) {}
 
   public static Function<Robot, Outcome> buildLocomotionTask(
@@ -92,16 +88,18 @@ public class Starter extends Worker {
     if (!terrainName.contains("-rnd") && cacheOutcome) {
       return Misc.cached(new Locomotion(episodeT, Locomotion.createTerrain(terrainName), PHYSICS_SETTINGS), CACHE_SIZE);
     }
-    return r -> new Locomotion(
-        episodeT,
+    return r -> new Locomotion(episodeT,
         Locomotion.createTerrain(terrainName.replace("-rnd", "-" + random.nextInt(10000))),
         PHYSICS_SETTINGS
     ).apply(r);
   }
 
   @SuppressWarnings({"unchecked", "rawtypes"})
-  private static IterativeSolver<? extends POSetPopulationState<?, Robot, Outcome>, Problem, Robot> buildSolver(
-      String solverName, String robotMapperName, Robot target,
+  private static IterativeSolver<? extends POSetPopulationState<?, Robot, Outcome>,
+      TotalOrderQualityBasedProblem<Robot, Outcome>, Robot> buildSolver(
+      String solverName,
+      String robotMapperName,
+      Robot target,
       NamedProvider<SolverBuilder<?>> solverBuilderProvider,
       NamedProvider<PrototypedFunctionBuilder<?, ?>> mapperBuilderProvider
   ) {
@@ -110,12 +108,12 @@ public class Starter extends Worker {
       if (mapperBuilder == null) {
         mapperBuilder = mapperBuilderProvider.build(piece).orElseThrow();
       } else {
-        mapperBuilder = mapperBuilder.compose((PrototypedFunctionBuilder) mapperBuilderProvider.build(piece).orElseThrow());
+        mapperBuilder = mapperBuilder.compose((PrototypedFunctionBuilder) mapperBuilderProvider.build(piece)
+            .orElseThrow());
       }
     }
-    PrototypedFunctionBuilder<Object, Robot> robotMapperBuilder = (PrototypedFunctionBuilder<Object, Robot>)mapperBuilder;
     SolverBuilder<Object> solverBuilder = (SolverBuilder<Object>) solverBuilderProvider.build(solverName).orElseThrow();
-    return solverBuilder.build(robotMapperBuilder,target);
+    return solverBuilder.build((PrototypedFunctionBuilder<Object, Robot>) mapperBuilder, target);
   }
 
   private static Function<Robot, Outcome> buildTaskFromName(
@@ -131,8 +129,7 @@ public class Starter extends Worker {
     if (transformationSequenceName.contains(SEQUENCE_SEPARATOR_CHAR)) {
       transformation = new SequentialFunction<>(getSequence(transformationSequenceName).entrySet()
           .stream()
-          .collect(Collectors.toMap(
-              Map.Entry::getKey,
+          .collect(Collectors.toMap(Map.Entry::getKey,
               e -> RobotUtils.buildRobotTransformation(e.getValue(), random)
           )));
     } else {
@@ -143,8 +140,7 @@ public class Starter extends Worker {
     if (terrainSequenceName.contains(SEQUENCE_SEPARATOR_CHAR)) {
       task = new SequentialFunction<>(getSequence(terrainSequenceName).entrySet()
           .stream()
-          .collect(Collectors.toMap(
-              Map.Entry::getKey,
+          .collect(Collectors.toMap(Map.Entry::getKey,
               e -> buildLocomotionTask(e.getValue(), episodeT, random, cacheOutcome)
           )));
     } else {
@@ -158,7 +154,8 @@ public class Starter extends Worker {
     String numGA = "numGA-(?<nPop>\\d+)-(?<diversity>(t|f))-(?<remap>(t|f))";
     String intGA = "intGA-(?<nPop>\\d+)-(?<diversity>(t|f))-(?<remap>(t|f))";
     String numGASpeciated =
-        "numGASpec-(?<nPop>\\d+)-(?<nSpecies>\\d+)-(?<criterion>(" + Arrays.stream(DoublesSpeciated.SpeciationCriterion.values())
+        "numGASpec-(?<nPop>\\d+)-(?<nSpecies>\\d+)-(?<criterion>(" + Arrays.stream(DoublesSpeciated
+        .SpeciationCriterion.values())
             .map(c -> c.name().toLowerCase(Locale.ROOT))
             .collect(Collectors.joining("|")) + "))-(?<remap>(t|f))";
     String cmaES = "CMAES";
@@ -217,8 +214,8 @@ public class Starter extends Worker {
         "(?<nPoses>\\d+)";
     String bodySin = "bodySin-(?<fullness>\\d+(\\.\\d+)?)-(?<minF>\\d+(\\.\\d+)?)-(?<maxF>\\d+(\\.\\d+)?)";
     String bodyAndHomoDistributed = "bodyAndHomoDist-(?<fullness>\\d+(\\.\\d+)?)-(?<nSignals>\\d+)-(?<nLayers>\\d+)";
-    String sensorAndBodyAndHomoDistributed = "sensorAndBodyAndHomoDist-(?<fullness>\\d+(\\.\\d+)?)-(?<nSignals>\\d+)-" +
-        "(?<nLayers>\\d+)-(?<position>(t|f))";
+    String sensorAndBodyAndHomoDistributed = "sensorAndBodyAndHomoDist-(?<fullness>\\d+(\\.\\d+)?)-(?<nSignals>\\d+)" +
+        "-" + "(?<nLayers>\\d+)-(?<position>(t|f))";
     String sensorCentralized = "sensorCentralized-(?<nLayers>\\d+)";
     String mlp = "MLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)(-(?<actFun>(sin|tanh|sigmoid|relu)))?";
     String pruningMlp = "pMLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<actFun>(sin|tanh|sigmoid|relu))-" +
@@ -246,8 +243,7 @@ public class Starter extends Worker {
       return new FixedPhaseValues(Double.parseDouble(params.get("f")), 1d);
     }
     if ((params = params(fixedAutoPoses, name)) != null) {
-      return new FixedAutoPoses(
-          Integer.parseInt(params.get("nUniquePoses")),
+      return new FixedAutoPoses(Integer.parseInt(params.get("nUniquePoses")),
           Integer.parseInt(params.get("nPoses")),
           Integer.parseInt(params.get("nRegions")),
           16,
@@ -255,31 +251,25 @@ public class Starter extends Worker {
       );
     }
     if ((params = params(bodyAndHomoDistributed, name)) != null) {
-      return new BodyAndHomoDistributed(
-          Integer.parseInt(params.get("nSignals")),
+      return new BodyAndHomoDistributed(Integer.parseInt(params.get("nSignals")),
           Double.parseDouble(params.get("fullness"))
-      ).compose(PrototypedFunctionBuilder.of(List.of(
-          new MLP(2d, 3, MultiLayerPerceptron.ActivationFunction.SIN),
+      ).compose(PrototypedFunctionBuilder.of(List.of(new MLP(2d, 3, MultiLayerPerceptron.ActivationFunction.SIN),
           new MLP(0.65d, Integer.parseInt(params.get("nLayers")))
       ))).compose(PrototypedFunctionBuilder.merger());
     }
     if ((params = params(sensorAndBodyAndHomoDistributed, name)) != null) {
-      return new SensorAndBodyAndHomoDistributed(
-          Integer.parseInt(params.get("nSignals")),
+      return new SensorAndBodyAndHomoDistributed(Integer.parseInt(params.get("nSignals")),
           Double.parseDouble(params.get("fullness")),
           params.get("position").equals("t")
-      ).compose(PrototypedFunctionBuilder.of(List.of(
-          new MLP(2d, 3, MultiLayerPerceptron.ActivationFunction.SIN),
+      ).compose(PrototypedFunctionBuilder.of(List.of(new MLP(2d, 3, MultiLayerPerceptron.ActivationFunction.SIN),
           new MLP(1.5d, Integer.parseInt(params.get("nLayers")))
       ))).compose(PrototypedFunctionBuilder.merger());
     }
     if ((params = params(bodySin, name)) != null) {
-      return new BodyAndSinusoidal(
-          Double.parseDouble(params.get("minF")),
+      return new BodyAndSinusoidal(Double.parseDouble(params.get("minF")),
           Double.parseDouble(params.get("maxF")),
           Double.parseDouble(params.get("fullness")),
-          Set.of(
-              BodyAndSinusoidal.Component.FREQUENCY,
+          Set.of(BodyAndSinusoidal.Component.FREQUENCY,
               BodyAndSinusoidal.Component.PHASE,
               BodyAndSinusoidal.Component.AMPLITUDE
           )
@@ -289,9 +279,7 @@ public class Starter extends Worker {
       return new FixedHomoDistributed(Integer.parseInt(params.get("nSignals")));
     }
     if ((params = params(sensorCentralized, name)) != null) {
-      return new SensorCentralized().compose(PrototypedFunctionBuilder.of(List.of(
-          new MLP(
-              2d,
+      return new SensorCentralized().compose(PrototypedFunctionBuilder.of(List.of(new MLP(2d,
               3,
               MultiLayerPerceptron.ActivationFunction.SIN
           ),
@@ -300,16 +288,14 @@ public class Starter extends Worker {
     }
     //function mappers
     if ((params = params(mlp, name)) != null) {
-      return new MLP(
-          Double.parseDouble(params.get("ratio")),
+      return new MLP(Double.parseDouble(params.get("ratio")),
           Integer.parseInt(params.get("nLayers")),
           params.containsKey("actFun") ? MultiLayerPerceptron.ActivationFunction.valueOf(params.get("actFun")
               .toUpperCase()) : MultiLayerPerceptron.ActivationFunction.TANH
       );
     }
     if ((params = params(pruningMlp, name)) != null) {
-      return new PruningMLP(
-          Double.parseDouble(params.get("ratio")),
+      return new PruningMLP(Double.parseDouble(params.get("ratio")),
           Integer.parseInt(params.get("nLayers")),
           MultiLayerPerceptron.ActivationFunction.valueOf(params.get("actFun").toUpperCase()),
           Double.parseDouble(params.get("pruningTime")),
@@ -340,8 +326,7 @@ public class Starter extends Worker {
 
   public static SortedMap<Long, String> getSequence(String sequenceName) {
     return new TreeMap<>(Arrays.stream(sequenceName.split(SEQUENCE_SEPARATOR_CHAR))
-        .collect(Collectors.toMap(
-            s -> s.contains(SEQUENCE_ITERATION_CHAR) ? Long.parseLong(s.split(
+        .collect(Collectors.toMap(s -> s.contains(SEQUENCE_ITERATION_CHAR) ? Long.parseLong(s.split(
                 SEQUENCE_ITERATION_CHAR)[0]) : 0,
             s -> s.contains(SEQUENCE_ITERATION_CHAR) ? s.split(SEQUENCE_ITERATION_CHAR)[1] : s
         )));
@@ -352,20 +337,18 @@ public class Starter extends Worker {
   }
 
   public static ValidationOutcome validate(
-      Robot robot,
-      String terrainName,
-      String transformationName,
-      int seed,
-      double episodeTime
+      Robot robot, String terrainName, String transformationName, int seed, double episodeTime, double transientTime
   ) {
     RandomGenerator random = new Random(seed);
     robot = RobotUtils.buildRobotTransformation(transformationName, random).apply(robot);
-    return new ValidationOutcome(
-        terrainName,
-        transformationName,
-        seed,
-        Starter.buildLocomotionTask(terrainName, episodeTime, random, false).apply(robot)
-    );
+    return new ValidationOutcome(terrainName, transformationName, seed, Starter.buildLocomotionTask(
+            terrainName,
+            episodeTime,
+            random,
+            false
+        )
+        .apply(robot)
+        .subOutcome(transientTime, episodeTime));
   }
 
   @Override
@@ -376,20 +359,16 @@ public class Starter extends Worker {
     double episodeTime = d(a("episodeTime", "10"));
     double episodeTransientTime = d(a("episodeTransientTime", "1"));
     double validationEpisodeTime = d(a("validationEpisodeTime", Double.toString(episodeTime)));
-    double validationEpisodeTransientTime = d(a(
-        "validationEpisodeTransientTime",
-        Double.toString(episodeTransientTime)
-    ));
+    double validationTransientTime = d(a("validationTransientTime", Double.toString(episodeTransientTime)));
     double videoEpisodeTime = d(a("videoEpisodeTime", "10"));
     double videoEpisodeTransientTime = d(a("videoEpisodeTransientTime", "0"));
-    int nEvals = i(a("nEvals", "500"));
     int[] seeds = ri(a("seed", "0:1"));
     String experimentName = a("expName", "short");
     List<String> terrainNames = l(a("terrain", "flat"));//"hilly-1-10-rnd"));
     List<String> targetShapeNames = l(a("shape", "worm-4x2"));
     List<String> targetSensorConfigNames = l(a("sensorConfig", "uniform-a-0"));
     List<String> transformationNames = l(a("transformation", "identity"));
-    List<String> evolverNames = l(a("evolver", "numGA-16-t-f"));
+    List<String> solverNames = l(a("solver", "numGA-16-t-f"));
     List<String> mapperNames = l(a("mapper", "fixedPhases-1.0"));
     String lastFileName = a("lastFile", null);
     String bestFileName = a("bestFile", null);
@@ -412,18 +391,23 @@ public class Starter extends Worker {
     Function<Outcome, Double> fitnessFunction = Outcome::getVelocity;
     //providers
     NamedProvider<SolverBuilder<?>> solverBuilderProvider = NamedProvider.empty();
-    solverBuilderProvider = solverBuilderProvider.and(new BitsStandard(0.75,0.05, 3, 0.01));
-    solverBuilderProvider = solverBuilderProvider.and(new DoublesStandard(0.75,0.05, 3, 0.35));
-    NamedProvider<PrototypedFunctionBuilder<?, ?>> mapperBuilderProvider  = NamedProvider.empty();
+    solverBuilderProvider = solverBuilderProvider.and(new BitsStandard(0.75, 0.05, 3, 0.01));
+    solverBuilderProvider = solverBuilderProvider.and(new DoublesStandard(0.75, 0.05, 3, 0.35));
+    solverBuilderProvider = solverBuilderProvider.and(new DoublesSpeciated(0.75,
+        0.35,
+        0.75,
+        (Function<Individual<?, Robot, Outcome>, double[]>) i -> i.fitness().getAveragePosture(8).values().stream().mapToDouble(b -> b ? 1d : 0d).toArray()
+    ));
+    NamedProvider<PrototypedFunctionBuilder<?, ?>> mapperBuilderProvider = NamedProvider.empty();
     //consumers
     List<NamedFunction<? super POSetPopulationState<?, Robot, Outcome>, ?>> basicFunctions =
         NamedFunctions.basicFunctions();
     List<NamedFunction<? super Individual<?, Robot, Outcome>, ?>> basicIndividualFunctions =
         NamedFunctions.individualFunctions(
-            fitnessFunction);
+        fitnessFunction);
     List<NamedFunction<? super POSetPopulationState<?, Robot, Outcome>, ?>> populationFunctions =
         NamedFunctions.populationFunctions(
-            fitnessFunction);
+        fitnessFunction);
     List<NamedFunction<? super POSetPopulationState<?, Robot, Outcome>, ?>> visualFunctions = Misc.concat(List.of(
         NamedFunctions.visualPopulationFunctions(fitnessFunction),
         detailedOutput ? NamedFunctions.best().then(NamedFunctions.visualIndividualFunctions()) : List.of()
@@ -436,16 +420,15 @@ public class Starter extends Worker {
     );
     List<NamedFunction<? super Outcome, ?>> visualOutcomeFunctions = detailedOutput ?
         NamedFunctions.visualOutcomeFunctions(
-            spectrumMinFreq,
-            spectrumMaxFreq
-        ) : List.of();
+        spectrumMinFreq,
+        spectrumMaxFreq
+    ) : List.of();
     List<ListenerFactory<? super POSetPopulationState<?, Robot, Outcome>, Map<String, Object>>> factories =
         new ArrayList<>();
     ProgressMonitor progressMonitor = new ScreenProgressMonitor(System.out);
     //screen listener
     if (bestFileName == null || output) {
-      factories.add(new TabularPrinter<>(Misc.concat(List.of(
-          basicFunctions,
+      factories.add(new TabularPrinter<>(Misc.concat(List.of(basicFunctions,
           populationFunctions,
           visualFunctions,
           NamedFunctions.best().then(basicIndividualFunctions),
@@ -455,8 +438,7 @@ public class Starter extends Worker {
     }
     //file listeners
     if (lastFileName != null) {
-      factories.add(new CSVPrinter<>(Misc.concat(List.of(
-          basicFunctions,
+      factories.add(new CSVPrinter<>(Misc.concat(List.of(basicFunctions,
           populationFunctions,
           NamedFunctions.best().then(basicIndividualFunctions),
           basicOutcomeFunctions.stream().map(f -> f.of(fitness()).of(NamedFunctions.best())).toList(),
@@ -465,8 +447,7 @@ public class Starter extends Worker {
       )), NamedFunctions.keysFunctions(), new File(lastFileName)).onLast());
     }
     if (bestFileName != null) {
-      factories.add(new CSVPrinter<>(Misc.concat(List.of(
-          basicFunctions,
+      factories.add(new CSVPrinter<>(Misc.concat(List.of(basicFunctions,
           populationFunctions,
           NamedFunctions.best().then(basicIndividualFunctions),
           basicOutcomeFunctions.stream().map(f -> f.of(fitness()).of(NamedFunctions.best())).toList(),
@@ -480,8 +461,7 @@ public class Starter extends Worker {
       functions.addAll(NamedFunctions.individualExtractor().then(basicIndividualFunctions));
       functions.addAll(NamedFunctions.individualExtractor()
           .then(NamedFunctions.serializationFunction(serializationFlags.contains("final"))));
-      factories.add(new CSVPrinter<>(
-          functions,
+      factories.add(new CSVPrinter<>(functions,
           NamedFunctions.keysFunctions(),
           new File(allFileName)
       ).forEach(NamedFunctions.populationSplitter()));
@@ -492,8 +472,7 @@ public class Starter extends Worker {
       functions.addAll(NamedFunctions.individualExtractor().then(basicIndividualFunctions));
       functions.addAll(NamedFunctions.individualExtractor()
           .then(NamedFunctions.serializationFunction(serializationFlags.contains("final"))));
-      factories.add(new CSVPrinter<>(
-          functions,
+      factories.add(new CSVPrinter<>(functions,
           NamedFunctions.keysFunctions(),
           new File(finalFileName)
       ).forEach(NamedFunctions.populationSplitter()).onLast());
@@ -512,21 +491,18 @@ public class Starter extends Worker {
       functions.add(f("validation.seed", ValidationOutcome::seed));
       functions.addAll(f("validation.outcome", ValidationOutcome::outcome).then(basicOutcomeFunctions));
       functions.addAll(f("validation.outcome", ValidationOutcome::outcome).then(detailedOutcomeFunctions));
-      factories.add(new CSVPrinter<>(
-          functions,
-          NamedFunctions.keysFunctions(),
-          new File(validationFileName)
-      ).forEach(NamedFunctions.best().andThen(NamedFunctions.validation(
-          validationTerrainNames,
-          validationTransformationNames,
-          List.of(0),
-          validationEpisodeTime
-      ))).onLast());
+      factories.add(new CSVPrinter<>(functions, NamedFunctions.keysFunctions(), new File(validationFileName)).forEach(
+          NamedFunctions.best()
+              .andThen(NamedFunctions.validation(validationTerrainNames,
+                  validationTransformationNames,
+                  List.of(0),
+                  validationEpisodeTime,
+                  validationTransientTime
+              ))).onLast());
     }
     //telegram listener
     if (telegramBotId != null && telegramChatId != 0) {
-      factories.add(new TelegramUpdater<>(List.of(
-          NamedFunctions.lastEventToString(fitnessFunction),
+      factories.add(new TelegramUpdater<>(List.of(NamedFunctions.lastEventToString(fitnessFunction),
           NamedFunctions.fitnessPlot(fitnessFunction),
           NamedFunctions.centerPositionPlot(),
           NamedFunctions.bestVideo(videoEpisodeTransientTime, videoEpisodeTime, PHYSICS_SETTINGS)
@@ -537,7 +513,7 @@ public class Starter extends Worker {
         factories);
     //summarize params
     L.info("Experiment name: " + experimentName);
-    L.info("Evolvers: " + evolverNames);
+    L.info("Evolvers: " + solverNames);
     L.info("Mappers: " + mapperNames);
     L.info("Shapes: " + targetShapeNames);
     L.info("Sensor configs: " + targetSensorConfigNames);
@@ -546,7 +522,7 @@ public class Starter extends Worker {
     L.info("Validations: " + Lists.cartesianProduct(validationTerrainNames, validationTransformationNames));
     //start iterations
     int nOfRuns =
-        seeds.length * terrainNames.size() * targetShapeNames.size() * targetSensorConfigNames.size() * mapperNames.size() * transformationNames.size() * evolverNames.size();
+        seeds.length * terrainNames.size() * targetShapeNames.size() * targetSensorConfigNames.size() * mapperNames.size() * transformationNames.size() * solverNames.size();
     int counter = 0;
     for (int seed : seeds) {
       for (String terrainName : terrainNames) {
@@ -554,12 +530,11 @@ public class Starter extends Worker {
           for (String targetSensorConfigName : targetSensorConfigNames) {
             for (String mapperName : mapperNames) {
               for (String transformationName : transformationNames) {
-                for (String solverName : evolverNames) {
+                for (String solverName : solverNames) {
                   counter = counter + 1;
                   final RandomGenerator random = new Random(seed);
                   //prepare keys
-                  Map<String, Object> keys = Map.ofEntries(
-                      Map.entry("experiment.name", experimentName),
+                  Map<String, Object> keys = Map.ofEntries(Map.entry("experiment.name", experimentName),
                       Map.entry("seed", seed),
                       Map.entry("terrain", terrainName),
                       Map.entry("shape", targetShapeName),
@@ -571,23 +546,22 @@ public class Starter extends Worker {
                       Map.entry("episode.transient.time", episodeTransientTime)
                   );
                   //prepare target
-                  Robot target = new Robot(
-                      Controller.empty(),
+                  Robot target = new Robot(Controller.empty(),
                       RobotUtils.buildSensorizingFunction(targetSensorConfigName)
                           .apply(RobotUtils.buildShape(targetShapeName))
                   );
                   //build evolver
-                  IterativeSolver<? extends POSetPopulationState<?, Robot, Outcome>, Problem, Robot> solver;
+                  IterativeSolver<? extends POSetPopulationState<?, Robot, Outcome>,
+                      TotalOrderQualityBasedProblem<Robot, Outcome>, Robot> solver;
                   try {
-                    solver = buildSolver(solverName, mapperName, target,solverBuilderProvider,mapperBuilderProvider);
+                    solver = buildSolver(solverName, mapperName, target, solverBuilderProvider, mapperBuilderProvider);
                   } catch (ClassCastException | IllegalArgumentException e) {
                     L.warning(String.format("Cannot instantiate %s for %s: %s", solverName, mapperName, e));
                     continue;
                   }
                   //optimize
                   Stopwatch stopwatch = Stopwatch.createStarted();
-                  progressMonitor.notify(
-                      ((float) counter - 1) / nOfRuns,
+                  progressMonitor.notify(((float) counter - 1) / nOfRuns,
                       String.format("(%d/%d); Starting %s", counter, nOfRuns, keys)
                   );
                   try {
@@ -595,15 +569,13 @@ public class Starter extends Worker {
                     if (deferred) {
                       listener = listener.deferred(executorService);
                     }
-                    Problem problem = new Problem(
-                        buildTaskFromName(
-                            transformationName,
-                            terrainName,
-                            episodeTime,
-                            random,
-                            cacheOutcome
-                        ).andThen(o -> o.subOutcome(episodeTransientTime, episodeTime)),
-                        PartialComparator.from(Double.class).comparing(fitnessFunction)
+                    Problem problem = new Problem(buildTaskFromName(transformationName,
+                        terrainName,
+                        episodeTime,
+                        random,
+                        cacheOutcome
+                    ).andThen(o -> o.subOutcome(episodeTransientTime, episodeTime)),
+                        Comparator.comparing(fitnessFunction).reversed()
                     );
                     Collection<Robot> solutions = solver.solve(problem, random, executorService, listener);
                     progressMonitor.notify((float) counter / nOfRuns, String.format(
