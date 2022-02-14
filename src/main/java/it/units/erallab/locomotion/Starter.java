@@ -624,7 +624,7 @@ public class Starter extends Worker {
     } else {
       areaRatioActiveRange = Voxel.AREA_RATIO_ACTIVE_RANGE;
     }
-    return Grid.create(originalBody, v -> new Voxel(
+    return Grid.create(originalBody, v -> v == null ? null : new Voxel(
         Voxel.SIDE_LENGTH,
         Voxel.MASS_SIDE_LENGTH_RATIO,
         springF,
@@ -637,7 +637,7 @@ public class Starter extends Worker {
         areaRatioPassiveRange,
         areaRatioActiveRange,
         Voxel.SPRING_SCAFFOLDINGS,
-        v != null ? v.getSensors() : List.of()
+        v.getSensors()
     ));
   }
 
