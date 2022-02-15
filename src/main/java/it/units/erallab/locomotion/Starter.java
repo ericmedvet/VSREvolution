@@ -45,7 +45,6 @@ import it.units.malelab.jgea.core.solver.IterativeSolver;
 import it.units.malelab.jgea.core.solver.state.POSetPopulationState;
 import it.units.malelab.jgea.core.util.Misc;
 import it.units.malelab.jgea.core.util.Pair;
-import it.units.malelab.jgea.core.util.SequentialFunction;
 import org.dyn4j.dynamics.Settings;
 
 import java.io.File;
@@ -67,8 +66,6 @@ public class Starter extends Worker {
   public final static Settings PHYSICS_SETTINGS = new Settings();
   public static final int CACHE_SIZE = 1000;
   public static final String MAPPER_PIPE_CHAR = "<";
-  public static final String SEQUENCE_SEPARATOR_CHAR = ">";
-  public static final String SEQUENCE_ITERATION_CHAR = ":";
 
   public Starter(String[] args) {
     super(args);
@@ -115,50 +112,6 @@ public class Starter extends Worker {
     }
     SolverBuilder<Object> solverBuilder = (SolverBuilder<Object>) solverBuilderProvider.build(solverName).orElseThrow();
     return solverBuilder.build((PrototypedFunctionBuilder<Object, Robot>) mapperBuilder, target);
-  }
-
-  private static Function<Robot, Outcome> buildTaskFromName(
-      String transformationSequenceName,
-      String terrainSequenceName,
-      double episodeT,
-      RandomGenerator random,
-      boolean cacheOutcome
-  ) {
-    //for sequence, assume format '99:name>99:name'
-    //transformations
-    Function<Robot, Robot> transformation;
-    if (transformationSequenceName.contains(SEQUENCE_SEPARATOR_CHAR)) {
-      transformation = new SequentialFunction<>(getSequence(transformationSequenceName).entrySet()
-          .stream()
-          .collect(Collectors.toMap(
-              Map.Entry::getKey,
-              e -> RobotUtils.buildRobotTransformation(e.getValue(), random)
-          )));
-    } else {
-      transformation = RobotUtils.buildRobotTransformation(transformationSequenceName, random);
-    }
-    //terrains
-    Function<Robot, Outcome> task;
-    if (terrainSequenceName.contains(SEQUENCE_SEPARATOR_CHAR)) {
-      task = new SequentialFunction<>(getSequence(terrainSequenceName).entrySet()
-          .stream()
-          .collect(Collectors.toMap(
-              Map.Entry::getKey,
-              e -> buildLocomotionTask(e.getValue(), episodeT, random, cacheOutcome)
-          )));
-    } else {
-      task = buildLocomotionTask(terrainSequenceName, episodeT, random, cacheOutcome);
-    }
-    return task.compose(transformation);
-  }
-
-  public static SortedMap<Long, String> getSequence(String sequenceName) {
-    return new TreeMap<>(Arrays.stream(sequenceName.split(SEQUENCE_SEPARATOR_CHAR))
-        .collect(Collectors.toMap(
-            s -> s.contains(SEQUENCE_ITERATION_CHAR) ? Long.parseLong(s.split(
-                SEQUENCE_ITERATION_CHAR)[0]) : 0,
-            s -> s.contains(SEQUENCE_ITERATION_CHAR) ? s.split(SEQUENCE_ITERATION_CHAR)[1] : s
-        )));
   }
 
   public static void main(String[] args) {
@@ -457,13 +410,12 @@ public class Starter extends Worker {
                       listener = listener.deferred(executorService);
                     }
                     Problem problem = new Problem(
-                        buildTaskFromName(
-                            transformationName,
-                            terrainName,
-                            episodeTime,
-                            random,
-                            cacheOutcome
-                        ).andThen(o -> o.subOutcome(episodeTransientTime, episodeTime)),
+                        RobotUtils.buildRobotTransformation(transformationName, random)
+                            .andThen(buildLocomotionTask(terrainName, episodeTime, random, cacheOutcome))
+                            .andThen(o -> o.subOutcome(
+                                episodeTransientTime,
+                                episodeTime
+                            )),
                         Comparator.comparing(fitnessFunction).reversed()
                     );
                     Collection<Robot> solutions = solver.solve(problem, random, executorService, listener);
