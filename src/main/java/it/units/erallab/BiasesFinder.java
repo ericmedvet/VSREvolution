@@ -1,6 +1,6 @@
 package it.units.erallab;
 
-import it.units.erallab.builder.DirectNumbersGrid;
+import it.units.erallab.builder.misc.DirectNumbersGrid;
 import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.erallab.builder.devofunction.DevoHomoMLP;
 import it.units.erallab.builder.devofunction.DevoTreeHomoMLP;

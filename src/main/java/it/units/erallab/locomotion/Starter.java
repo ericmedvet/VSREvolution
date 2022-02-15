@@ -20,9 +20,17 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.Lists;
 import it.units.erallab.builder.NamedProvider;
 import it.units.erallab.builder.PrototypedFunctionBuilder;
+import it.units.erallab.builder.function.FGraph;
+import it.units.erallab.builder.function.MLP;
+import it.units.erallab.builder.function.PruningMLP;
+import it.units.erallab.builder.misc.DirectNumbersGrid;
+import it.units.erallab.builder.misc.FunctionNumbersGrid;
+import it.units.erallab.builder.misc.FunctionsGrid;
 import it.units.erallab.builder.robot.*;
 import it.units.erallab.builder.solver.*;
 import it.units.erallab.hmsrobots.core.controllers.Controller;
+import it.units.erallab.hmsrobots.core.controllers.MultiLayerPerceptron;
+import it.units.erallab.hmsrobots.core.controllers.PruningMultiLayerPerceptron;
 import it.units.erallab.hmsrobots.core.objects.Robot;
 import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
 import it.units.erallab.hmsrobots.tasks.locomotion.Outcome;
@@ -144,194 +152,6 @@ public class Starter extends Worker {
     return task.compose(transformation);
   }
 
-  /*
-  public static EvolverBuilder<?> getEvolverBuilderFromName(String name) {
-    String numGA = "numGA-(?<nPop>\\d+)-(?<diversity>(t|f))-(?<remap>(t|f))";
-    String intGA = "intGA-(?<nPop>\\d+)-(?<diversity>(t|f))-(?<remap>(t|f))";
-    String numGASpeciated =
-        "numGASpec-(?<nPop>\\d+)-(?<nSpecies>\\d+)-(?<criterion>(" + Arrays.stream(DoublesSpeciated
-        .SpeciationCriterion.values())
-            .map(c -> c.name().toLowerCase(Locale.ROOT))
-            .collect(Collectors.joining("|")) + "))-(?<remap>(t|f))";
-    String cmaES = "CMAES";
-    String eS = "ES-(?<nPop>\\d+)-(?<sigma>\\d+(\\.\\d+)?)-(?<remap>(t|f))";
-    Map<String, String> params;
-    if ((params = params(numGA, name)) != null) {
-      return new DoublesStandard(
-          Integer.parseInt(params.get("nPop")),
-          (int) Math.max(Math.round((double) Integer.parseInt(params.get("nPop")) / 10d), 3),
-          0.75d,
-          params.get("diversity").equals("t"),
-          params.get("remap").equals("t")
-      );
-    }
-    if ((params = params(intGA, name)) != null) {
-      return new IntegersStandard(
-          Integer.parseInt(params.get("nPop")),
-          (int) Math.max(Math.round((double) Integer.parseInt(params.get("nPop")) / 10d), 3),
-          0.75d,
-          params.get("diversity").equals("t"),
-          params.get("remap").equals("t")
-      );
-    }
-    if ((params = params(numGASpeciated, name)) != null) {
-      return new DoublesSpeciated(
-          Integer.parseInt(params.get("nPop")),
-          Integer.parseInt(params.get("nSpecies")),
-          0.75d,
-          DoublesSpeciated.SpeciationCriterion.valueOf(params.get("criterion").toUpperCase()),
-          params.get("remap").equals("t")
-      );
-    }
-    if ((params = params(eS, name)) != null) {
-      return new ES(
-          Double.parseDouble(params.get("sigma")),
-          Integer.parseInt(params.get("nPop")),
-          params.get("remap").equals("t")
-      );
-    }
-    //noinspection UnusedAssignment
-    if ((params = params(cmaES, name)) != null) {
-      return new CMAES();
-    }
-    throw new IllegalArgumentException(String.format("Unknown evolver builder name: %s", name));
-  }
-  */
-
-  /*
-  @SuppressWarnings({"unchecked", "rawtypes"})
-  private static PrototypedFunctionBuilder<?, ?> getMapperBuilderFromName(String name) {
-    String fixedCentralized = "fixedCentralized";
-    String fixedHomoDistributed = "fixedHomoDist-(?<nSignals>\\d+)";
-    String fixedHeteroDistributed = "fixedHeteroDist-(?<nSignals>\\d+)";
-    String fixedPhasesFunction = "fixedPhasesFunct-(?<f>\\d+)";
-    String fixedPhases = "fixedPhases-(?<f>\\d+(\\.\\d+)?)";
-    String fixedAutoPoses = "fixedAutoPoses-(?<stepT>\\d+(\\.\\d+)?)-(?<nRegions>\\d+)-(?<nUniquePoses>\\d+)-" +
-        "(?<nPoses>\\d+)";
-    String bodySin = "bodySin-(?<fullness>\\d+(\\.\\d+)?)-(?<minF>\\d+(\\.\\d+)?)-(?<maxF>\\d+(\\.\\d+)?)";
-    String bodyAndHomoDistributed = "bodyAndHomoDist-(?<fullness>\\d+(\\.\\d+)?)-(?<nSignals>\\d+)-(?<nLayers>\\d+)";
-    String sensorAndBodyAndHomoDistributed = "sensorAndBodyAndHomoDist-(?<fullness>\\d+(\\.\\d+)?)-(?<nSignals>\\d+)" +
-        "-" + "(?<nLayers>\\d+)-(?<position>(t|f))";
-    String sensorCentralized = "sensorCentralized-(?<nLayers>\\d+)";
-    String mlp = "MLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)(-(?<actFun>(sin|tanh|sigmoid|relu)))?";
-    String pruningMlp = "pMLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<actFun>(sin|tanh|sigmoid|relu))-" +
-        "(?<pruningTime>\\d+(\\.\\d+)?)-(?<pruningRate>0(\\.\\d+)?)-(?<criterion>(weight|abs_signal_mean|random))";
-    String directNumGrid = "directNumGrid";
-    String functionNumGrid = "functionNumGrid";
-    String fgraph = "fGraph";
-    String functionGrid = "fGrid-(?<innerMapper>.*)";
-    Map<String, String> params;
-    //robot mappers
-    //noinspection UnusedAssignment
-    if ((params = params(fixedCentralized, name)) != null) {
-      return new FixedCentralized();
-    }
-    if ((params = params(fixedHomoDistributed, name)) != null) {
-      return new FixedHomoDistributed(Integer.parseInt(params.get("nSignals")));
-    }
-    if ((params = params(fixedHeteroDistributed, name)) != null) {
-      return new FixedHeteroDistributed(Integer.parseInt(params.get("nSignals")));
-    }
-    if ((params = params(fixedPhasesFunction, name)) != null) {
-      return new FixedPhaseFunction(Double.parseDouble(params.get("f")), 1d);
-    }
-    if ((params = params(fixedPhases, name)) != null) {
-      return new FixedPhaseValues(Double.parseDouble(params.get("f")), 1d);
-    }
-    if ((params = params(fixedAutoPoses, name)) != null) {
-      return new FixedAutoPoses(
-          Integer.parseInt(params.get("nUniquePoses")),
-          Integer.parseInt(params.get("nPoses")),
-          Integer.parseInt(params.get("nRegions")),
-          16,
-          Double.parseDouble(params.get("stepT"))
-      );
-    }
-    if ((params = params(bodyAndHomoDistributed, name)) != null) {
-      return new BodyAndHomoDistributed(
-          Integer.parseInt(params.get("nSignals")),
-          Double.parseDouble(params.get("fullness"))
-      ).compose(PrototypedFunctionBuilder.of(List.of(
-          new MLP(2d, 3, MultiLayerPerceptron.ActivationFunction.SIN),
-          new MLP(0.65d, Integer.parseInt(params.get("nLayers")))
-      ))).compose(PrototypedFunctionBuilder.merger());
-    }
-    if ((params = params(sensorAndBodyAndHomoDistributed, name)) != null) {
-      return new SensorAndBodyAndHomoDistributed(
-          Integer.parseInt(params.get("nSignals")),
-          Double.parseDouble(params.get("fullness")),
-          params.get("position").equals("t")
-      ).compose(PrototypedFunctionBuilder.of(List.of(
-          new MLP(2d, 3, MultiLayerPerceptron.ActivationFunction.SIN),
-          new MLP(1.5d, Integer.parseInt(params.get("nLayers")))
-      ))).compose(PrototypedFunctionBuilder.merger());
-    }
-    if ((params = params(bodySin, name)) != null) {
-      return new BodyAndSinusoidal(
-          Double.parseDouble(params.get("minF")),
-          Double.parseDouble(params.get("maxF")),
-          Double.parseDouble(params.get("fullness")),
-          Set.of(
-              BodyAndSinusoidal.Component.FREQUENCY,
-              BodyAndSinusoidal.Component.PHASE,
-              BodyAndSinusoidal.Component.AMPLITUDE
-          )
-      );
-    }
-    if ((params = params(fixedHomoDistributed, name)) != null) {
-      return new FixedHomoDistributed(Integer.parseInt(params.get("nSignals")));
-    }
-    if ((params = params(sensorCentralized, name)) != null) {
-      return new SensorCentralized().compose(PrototypedFunctionBuilder.of(List.of(
-          new MLP(
-              2d,
-              3,
-              MultiLayerPerceptron.ActivationFunction.SIN
-          ),
-          new MLP(1.5d, Integer.parseInt(params.get("nLayers")))
-      ))).compose(PrototypedFunctionBuilder.merger());
-    }
-    //function mappers
-    if ((params = params(mlp, name)) != null) {
-      return new MLP(
-          Double.parseDouble(params.get("ratio")),
-          Integer.parseInt(params.get("nLayers")),
-          params.containsKey("actFun") ? MultiLayerPerceptron.ActivationFunction.valueOf(params.get("actFun")
-              .toUpperCase()) : MultiLayerPerceptron.ActivationFunction.TANH
-      );
-    }
-    if ((params = params(pruningMlp, name)) != null) {
-      return new PruningMLP(
-          Double.parseDouble(params.get("ratio")),
-          Integer.parseInt(params.get("nLayers")),
-          MultiLayerPerceptron.ActivationFunction.valueOf(params.get("actFun").toUpperCase()),
-          Double.parseDouble(params.get("pruningTime")),
-          Double.parseDouble(params.get("pruningRate")),
-          PruningMultiLayerPerceptron.Context.NETWORK,
-          PruningMultiLayerPerceptron.Criterion.valueOf(params.get("criterion").toUpperCase())
-
-      );
-    }
-    //noinspection UnusedAssignment
-    if ((params = params(fgraph, name)) != null) {
-      return new FGraph();
-    }
-    //misc
-    if ((params = params(functionGrid, name)) != null) {
-      return new FunctionGrid((PrototypedFunctionBuilder) getMapperBuilderFromName(params.get("innerMapper")));
-    }
-    //noinspection UnusedAssignment
-    if ((params = params(directNumGrid, name)) != null) {
-      return new DirectNumbersGrid();
-    }
-    //noinspection UnusedAssignment
-    if ((params = params(functionNumGrid, name)) != null) {
-      return new FunctionNumbersGrid();
-    }
-    throw new IllegalArgumentException(String.format("Unknown mapper name: %s", name));
-  }
-  */
-
   public static SortedMap<Long, String> getSequence(String sequenceName) {
     return new TreeMap<>(Arrays.stream(sequenceName.split(SEQUENCE_SEPARATOR_CHAR))
         .collect(Collectors.toMap(
@@ -423,13 +243,39 @@ public class Starter extends Worker {
         Map.entry("brainHeteroDist", new BrainHeteroDistributed()),
         Map.entry("brainAutoPoses", new BrainAutoPoses(16)),
         Map.entry("sensorBrainAutoPoses", new SensorBrainCentralized()),
+        // TODO requires compose+merger
         Map.entry("bodyBrainSin", new BodyBrainSinusoidal(EnumSet.of(
             BodyBrainSinusoidal.Component.PHASE,
             BodyBrainSinusoidal.Component.FREQUENCY
         ))),
         Map.entry("bodySensorBrainHomoDist", new BodySensorBrainHomoDistributed(false)),
+        // TODO requires compose+merger
         Map.entry("bodyBrainHomoDist", new BodyBrainHomoDistributed())
+        // TODO requires compose+merger
     ));
+    mapperBuilderProvider = mapperBuilderProvider.and(NamedProvider.of(Map.ofEntries(
+        Map.entry("dirNumGrid", new DirectNumbersGrid()),
+        Map.entry("funNumGrid", new FunctionNumbersGrid()),
+        Map.entry(
+            "funsGrid",
+            new FunctionsGrid(new MLP(MultiLayerPerceptron.ActivationFunction.TANH).build(Map.ofEntries(
+                Map.entry("r", "0.65"),
+                Map.entry("nIL", "1")
+            )))
+        )
+    )));
+    mapperBuilderProvider = mapperBuilderProvider.and(NamedProvider.of(Map.ofEntries(
+        Map.entry("fGraph", new FGraph()),
+        Map.entry("mlp", new MLP(MultiLayerPerceptron.ActivationFunction.TANH)),
+        Map.entry(
+            "pMlp",
+            new PruningMLP(
+                MultiLayerPerceptron.ActivationFunction.TANH,
+                PruningMultiLayerPerceptron.Context.NETWORK,
+                PruningMultiLayerPerceptron.Criterion.ABS_SIGNAL_MEAN
+            )
+        )
+    )));
     //consumers
     List<NamedFunction<? super POSetPopulationState<?, Robot, Outcome>, ?>> basicFunctions =
         NamedFunctions.basicFunctions();

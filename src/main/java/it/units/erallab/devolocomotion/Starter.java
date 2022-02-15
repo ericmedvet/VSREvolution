@@ -1,7 +1,7 @@
 package it.units.erallab.devolocomotion;
 
 import com.google.common.base.Stopwatch;
-import it.units.erallab.builder.DirectNumbersGrid;
+import it.units.erallab.builder.misc.DirectNumbersGrid;
 import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.erallab.builder.devofunction.*;
 import it.units.erallab.builder.evolver.EvolverBuilder;

@@ -1,6 +1,9 @@
 package it.units.erallab.builder;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -20,12 +23,27 @@ public interface NamedProvider<T> {
     };
   }
 
+  static <T> NamedProvider<T> of(Map<String, NamedProvider<? extends T>> providers) {
+    return params -> providers.get(params.get(params.get(NAME_KEY))).build(params);
+  }
+
+  default NamedProvider<T> and(NamedProvider<? extends T> other) {
+    NamedProvider<T> thisProvider = this;
+    return params -> {
+      try {
+        return thisProvider.build(params);
+      } catch (Throwable throwable) {
+        return other.build(params);
+      }
+    };
+  }
+
   default Optional<T> build(String stringParams) {
     Map<String, String> params = Arrays.stream(stringParams.split(TOKEN_SEPARATOR))
         .map(s -> s.split(PARAM_VALUE_SEPARATOR))
         .collect(Collectors.toMap(
-            ss -> ss.length==2?ss[0]:NAME_KEY,
-            ss -> ss.length==2?ss[1]:ss[0]
+            ss -> ss.length == 2 ? ss[0] : NAME_KEY,
+            ss -> ss.length == 2 ? ss[1] : ss[0]
         ));
     T t;
     try {
@@ -34,10 +52,6 @@ public interface NamedProvider<T> {
       return Optional.empty();
     }
     return Optional.of(t);
-  }
-
-  static <T> NamedProvider<T> of(Map<String, NamedProvider<? extends T>> providers) {
-    return params -> providers.get(params.get(params.get(NAME_KEY))).build(params);
   }
 
 }

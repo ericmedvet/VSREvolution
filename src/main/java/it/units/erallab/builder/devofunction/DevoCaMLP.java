@@ -1,7 +1,7 @@
 package it.units.erallab.builder.devofunction;
 
 import it.units.erallab.builder.PrototypedFunctionBuilder;
-import it.units.erallab.builder.phenotype.MLP;
+import it.units.erallab.builder.function.MLP;
 import it.units.erallab.builder.robot.BrainHomoDistributed;
 import it.units.erallab.hmsrobots.core.controllers.AbstractController;
 import it.units.erallab.hmsrobots.core.controllers.Controller;
