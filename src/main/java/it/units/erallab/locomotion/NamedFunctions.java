@@ -339,44 +339,6 @@ public class NamedFunctions {
     };
   }
 
-  /*public static Function<? super POSetPopulationState<?, Robot, Outcome>, Collection<ValidationOutcome>> validation2(
-      List<String> validationTerrainNames,
-      List<String> validationTransformationNames,
-      List<Integer> seeds,
-      double episodeTime
-  ) {
-    return state -> {
-      Robot robot = SerializationUtils.clone(Misc.first(state.getPopulation().firsts()).solution());
-      List<ValidationOutcome> validationOutcomes = new ArrayList<>();
-      for (String validationTerrainName : validationTerrainNames) {
-        for (String validationTransformationName : validationTransformationNames) {
-          for (int seed : seeds) {
-            Random random = new Random(seed);
-            robot = RobotUtils.buildRobotTransformation(validationTransformationName, random).apply(robot);
-            Function<Robot, Outcome> validationLocomotion = Starter.buildLocomotionTask(
-                validationTerrainName,
-                episodeTime,
-                random,
-                false
-            );
-            Outcome outcome = validationLocomotion.apply(robot);
-            validationOutcomes.add(new ValidationOutcome(
-                state,
-                Map.ofEntries(
-                    Map.entry("validation.terrain", validationTerrainName),
-                    Map.entry("validation.transformation", validationTransformationName),
-                    Map.entry("validation.seed", seed),
-                    Map.entry("validation.episode.time", episodeTime)
-                ),
-                outcome
-            ));
-          }
-        }
-      }
-      return validationOutcomes;
-    };
-  }*/
-
   public static List<NamedFunction<? super Individual<?, Robot, Outcome>, ?>> visualIndividualFunctions() {
     return List.of(f(
         "minimap",
