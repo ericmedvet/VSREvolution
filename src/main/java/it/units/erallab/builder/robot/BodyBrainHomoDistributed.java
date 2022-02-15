@@ -24,8 +24,8 @@ public class BodyBrainHomoDistributed implements NamedProvider<PrototypedFunctio
     Robot>> {
   @Override
   public PrototypedFunctionBuilder<List<TimedRealFunction>, Robot> build(Map<String, String> params) {
-    int signals = Integer.parseInt(params.get("s"));
-    double percentile = Double.parseDouble(params.get("p"));
+    int signals = Integer.parseInt(params.getOrDefault("s", "1"));
+    double percentile = Double.parseDouble(params.getOrDefault("p", "0.5"));
     return new PrototypedFunctionBuilder<>() {
       @Override
       public Function<List<TimedRealFunction>, Robot> buildFor(Robot robot) {

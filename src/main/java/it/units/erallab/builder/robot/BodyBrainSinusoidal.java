@@ -34,9 +34,9 @@ public class BodyBrainSinusoidal implements NamedProvider<PrototypedFunctionBuil
 
   @Override
   public PrototypedFunctionBuilder<Grid<double[]>, Robot> build(Map<String, String> params) {
-    double minF = Double.parseDouble(params.get("minF"));
-    double maxF = Double.parseDouble(params.get("maxF"));
-    double percentile = Double.parseDouble(params.get("p"));
+    double minF = Double.parseDouble(params.getOrDefault("minF", "0.5"));
+    double maxF = Double.parseDouble(params.getOrDefault("maxF", "2"));
+    double percentile = Double.parseDouble(params.getOrDefault("p", "0.5"));
     return new PrototypedFunctionBuilder<>() {
       @Override
       public Function<Grid<double[]>, Robot> buildFor(Robot robot) {

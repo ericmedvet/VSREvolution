@@ -21,8 +21,8 @@ public class BrainPhaseValues implements NamedProvider<PrototypedFunctionBuilder
 
   @Override
   public PrototypedFunctionBuilder<List<Double>, Robot> build(Map<String, String> params) {
-    double frequency = Double.parseDouble(params.get("f"));
-    double amplitude = Double.parseDouble(params.get("a"));
+    double frequency = Double.parseDouble(params.getOrDefault("f", "1"));
+    double amplitude = Double.parseDouble(params.getOrDefault("a","1"));
     return new PrototypedFunctionBuilder<>() {
       @Override
       public Function<List<Double>, Robot> buildFor(Robot robot) {

@@ -30,8 +30,8 @@ public class PruningMLP extends MLP {
 
   @Override
   public PrototypedFunctionBuilder<List<Double>, TimedRealFunction> build(Map<String, String> params) {
-    double innerLayerRatio = Double.parseDouble(params.get("r"));
-    int nOfInnerLayers = Integer.parseInt(params.get("nIL"));
+    double innerLayerRatio = Double.parseDouble(params.getOrDefault("r", "0.65"));
+    int nOfInnerLayers = Integer.parseInt(params.getOrDefault("nIL", "1"));
     double pruningTime = Double.parseDouble(params.get("pT"));
     double rate = Double.parseDouble(params.get("pR"));
     return new PrototypedFunctionBuilder<>() {

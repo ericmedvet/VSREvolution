@@ -34,7 +34,7 @@ public class BrainHeteroDistributed implements NamedProvider<PrototypedFunctionB
 
   @Override
   public PrototypedFunctionBuilder<Grid<TimedRealFunction>, Robot> build(Map<String, String> params) {
-    int signals = Integer.parseInt(params.get("s"));
+    int signals = Integer.parseInt(params.getOrDefault("s", "1"));
     return new PrototypedFunctionBuilder<>() {
       @Override
       public Function<Grid<TimedRealFunction>, Robot> buildFor(Robot robot) {

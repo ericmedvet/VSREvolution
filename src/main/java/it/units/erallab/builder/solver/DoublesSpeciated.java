@@ -46,7 +46,7 @@ public class DoublesSpeciated implements NamedProvider<SolverBuilder<List<Double
   public SolverBuilder<List<Double>> build(Map<String, String> params) {
     int nPop = Integer.parseInt(params.get("nPop"));
     int nEval = Integer.parseInt(params.get("nEval"));
-    boolean remap = Boolean.parseBoolean(params.get("remap"));
+    boolean remap = Boolean.parseBoolean(params.getOrDefault("remap", "false"));
     int nSpecies = Integer.parseInt(params.get("nSpecies"));
     return new SolverBuilder<>() {
       @SuppressWarnings("unchecked")

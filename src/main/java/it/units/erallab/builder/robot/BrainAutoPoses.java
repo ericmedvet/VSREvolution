@@ -26,10 +26,10 @@ public class BrainAutoPoses implements NamedProvider<PrototypedFunctionBuilder<L
 
   @Override
   public PrototypedFunctionBuilder<List<Integer>, Robot> build(Map<String, String> params) {
-    int nUniquePoses = Integer.parseInt(params.get("nUP"));
+    int nUniquePoses = Integer.parseInt(params.getOrDefault("nUP", "4"));
     int nPoses = Integer.parseInt(params.get("nP"));
-    int nRegions = Integer.parseInt(params.get("nR"));
-    double stepT = Double.parseDouble(params.get("stepT"));
+    int nRegions = Integer.parseInt(params.getOrDefault("nR", "4"));
+    double stepT = Double.parseDouble(params.getOrDefault("stepT", "0.5"));
     return new PrototypedFunctionBuilder<>() {
       @Override
       public Function<List<Integer>, Robot> buildFor(Robot robot) {

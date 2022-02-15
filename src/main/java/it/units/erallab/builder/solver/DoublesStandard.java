@@ -41,8 +41,8 @@ public class DoublesStandard implements NamedProvider<SolverBuilder<List<Double>
   public SolverBuilder<List<Double>> build(Map<String, String> params) {
     int nPop = Integer.parseInt(params.get("nPop"));
     int nEval = Integer.parseInt(params.get("nEval"));
-    boolean diversity = Boolean.parseBoolean(params.get("diversity"));
-    boolean remap = Boolean.parseBoolean(params.get("remap"));
+    boolean diversity = Boolean.parseBoolean(params.getOrDefault("diversity", "false"));
+    boolean remap = Boolean.parseBoolean(params.getOrDefault("remap", "false"));
     return new SolverBuilder<>() {
       @Override
       public <S, Q> IterativeSolver<? extends POSetPopulationState<List<Double>, S, Q>,
