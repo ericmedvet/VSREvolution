@@ -39,6 +39,10 @@ public interface NamedProvider<T> {
     };
   }
 
+  default Optional<T> build() {
+    return build("");
+  }
+
   default Optional<T> build(String stringParams) {
     Map<String, String> params = Arrays.stream(stringParams.split(TOKEN_SEPARATOR))
         .map(s -> s.split(PARAM_VALUE_SEPARATOR))

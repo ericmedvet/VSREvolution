@@ -73,7 +73,7 @@ public class BiasesFinder {
             )
         ),
         "largestConnected-50", new ProtoPair<>(
-            new BodyBrainSinusoidal(1d, 1d, 50, Set.of(BodyBrainSinusoidal.Component.PHASE)).compose(new DirectNumbersGrid()),
+            new BodyBrainSinusoidal(Set.of(BodyBrainSinusoidal.Component.PHASE)).build().orElseThrow().compose(new DirectNumbersGrid().build().orElseThrow()),
             g -> new FixedLengthListFactory<>(g.size(), new UniformDoubleFactory(-1d, 1d))
         )
     ));
