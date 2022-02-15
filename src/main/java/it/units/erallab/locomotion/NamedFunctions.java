@@ -44,7 +44,6 @@ import java.io.IOException;
 import java.util.*;
 import java.util.function.Function;
 import java.util.logging.Logger;
-import java.util.random.RandomGenerator;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -82,10 +81,8 @@ public class NamedFunctions {
   ) {
     return AccumulatorFactory.last((state, keys) -> {
       Random random = new Random(0);
-      SortedMap<Long, String> terrainSequence = Starter.getSequence((String) keys.get("terrain"));
-      SortedMap<Long, String> transformationSequence = Starter.getSequence((String) keys.get("transformation"));
-      String terrainName = terrainSequence.get(terrainSequence.lastKey());
-      String transformationName = transformationSequence.get(transformationSequence.lastKey());
+      String terrainName = keys.get("terrain").toString();
+      String transformationName = keys.get("transformation").toString();
       Robot robot = SerializationUtils.clone(Misc.first(state.getPopulation().firsts()).solution());
       robot = RobotUtils.buildRobotTransformation(transformationName, random).apply(robot);
       Locomotion locomotion = new Locomotion(
@@ -117,7 +114,8 @@ public class NamedFunctions {
   }
 
   public static AccumulatorFactory<POSetPopulationState<?, Robot, Outcome>, BufferedImage, Map<String, Object>> centerPositionPlot() {
-    return ((AccumulatorFactory<POSetPopulationState<?, Robot, Outcome>, POSetPopulationState<?, Robot, Outcome>, Map<String, Object>>) keys -> Accumulator.last()).then(
+    return ((AccumulatorFactory<POSetPopulationState<?, Robot, Outcome>, POSetPopulationState<?, Robot, Outcome>,
+        Map<String, Object>>) keys -> Accumulator.last()).then(
         state -> {
           Outcome o = Misc.first(state.getPopulation().firsts()).fitness();
           Table<Number> table = new ArrayTable<>(List.of("x", "y", "terrain.y"));
@@ -203,14 +201,18 @@ public class NamedFunctions {
     ), List.of()).then(t -> ImagePlotters.xyLines(600, 400).apply(t));
   }
 
-  public static NamedFunction<Pair<POSetPopulationState<?, Robot, Outcome>, Individual<?, Robot, Outcome>>, Individual<?, Robot, Outcome>> individualExtractor() {
+  public static NamedFunction<Pair<POSetPopulationState<?, Robot, Outcome>, Individual<?, Robot, Outcome>>,
+      Individual<?, Robot, Outcome>> individualExtractor() {
     return f(
         "individual",
         Pair::second
     );
   }
 
-  public static List<NamedFunction<? super Individual<?, Robot, Outcome>, ?>> individualFunctions(Function<Outcome, Double> fitnessFunction) {
+  public static List<NamedFunction<? super Individual<?, Robot, Outcome>, ?>> individualFunctions(
+      Function<Outcome,
+          Double> fitnessFunction
+  ) {
     NamedFunction<Individual<?, Robot, Outcome>, ?> size = size().of(genotype());
     NamedFunction<Robot, Grid<Voxel>> shape = f("shape", Robot::getVoxels);
     NamedFunction<Grid<Voxel>, Number> w = f("w", "%2d", Grid::getW);
@@ -285,7 +287,8 @@ public class NamedFunctions {
     );
   }
 
-  public static Function<POSetPopulationState<?,Robot,Outcome>,Collection<Pair<POSetPopulationState<?, Robot, Outcome>, Individual<?, Robot, Outcome>>>> populationSplitter() {
+  public static Function<POSetPopulationState<?, Robot, Outcome>, Collection<Pair<POSetPopulationState<?, Robot,
+      Outcome>, Individual<?, Robot, Outcome>>>> populationSplitter() {
     return state -> {
       List<Pair<POSetPopulationState<?, Robot, Outcome>, Individual<?, Robot, Outcome>>> list = new ArrayList<>();
       state.getPopulation().all().forEach(i -> list.add(Pair.of(state, i)));
@@ -301,7 +304,8 @@ public class NamedFunctions {
         solution()));
   }
 
-  public static NamedFunction<Pair<POSetPopulationState<?, Robot, Outcome>, Individual<?, Robot, Outcome>>, POSetPopulationState<?, Robot, Outcome>> stateExtractor() {
+  public static NamedFunction<Pair<POSetPopulationState<?, Robot, Outcome>, Individual<?, Robot, Outcome>>,
+      POSetPopulationState<?, Robot, Outcome>> stateExtractor() {
     return f(
         "state",
         Pair::first
@@ -320,7 +324,14 @@ public class NamedFunctions {
       for (String terrainName : terrainNames) {
         for (String transformationName : transformationNames) {
           for (int seed : seeds) {
-            outcomes.add(Starter.validate(i.solution(), terrainName,transformationName, seed, episodeTime, transientTime));
+            outcomes.add(Starter.validate(
+                i.solution(),
+                terrainName,
+                transformationName,
+                seed,
+                episodeTime,
+                transientTime
+            ));
           }
         }
       }

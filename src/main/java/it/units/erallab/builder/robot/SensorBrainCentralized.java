@@ -24,7 +24,7 @@ public class SensorBrainCentralized implements NamedProvider<PrototypedFunctionB
 
   @Override
   public PrototypedFunctionBuilder<List<TimedRealFunction>, Robot> build(Map<String, String> params) {
-    return new PrototypedFunctionBuilder<List<TimedRealFunction>, Robot>() {
+    return new PrototypedFunctionBuilder<>() {
       @Override
       public Function<List<TimedRealFunction>, Robot> buildFor(Robot robot) {
         List<Sensor> prototypeSensors = BodySensorBrainHomoDistributed.getPrototypeSensors(robot);

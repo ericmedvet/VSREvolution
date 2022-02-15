@@ -195,16 +195,31 @@ public class Starter extends Worker {
         Map.entry("brainHomoDist", new BrainHomoDistributed()),
         Map.entry("brainHeteroDist", new BrainHeteroDistributed()),
         Map.entry("brainAutoPoses", new BrainAutoPoses(16)),
-        Map.entry("sensorBrainAutoPoses", new SensorBrainCentralized()),
-        // TODO requires compose+merger
+        Map.entry(
+            "sensorBrainCentralized",
+            new SensorBrainCentralized().then(b -> b.compose(PrototypedFunctionBuilder.of(List.of(
+                new MLP().build("r=2;nIL=2").orElseThrow(),
+                new MLP().build("r=1.5;nIL=1").orElseThrow()
+            )))).then(b -> b.compose(PrototypedFunctionBuilder.merger()))
+        ),
         Map.entry("bodyBrainSin", new BodyBrainSinusoidal(EnumSet.of(
             BodyBrainSinusoidal.Component.PHASE,
             BodyBrainSinusoidal.Component.FREQUENCY
         ))),
-        Map.entry("bodySensorBrainHomoDist", new BodySensorBrainHomoDistributed(false)),
-        // TODO requires compose+merger
-        Map.entry("bodyBrainHomoDist", new BodyBrainHomoDistributed())
-        // TODO requires compose+merger
+        Map.entry(
+            "bodySensorBrainHomoDist",
+            new BodySensorBrainHomoDistributed(false).then(b -> b.compose(PrototypedFunctionBuilder.of(List.of(
+                new MLP().build("r=2;nIL=2").orElseThrow(),
+                new MLP().build("r=1.5;nIL=1").orElseThrow()
+            )))).then(b -> b.compose(PrototypedFunctionBuilder.merger()))
+        ),
+        Map.entry(
+            "bodyBrainHomoDist",
+            new BodyBrainHomoDistributed().then(b -> b.compose(PrototypedFunctionBuilder.of(List.of(
+                new MLP().build("r=2;nIL=2").orElseThrow(),
+                new MLP().build("r=0.65;nIL=1").orElseThrow()
+            )))).then(b -> b.compose(PrototypedFunctionBuilder.merger()))
+        )
     ));
     mapperBuilderProvider = mapperBuilderProvider.and(NamedProvider.of(Map.ofEntries(
         Map.entry("dirNumGrid", new DirectNumbersGrid()),

@@ -4,6 +4,7 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -52,6 +53,11 @@ public interface NamedProvider<T> {
       return Optional.empty();
     }
     return Optional.of(t);
+  }
+
+  default <R> NamedProvider<R> then(Function<? super T, ? extends R> function) {
+    NamedProvider<T> thisProvider = this;
+    return params -> function.apply(thisProvider.build(params));
   }
 
 }

@@ -17,6 +17,10 @@ public class MLP implements NamedProvider<PrototypedFunctionBuilder<List<Double>
 
   protected final MultiLayerPerceptron.ActivationFunction activationFunction;
 
+  public MLP() {
+    this(MultiLayerPerceptron.ActivationFunction.TANH);
+  }
+
   public MLP(MultiLayerPerceptron.ActivationFunction activationFunction) {
     this.activationFunction = activationFunction;
   }
