@@ -4,7 +4,7 @@ import it.units.erallab.builder.DirectNumbersGrid;
 import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.erallab.builder.devofunction.DevoHomoMLP;
 import it.units.erallab.builder.devofunction.DevoTreeHomoMLP;
-import it.units.erallab.builder.robot.BodyAndSinusoidal;
+import it.units.erallab.builder.robot.BodyBrainSinusoidal;
 import it.units.erallab.hmsrobots.core.controllers.Controller;
 import it.units.erallab.hmsrobots.core.objects.Robot;
 import it.units.erallab.hmsrobots.util.Grid;
@@ -73,7 +73,7 @@ public class BiasesFinder {
             )
         ),
         "largestConnected-50", new ProtoPair<>(
-            new BodyAndSinusoidal(1d, 1d, 50, Set.of(BodyAndSinusoidal.Component.PHASE)).compose(new DirectNumbersGrid()),
+            new BodyBrainSinusoidal(1d, 1d, 50, Set.of(BodyBrainSinusoidal.Component.PHASE)).compose(new DirectNumbersGrid()),
             g -> new FixedLengthListFactory<>(g.size(), new UniformDoubleFactory(-1d, 1d))
         )
     ));

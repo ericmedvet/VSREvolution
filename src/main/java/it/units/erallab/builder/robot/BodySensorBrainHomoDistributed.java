@@ -1,0 +1,184 @@
+package it.units.erallab.builder.robot;
+
+import it.units.erallab.builder.NamedProvider;
+import it.units.erallab.builder.PrototypedFunctionBuilder;
+import it.units.erallab.hmsrobots.core.controllers.DistributedSensing;
+import it.units.erallab.hmsrobots.core.controllers.RealFunction;
+import it.units.erallab.hmsrobots.core.controllers.TimedRealFunction;
+import it.units.erallab.hmsrobots.core.objects.Robot;
+import it.units.erallab.hmsrobots.core.objects.Voxel;
+import it.units.erallab.hmsrobots.core.sensors.Constant;
+import it.units.erallab.hmsrobots.core.sensors.Sensor;
+import it.units.erallab.hmsrobots.util.Grid;
+import it.units.erallab.hmsrobots.util.SerializationUtils;
+import it.units.erallab.hmsrobots.util.Utils;
+import org.apache.commons.math3.stat.descriptive.rank.Percentile;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.function.Function;
+
+/**
+ * @author eric
+ */
+public class BodySensorBrainHomoDistributed implements NamedProvider<PrototypedFunctionBuilder<List<TimedRealFunction>, Robot>> {
+  private final boolean withPositionSensors;
+
+  public BodySensorBrainHomoDistributed(boolean withPositionSensors) {
+    this.withPositionSensors = withPositionSensors;
+  }
+
+  static List<Sensor> getPrototypeSensors(Robot robot) {
+    Voxel voxelPrototype = robot.getVoxels().values().stream().filter(Objects::nonNull).findFirst().orElse(null);
+    if (voxelPrototype == null) {
+      throw new IllegalArgumentException("Target robot has no voxels");
+    }
+    if (voxelPrototype.getSensors().isEmpty()) {
+      throw new IllegalArgumentException("Target robot has no sensors");
+    }
+    if (voxelPrototype.getSensors().stream().mapToInt(s -> s.getDomains().length).distinct().count() != 1) {
+      throw new IllegalArgumentException(String.format(
+          "Target robot has sensors with different number of outputs: %s",
+          voxelPrototype.getSensors().stream().mapToInt(s -> s.getDomains().length).distinct()
+      ));
+    }
+    return voxelPrototype.getSensors();
+  }
+
+  static int indexOfMax(double[] vs) {
+    int indexOfMax = 0;
+    for (int i = 1; i < vs.length; i++) {
+      if (vs[i] > vs[indexOfMax]) {
+        indexOfMax = i;
+      }
+    }
+    return indexOfMax;
+  }
+
+  static double max(double[] vs) {
+    double max = vs[0];
+    for (int i = 1; i < vs.length; i++) {
+      max = Math.max(max, vs[i]);
+    }
+    return max;
+  }
+
+  @Override
+  public PrototypedFunctionBuilder<List<TimedRealFunction>, Robot> build(Map<String, String> params) {
+    int signals = Integer.parseInt(params.get("s"));
+    double percentile = Double.parseDouble(params.get("p"));
+    return new PrototypedFunctionBuilder<>() {
+      @Override
+      public Function<List<TimedRealFunction>, Robot> buildFor(Robot robot) {
+        int w = robot.getVoxels().getW();
+        int h = robot.getVoxels().getH();
+        List<Sensor> prototypeSensors = getPrototypeSensors(robot);
+        int nOfInputs = DistributedSensing.nOfInputs(
+            new Voxel(prototypeSensors.subList(0, 1)),
+            signals
+        ) + (withPositionSensors ? 2 : 0);
+        int nOfOutputs = DistributedSensing.nOfOutputs(new Voxel(prototypeSensors.subList(0, 1)), signals);
+        //build body
+        return pair -> {
+          if (pair.size() != 2) {
+            throw new IllegalArgumentException(String.format(
+                "Wrong number of functions: 2 expected, %d found",
+                pair.size()
+            ));
+          }
+          TimedRealFunction bodyFunction = pair.get(0);
+          TimedRealFunction brainFunction = pair.get(1);
+          //check function sizes
+          if (bodyFunction.getInputDimension() != 2 || bodyFunction.getOutputDimension() != prototypeSensors.size()) {
+            throw new IllegalArgumentException(String.format(
+                "Wrong number of body function args: 2->%d expected, %d->%d found",
+                prototypeSensors.size(),
+                bodyFunction.getInputDimension(),
+                bodyFunction.getOutputDimension()
+            ));
+          }
+          if (brainFunction.getInputDimension() != nOfInputs) {
+            throw new IllegalArgumentException(String.format(
+                "Wrong number of brain function input args: %d expected, %d found",
+                nOfInputs,
+                brainFunction.getInputDimension()
+            ));
+          }
+          if (brainFunction.getOutputDimension() != nOfOutputs) {
+            throw new IllegalArgumentException(String.format(
+                "Wrong number of brain function output args: %d expected, %d found",
+                nOfOutputs,
+                brainFunction.getOutputDimension()
+            ));
+          }
+          //build body
+          Grid<double[]> values = Grid.create(
+              w, h,
+              (x, y) -> bodyFunction.apply(
+                  0d,
+                  new double[]{(double) x / ((double) w - 1d), (double) y / ((double) h - 1d)}
+              )
+          );
+          double threshold = new Percentile().evaluate(
+              values.values().stream().mapToDouble(BodySensorBrainHomoDistributed::max).toArray(),
+              percentile
+          );
+          values = Grid.create(values, vs -> max(vs) >= threshold ? vs : null);
+          values = Utils.gridLargestConnected(values, Objects::nonNull);
+          values = Utils.cropGrid(values, Objects::nonNull);
+          Grid<Voxel> body = Grid.create(values.getW(), values.getH());
+          for (int x = 0; x < body.getW(); x++) {
+            for (int y = 0; y < body.getH(); y++) {
+              int rx = (int) Math.floor((double) x / (double) body.getW() * (double) w);
+              int ry = (int) Math.floor((double) y / (double) body.getH() * (double) h);
+              if (values.get(x, y) != null) {
+                List<Sensor> availableSensors = robot.getVoxels().get(rx, ry) != null ? robot.getVoxels()
+                    .get(rx, ry)
+                    .getSensors() : prototypeSensors;
+                body.set(x, y, new Voxel(withPositionSensors ?
+                    List.of(
+                        SerializationUtils.clone(availableSensors.get(indexOfMax(values.get(x, y)))),
+                        new Constant((double) x / ((double) body.getW() - 1d), (double) y / ((double) body.getH() - 1d))
+                    ) :
+                    List.of(
+                        SerializationUtils.clone(availableSensors.get(indexOfMax(values.get(x, y))))
+                    )
+                ));
+              }
+            }
+          }
+          if (body.values().stream().noneMatch(Objects::nonNull)) {
+            body = Grid.create(
+                1,
+                1,
+                new Voxel(List.of(SerializationUtils.clone(prototypeSensors.get(indexOfMax(values.get(0, 0))))))
+            );
+          }
+          //build brain
+          DistributedSensing controller = new DistributedSensing(body, signals);
+          for (Grid.Entry<Voxel> entry : body) {
+            if (entry.value() != null) {
+              controller.getFunctions().set(entry.key().x(), entry.key().y(), SerializationUtils.clone(brainFunction));
+            }
+          }
+          return new Robot(controller, body);
+        };
+      }
+
+      @Override
+      public List<TimedRealFunction> exampleFor(Robot robot) {
+        List<Sensor> sensors = getPrototypeSensors(robot);
+        return List.of(
+            RealFunction.build(d -> d, 2, sensors.size()),
+            RealFunction.build(
+                d -> d,
+                DistributedSensing.nOfInputs(new Voxel(sensors.subList(0, 1)), signals) + (withPositionSensors ? 2 : 0),
+                DistributedSensing.nOfOutputs(new Voxel(sensors.subList(0, 1)), signals)
+            )
+        );
+      }
+    };
+  }
+
+}

@@ -20,9 +20,7 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.Lists;
 import it.units.erallab.builder.NamedProvider;
 import it.units.erallab.builder.PrototypedFunctionBuilder;
-import it.units.erallab.builder.robot.BrainCentralized;
-import it.units.erallab.builder.robot.BrainPhaseFunction;
-import it.units.erallab.builder.robot.BrainPhaseValues;
+import it.units.erallab.builder.robot.*;
 import it.units.erallab.builder.solver.*;
 import it.units.erallab.hmsrobots.core.controllers.Controller;
 import it.units.erallab.hmsrobots.core.objects.Robot;
@@ -420,7 +418,17 @@ public class Starter extends Worker {
     NamedProvider<PrototypedFunctionBuilder<?, ?>> mapperBuilderProvider = NamedProvider.of(Map.ofEntries(
         Map.entry("brainCentralized", new BrainCentralized()),
         Map.entry("brainPhaseVals", new BrainPhaseValues()),
-        Map.entry("brainPhaseFun", new BrainPhaseFunction())
+        Map.entry("brainPhaseFun", new BrainPhaseFunction()),
+        Map.entry("brainHomoDist", new BrainHomoDistributed()),
+        Map.entry("brainHeteroDist", new BrainHeteroDistributed()),
+        Map.entry("brainAutoPoses", new BrainAutoPoses(16)),
+        Map.entry("sensorBrainAutoPoses", new SensorBrainCentralized()),
+        Map.entry("bodyBrainSin", new BodyBrainSinusoidal(EnumSet.of(
+            BodyBrainSinusoidal.Component.PHASE,
+            BodyBrainSinusoidal.Component.FREQUENCY
+        ))),
+        Map.entry("bodySensorBrainHomoDist", new BodySensorBrainHomoDistributed(false)),
+        Map.entry("bodyBrainHomoDist", new BodyBrainHomoDistributed())
     ));
     //consumers
     List<NamedFunction<? super POSetPopulationState<?, Robot, Outcome>, ?>> basicFunctions =

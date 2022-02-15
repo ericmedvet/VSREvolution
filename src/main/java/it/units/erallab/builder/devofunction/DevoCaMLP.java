@@ -2,7 +2,7 @@ package it.units.erallab.builder.devofunction;
 
 import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.erallab.builder.phenotype.MLP;
-import it.units.erallab.builder.robot.FixedHomoDistributed;
+import it.units.erallab.builder.robot.BrainHomoDistributed;
 import it.units.erallab.hmsrobots.core.controllers.AbstractController;
 import it.units.erallab.hmsrobots.core.controllers.Controller;
 import it.units.erallab.hmsrobots.core.controllers.RealFunction;
@@ -27,7 +27,7 @@ import java.util.stream.IntStream;
 public class DevoCaMLP implements PrototypedFunctionBuilder<List<Double>, UnaryOperator<Robot>> {
 
   private final MLP mlp;
-  private final FixedHomoDistributed fixedHomoDistributed;
+  private final BrainHomoDistributed fixedHomoDistributed;
   private final MLP neuralCA;
   private final int nInitial;
   private final int nStep;
@@ -37,7 +37,7 @@ public class DevoCaMLP implements PrototypedFunctionBuilder<List<Double>, UnaryO
                    double caInnerLayerRatio, int caNOfInnerLayers,
                    int nInitial, int nStep, double controllerStep) {
     mlp = new MLP(innerLayerRatio, nOfInnerLayers);
-    fixedHomoDistributed = new FixedHomoDistributed(signals);
+    fixedHomoDistributed = new BrainHomoDistributed(signals);
     neuralCA = new MLP(caInnerLayerRatio, caNOfInnerLayers);
     this.nInitial = nInitial;
     this.nStep = nStep;
