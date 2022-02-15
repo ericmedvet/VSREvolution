@@ -36,10 +36,7 @@ public class BitsStandard implements NamedProvider<SolverBuilder<BitString>> {
   }
 
   @Override
-  public SolverBuilder<BitString> build(String name, Map<String, String> params) {
-    if (!name.equals("binaryGA")) {
-      throw new IllegalArgumentException();
-    }
+  public SolverBuilder<BitString> build(Map<String, String> params) {
     int nPop = Integer.parseInt(params.get("nPop"));
     int nEval = Integer.parseInt(params.get("nEval"));
     boolean diversity = Boolean.parseBoolean(params.get("diversity"));

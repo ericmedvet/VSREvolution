@@ -10,42 +10,34 @@ public interface NamedProvider<T> {
 
   String TOKEN_SEPARATOR = ";";
   String PARAM_VALUE_SEPARATOR = "=";
+  String NAME_KEY = "NAME";
 
-  T build(String name, Map<String, String> params);
+  T build(Map<String, String> params);
 
   static <T> NamedProvider<T> empty() {
-    return (name, params) -> {
+    return params -> {
       throw new NoSuchElementException();
     };
   }
 
-  default NamedProvider<T> and(NamedProvider<? extends T> other) {
-    NamedProvider<T> thisNamedProvider = this;
-    return (name, params) -> {
-      try {
-        return thisNamedProvider.build(name,params);
-      } catch (Throwable ignored) {
-      }
-      return other.build(name, params);
-    };
-  }
-
-  default Optional<T> build(String nameAndParams) {
-    List<String> pieces = List.of(nameAndParams.split(TOKEN_SEPARATOR));
-    String name = pieces.get(0);
-    Map<String, String> params = pieces.subList(1, pieces.size()).stream()
+  default Optional<T> build(String stringParams) {
+    Map<String, String> params = Arrays.stream(stringParams.split(TOKEN_SEPARATOR))
         .map(s -> s.split(PARAM_VALUE_SEPARATOR))
         .collect(Collectors.toMap(
-            s -> s[0],
-            s -> s[1]
+            ss -> ss.length==2?ss[0]:NAME_KEY,
+            ss -> ss.length==2?ss[1]:ss[0]
         ));
     T t;
     try {
-      t = build(name, params);
+      t = build(params);
     } catch (Throwable throwable) {
       return Optional.empty();
     }
     return Optional.of(t);
+  }
+
+  static <T> NamedProvider<T> of(Map<String, NamedProvider<? extends T>> providers) {
+    return params -> providers.get(params.get(params.get(NAME_KEY))).build(params);
   }
 
 }

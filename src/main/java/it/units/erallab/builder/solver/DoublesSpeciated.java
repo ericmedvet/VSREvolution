@@ -43,10 +43,7 @@ public class DoublesSpeciated implements NamedProvider<SolverBuilder<List<Double
   }
 
   @Override
-  public SolverBuilder<List<Double>> build(String name, Map<String, String> params) {
-    if (!name.equals("numSpeciated")) {
-      throw new IllegalArgumentException();
-    }
+  public SolverBuilder<List<Double>> build(Map<String, String> params) {
     int nPop = Integer.parseInt(params.get("nPop"));
     int nEval = Integer.parseInt(params.get("nEval"));
     boolean remap = Boolean.parseBoolean(params.get("remap"));
