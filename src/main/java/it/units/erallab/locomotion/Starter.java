@@ -54,6 +54,7 @@ import java.util.function.Function;
 import java.util.random.RandomGenerator;
 import java.util.stream.Collectors;
 
+// import static it.units.erallab.locomotion.NamedFunctions.*; // TODO enable this!
 import static it.units.malelab.jgea.core.listener.NamedFunctions.f;
 import static it.units.malelab.jgea.core.listener.NamedFunctions.fitness;
 import static it.units.malelab.jgea.core.util.Args.*;
