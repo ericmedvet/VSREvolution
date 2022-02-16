@@ -123,7 +123,7 @@ public class Starter extends Worker {
   ) {
     RandomGenerator random = new Random(seed);
     robot = RobotUtils.buildRobotTransformation(transformationName, random).apply(robot);
-    return new ValidationOutcome(terrainName, transformationName, seed, Starter.buildLocomotionTask(
+    return new ValidationOutcome(terrainName, transformationName, seed, buildLocomotionTask(
             terrainName,
             episodeTime,
             random,
@@ -245,8 +245,7 @@ public class Starter extends Worker {
         )
     )));
     //consumers
-    List<NamedFunction<? super POSetPopulationState<?, Robot, Outcome>, ?>> basicFunctions =
-        NamedFunctions.basicFunctions();
+    List<NamedFunction<? super POSetPopulationState<?, Robot, Outcome>, ?>> basicFunctions = NamedFunctions.basicFunctions();
     List<NamedFunction<? super Individual<?, Robot, Outcome>, ?>> basicIndividualFunctions =
         NamedFunctions.individualFunctions(
             fitnessFunction);
@@ -280,7 +279,7 @@ public class Starter extends Worker {
           NamedFunctions.best().then(basicIndividualFunctions),
           basicOutcomeFunctions.stream().map(f -> f.of(fitness()).of(NamedFunctions.best())).toList(),
           visualOutcomeFunctions.stream().map(f -> f.of(fitness()).of(NamedFunctions.best())).toList()
-      )), NamedFunctions.keysFunctions()));
+      )), List.of()));
     }
     //file listeners
     if (lastFileName != null) {
@@ -357,7 +356,7 @@ public class Starter extends Worker {
           NamedFunctions.lastEventToString(fitnessFunction),
           NamedFunctions.fitnessPlot(fitnessFunction),
           NamedFunctions.centerPositionPlot(),
-          NamedFunctions.bestVideo(videoEpisodeTransientTime, videoEpisodeTime, PHYSICS_SETTINGS)
+          NamedFunctions.bestVideo(videoEpisodeTransientTime, videoEpisodeTime)
       ), telegramBotId, telegramChatId));
       progressMonitor = progressMonitor.and(new TelegramProgressMonitor(telegramBotId, telegramChatId));
     }
@@ -365,7 +364,7 @@ public class Starter extends Worker {
         factories);
     //summarize params
     L.info("Experiment name: " + experimentName);
-    L.info("Evolvers: " + solverNames);
+    L.info("Solvers: " + solverNames);
     L.info("Mappers: " + mapperNames);
     L.info("Shapes: " + targetShapeNames);
     L.info("Sensor configs: " + targetSensorConfigNames);

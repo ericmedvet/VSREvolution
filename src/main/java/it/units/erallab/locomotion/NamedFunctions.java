@@ -77,7 +77,7 @@ public class NamedFunctions {
   }
 
   public static AccumulatorFactory<POSetPopulationState<?, Robot, Outcome>, File, Map<String, Object>> bestVideo(
-      double transientTime, double episodeTime, Settings settings
+      double transientTime, double episodeTime
   ) {
     return AccumulatorFactory.last((state, keys) -> {
       Random random = new Random(0);
@@ -88,7 +88,7 @@ public class NamedFunctions {
       Locomotion locomotion = new Locomotion(
           episodeTime,
           Locomotion.createTerrain(terrainName.replace("-rnd", "-" + random.nextInt(10000))),
-          settings
+          Starter.PHYSICS_SETTINGS
       );
       File file;
       try {
