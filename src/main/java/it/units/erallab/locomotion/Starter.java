@@ -54,7 +54,7 @@ import java.util.function.Function;
 import java.util.random.RandomGenerator;
 import java.util.stream.Collectors;
 
-// import static it.units.erallab.locomotion.NamedFunctions.*; // TODO enable this!
+import static it.units.erallab.locomotion.NamedFunctions.*;
 import static it.units.malelab.jgea.core.listener.NamedFunctions.f;
 import static it.units.malelab.jgea.core.listener.NamedFunctions.fitness;
 import static it.units.malelab.jgea.core.util.Args.*;
@@ -246,25 +246,25 @@ public class Starter extends Worker {
         )
     )));
     //consumers
-    List<NamedFunction<? super POSetPopulationState<?, Robot, Outcome>, ?>> basicFunctions = NamedFunctions.basicFunctions();
+    List<NamedFunction<? super POSetPopulationState<?, Robot, Outcome>, ?>> basicFunctions = basicFunctions();
     List<NamedFunction<? super Individual<?, Robot, Outcome>, ?>> basicIndividualFunctions =
-        NamedFunctions.individualFunctions(
+        individualFunctions(
             fitnessFunction);
     List<NamedFunction<? super POSetPopulationState<?, Robot, Outcome>, ?>> populationFunctions =
-        NamedFunctions.populationFunctions(
+        populationFunctions(
             fitnessFunction);
     List<NamedFunction<? super POSetPopulationState<?, Robot, Outcome>, ?>> visualFunctions = Misc.concat(List.of(
-        NamedFunctions.visualPopulationFunctions(fitnessFunction),
-        detailedOutput ? NamedFunctions.best().then(NamedFunctions.visualIndividualFunctions()) : List.of()
+        visualPopulationFunctions(fitnessFunction),
+        detailedOutput ? best().then(visualIndividualFunctions()) : List.of()
     ));
-    List<NamedFunction<? super Outcome, ?>> basicOutcomeFunctions = NamedFunctions.basicOutcomeFunctions();
-    List<NamedFunction<? super Outcome, ?>> detailedOutcomeFunctions = NamedFunctions.detailedOutcomeFunctions(
+    List<NamedFunction<? super Outcome, ?>> basicOutcomeFunctions = basicOutcomeFunctions();
+    List<NamedFunction<? super Outcome, ?>> detailedOutcomeFunctions = detailedOutcomeFunctions(
         spectrumMinFreq,
         spectrumMaxFreq,
         spectrumSize
     );
     List<NamedFunction<? super Outcome, ?>> visualOutcomeFunctions = detailedOutput ?
-        NamedFunctions.visualOutcomeFunctions(
+        visualOutcomeFunctions(
             spectrumMinFreq,
             spectrumMaxFreq
         ) : List.of();
@@ -277,9 +277,9 @@ public class Starter extends Worker {
           basicFunctions,
           populationFunctions,
           visualFunctions,
-          NamedFunctions.best().then(basicIndividualFunctions),
-          basicOutcomeFunctions.stream().map(f -> f.of(fitness()).of(NamedFunctions.best())).toList(),
-          visualOutcomeFunctions.stream().map(f -> f.of(fitness()).of(NamedFunctions.best())).toList()
+          best().then(basicIndividualFunctions),
+          basicOutcomeFunctions.stream().map(f -> f.of(fitness()).of(best())).toList(),
+          visualOutcomeFunctions.stream().map(f -> f.of(fitness()).of(best())).toList()
       )), List.of()));
     }
     //file listeners
@@ -287,45 +287,45 @@ public class Starter extends Worker {
       factories.add(new CSVPrinter<>(Misc.concat(List.of(
           basicFunctions,
           populationFunctions,
-          NamedFunctions.best().then(basicIndividualFunctions),
-          basicOutcomeFunctions.stream().map(f -> f.of(fitness()).of(NamedFunctions.best())).toList(),
-          detailedOutcomeFunctions.stream().map(f -> f.of(fitness()).of(NamedFunctions.best())).toList(),
-          NamedFunctions.best().then(NamedFunctions.serializationFunction(serializationFlags.contains("last")))
-      )), NamedFunctions.keysFunctions(), new File(lastFileName)).onLast());
+          best().then(basicIndividualFunctions),
+          basicOutcomeFunctions.stream().map(f -> f.of(fitness()).of(best())).toList(),
+          detailedOutcomeFunctions.stream().map(f -> f.of(fitness()).of(best())).toList(),
+          best().then(serializationFunction(serializationFlags.contains("last")))
+      )), keysFunctions(), new File(lastFileName)).onLast());
     }
     if (bestFileName != null) {
       factories.add(new CSVPrinter<>(Misc.concat(List.of(
           basicFunctions,
           populationFunctions,
-          NamedFunctions.best().then(basicIndividualFunctions),
-          basicOutcomeFunctions.stream().map(f -> f.of(fitness()).of(NamedFunctions.best())).toList(),
-          detailedOutcomeFunctions.stream().map(f -> f.of(fitness()).of(NamedFunctions.best())).toList(),
-          NamedFunctions.best().then(NamedFunctions.serializationFunction(serializationFlags.contains("last")))
-      )), NamedFunctions.keysFunctions(), new File(bestFileName)));
+          best().then(basicIndividualFunctions),
+          basicOutcomeFunctions.stream().map(f -> f.of(fitness()).of(best())).toList(),
+          detailedOutcomeFunctions.stream().map(f -> f.of(fitness()).of(best())).toList(),
+          best().then(serializationFunction(serializationFlags.contains("last")))
+      )), keysFunctions(), new File(bestFileName)));
     }
     if (allFileName != null) {
       List<NamedFunction<? super Pair<POSetPopulationState<?, Robot, Outcome>, Individual<?, Robot, Outcome>>, ?>> functions = new ArrayList<>();
-      functions.addAll(NamedFunctions.stateExtractor().then(basicFunctions));
-      functions.addAll(NamedFunctions.individualExtractor().then(basicIndividualFunctions));
-      functions.addAll(NamedFunctions.individualExtractor()
-          .then(NamedFunctions.serializationFunction(serializationFlags.contains("final"))));
+      functions.addAll(stateExtractor().then(basicFunctions));
+      functions.addAll(individualExtractor().then(basicIndividualFunctions));
+      functions.addAll(individualExtractor()
+          .then(serializationFunction(serializationFlags.contains("final"))));
       factories.add(new CSVPrinter<>(
           functions,
-          NamedFunctions.keysFunctions(),
+          keysFunctions(),
           new File(allFileName)
-      ).forEach(NamedFunctions.populationSplitter()));
+      ).forEach(populationSplitter()));
     }
     if (finalFileName != null) {
       List<NamedFunction<? super Pair<POSetPopulationState<?, Robot, Outcome>, Individual<?, Robot, Outcome>>, ?>> functions = new ArrayList<>();
-      functions.addAll(NamedFunctions.stateExtractor().then(basicFunctions));
-      functions.addAll(NamedFunctions.individualExtractor().then(basicIndividualFunctions));
-      functions.addAll(NamedFunctions.individualExtractor()
-          .then(NamedFunctions.serializationFunction(serializationFlags.contains("final"))));
+      functions.addAll(stateExtractor().then(basicFunctions));
+      functions.addAll(individualExtractor().then(basicIndividualFunctions));
+      functions.addAll(individualExtractor()
+          .then(serializationFunction(serializationFlags.contains("final"))));
       factories.add(new CSVPrinter<>(
           functions,
-          NamedFunctions.keysFunctions(),
+          keysFunctions(),
           new File(finalFileName)
-      ).forEach(NamedFunctions.populationSplitter()).onLast());
+      ).forEach(populationSplitter()).onLast());
     }
     //validation listener
     if (validationFileName != null) {
@@ -341,9 +341,9 @@ public class Starter extends Worker {
       functions.add(f("validation.seed", ValidationOutcome::seed));
       functions.addAll(f("validation.outcome", ValidationOutcome::outcome).then(basicOutcomeFunctions));
       functions.addAll(f("validation.outcome", ValidationOutcome::outcome).then(detailedOutcomeFunctions));
-      factories.add(new CSVPrinter<>(functions, NamedFunctions.keysFunctions(), new File(validationFileName)).forEach(
-          NamedFunctions.best()
-              .andThen(NamedFunctions.validation(
+      factories.add(new CSVPrinter<>(functions, keysFunctions(), new File(validationFileName)).forEach(
+          best()
+              .andThen(validation(
                   validationTerrainNames,
                   validationTransformationNames,
                   List.of(0),
@@ -354,10 +354,10 @@ public class Starter extends Worker {
     //telegram listener
     if (telegramBotId != null && telegramChatId != 0) {
       factories.add(new TelegramUpdater<>(List.of(
-          NamedFunctions.lastEventToString(fitnessFunction),
-          NamedFunctions.fitnessPlot(fitnessFunction),
-          NamedFunctions.centerPositionPlot(),
-          NamedFunctions.bestVideo(videoEpisodeTransientTime, videoEpisodeTime)
+          lastEventToString(fitnessFunction),
+          fitnessPlot(fitnessFunction),
+          centerPositionPlot(),
+          bestVideo(videoEpisodeTransientTime, videoEpisodeTime)
       ), telegramBotId, telegramChatId));
       progressMonitor = progressMonitor.and(new TelegramProgressMonitor(telegramBotId, telegramChatId));
     }

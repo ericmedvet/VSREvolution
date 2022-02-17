@@ -404,9 +404,9 @@ public class Starter extends Worker {
       factories.add(new TabularPrinter<>(Misc.concat(List.of(
           basicFunctions,
           populationFunctions,
-          NamedFunctions.best().then(basicIndividualFunctions),
-          NamedFunctions.best().then(visualIndividualFunctions),
-          outcomesFunctions(false).stream().map(f -> f.of(fitness()).of(NamedFunctions.best())).toList()
+          best().then(basicIndividualFunctions),
+          best().then(visualIndividualFunctions),
+          outcomesFunctions(false).stream().map(f -> f.of(fitness()).of(best())).toList()
       )), List.of()));
     }
     //file listeners
@@ -414,21 +414,21 @@ public class Starter extends Worker {
       factories.add(new CSVPrinter<>(Misc.concat(List.of(
           basicFunctions,
           populationFunctions,
-          NamedFunctions.best().then(basicIndividualFunctions),
+          best().then(basicIndividualFunctions),
           outcomesFunctions(serializationFlags.contains("last")).stream()
-              .map(f -> f.of(fitness()).of(NamedFunctions.best()))
+              .map(f -> f.of(fitness()).of(best()))
               .toList()
-      )), NamedFunctions.keysFunctions(), new File(lastFileName)).onLast());
+      )), keysFunctions(), new File(lastFileName)).onLast());
     }
     if (bestFileName != null) {
       factories.add(new CSVPrinter<>(Misc.concat(List.of(
           basicFunctions,
           populationFunctions,
-          NamedFunctions.best().then(basicIndividualFunctions),
+          best().then(basicIndividualFunctions),
           outcomesFunctions(serializationFlags.contains("best")).stream()
-              .map(f -> f.of(fitness()).of(NamedFunctions.best()))
+              .map(f -> f.of(fitness()).of(best()))
               .toList()
-      )), NamedFunctions.keysFunctions(), new File(bestFileName)));
+      )), keysFunctions(), new File(bestFileName)));
     }
     //validation listener
     if (validationFileName != null) {
@@ -442,8 +442,8 @@ public class Starter extends Worker {
           "validation.outcome",
           ValidationOutcome::outcome
       ).then(outcomesFunctions(serializationFlags.contains("validation"))));
-      factories.add(new CSVPrinter<>(functions, NamedFunctions.keysFunctions(), new File(validationFileName)).forEach(
-          NamedFunctions.best().andThen(NamedFunctions.validation(
+      factories.add(new CSVPrinter<>(functions, keysFunctions(), new File(validationFileName)).forEach(
+          best().andThen(validation(
               validationTerrainNames,
               List.of(0),
               validationStageMinDistance,

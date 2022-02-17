@@ -1,5 +1,6 @@
 package it.units.erallab.builder.devofunction;
 
+import it.units.erallab.builder.NamedProvider;
 import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.erallab.builder.function.MLP;
 import it.units.erallab.builder.robot.BrainHomoDistributed;
@@ -24,7 +25,7 @@ import java.util.stream.IntStream;
 /**
  * @author "Eric Medvet" on 2021/09/29 for VSREvolution
  */
-public class DevoCaMLP implements PrototypedFunctionBuilder<List<Double>, UnaryOperator<Robot>> {
+public class DevoCaMLP implements NamedProvider<PrototypedFunctionBuilder<List<Double>, UnaryOperator<Robot>>> {
 
   private final MLP mlp;
   private final BrainHomoDistributed fixedHomoDistributed;
@@ -33,8 +34,9 @@ public class DevoCaMLP implements PrototypedFunctionBuilder<List<Double>, UnaryO
   private final int nStep;
   private final double controllerStep;
 
-  public DevoCaMLP(double innerLayerRatio, int nOfInnerLayers, int signals,
-                   double caInnerLayerRatio, int caNOfInnerLayers,
+  public DevoCaMLP(
+      double innerLayerRatio, int nOfInnerLayers, int signals,
+      double caInnerLayerRatio, int caNOfInnerLayers,
                    int nInitial, int nStep, double controllerStep) {
     mlp = new MLP(innerLayerRatio, nOfInnerLayers);
     fixedHomoDistributed = new BrainHomoDistributed(signals);
