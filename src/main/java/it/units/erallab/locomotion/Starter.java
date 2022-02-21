@@ -126,10 +126,9 @@ public class Starter extends Worker {
     List<String> springF = l(a("springF", ""));
     List<String> springD = l(a("springD", ""));
     List<String> friction = l(a("friction", ""));
-    List<String> passiveDelta = l(a("passiveDelta", ""));
     List<String> activeDelta = l(a("activeDelta", ""));
-    List<String> propertyNames = List.of("springF", "springD", "friction", "passiveDelta", "activeDelta");
-    List<List<String>> propertyValues = List.of(springF, springD, friction, passiveDelta, activeDelta);
+    List<String> propertyNames = List.of("springF", "springD", "friction", "activeDelta");
+    List<List<String>> propertyValues = List.of(springF, springD, friction, activeDelta);
     List<Map<String, Double>> voxelPropertiesCombinations = buildVoxelPropertiesCombinations(propertyNames, propertyValues);
 
     //consumers
@@ -610,13 +609,6 @@ public class Starter extends Worker {
     double springF = voxelProperties.getOrDefault("springF", Voxel.SPRING_F);
     double springD = voxelProperties.getOrDefault("springD", Voxel.SPRING_D);
     double friction = voxelProperties.getOrDefault("friction", Voxel.FRICTION);
-    DoubleRange areaRatioPassiveRange;
-    if (voxelProperties.containsKey("passiveDelta")) {
-      double passiveDelta = voxelProperties.get("passiveDelta");
-      areaRatioPassiveRange = DoubleRange.of(1 - passiveDelta, 1 + passiveDelta);
-    } else {
-      areaRatioPassiveRange = Voxel.AREA_RATIO_PASSIVE_RANGE;
-    }
     DoubleRange areaRatioActiveRange;
     if (voxelProperties.containsKey("activeDelta")) {
       double activeDelta = voxelProperties.get("activeDelta");
@@ -634,7 +626,7 @@ public class Starter extends Worker {
         friction,
         Voxel.RESTITUTION,
         Voxel.MASS,
-        areaRatioPassiveRange,
+        Voxel.AREA_RATIO_PASSIVE_RANGE,
         areaRatioActiveRange,
         Voxel.SPRING_SCAFFOLDINGS,
         v.getSensors()
