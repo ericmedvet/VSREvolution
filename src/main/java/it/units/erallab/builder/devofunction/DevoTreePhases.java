@@ -1,5 +1,6 @@
 package it.units.erallab.builder.devofunction;
 
+import it.units.erallab.builder.NamedProvider;
 import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.erallab.hmsrobots.core.controllers.AbstractController;
 import it.units.erallab.hmsrobots.core.controllers.Controller;
@@ -13,6 +14,7 @@ import it.units.malelab.jgea.representation.tree.Tree;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
@@ -20,7 +22,7 @@ import java.util.function.UnaryOperator;
 /**
  * @author "Eric Medvet" on 2021/09/29 for VSREvolution
  */
-public class DevoTreePhases implements PrototypedFunctionBuilder<Tree<Pair<Double, Double>>, UnaryOperator<Robot>> {
+public class DevoTreePhases implements NamedProvider<PrototypedFunctionBuilder<Tree<Pair<Double, Double>>, UnaryOperator<Robot>>> {
 
   private static class DecoratedRobot extends Robot {
     private final Tree<DecoratedValue> developmentTree;
@@ -61,76 +63,68 @@ public class DevoTreePhases implements PrototypedFunctionBuilder<Tree<Pair<Doubl
     }
   }
 
-  private final double frequency;
-  private final double amplitude;
-  protected final int nInitial;
-  protected final int nStep;
-  private final double controllerStep;
-
-  public DevoTreePhases(double frequency, double amplitude, int nInitial, int nStep, double controllerStep) {
-    this.frequency = frequency;
-    this.amplitude = amplitude;
-    this.nInitial = nInitial;
-    this.nStep = nStep;
-    this.controllerStep = controllerStep;
-  }
-
-  public DevoTreePhases(double frequency, double amplitude, int nInitial, int nStep) {
-    this(frequency, amplitude, nInitial, nStep, 0d);
-  }
-
   @Override
-  public Function<Tree<Pair<Double, Double>>, UnaryOperator<Robot>> buildFor(UnaryOperator<Robot> robotUnaryOperator) {
-    Robot target = robotUnaryOperator.apply(null);
-    Voxel voxelPrototype = target.getVoxels().values().stream().filter(Objects::nonNull).findFirst().orElse(null);
-    if (voxelPrototype == null) {
-      throw new IllegalArgumentException("Target robot has no valid voxels");
-    }
-    return doubleTree -> previous -> {
-      int n;
-      Tree<DecoratedValue> devoTree;
-      if (previous == null) {
-        devoTree = Tree.map(doubleTree, p -> new DecoratedValue(0, 0, p.first(), p.second(), false));
-        n = nInitial;
-      } else {
-        if (!(previous instanceof DecoratedRobot)) {
-          throw new IllegalArgumentException("Previous robot is not decorated with devo tree; cannot develop");
+  public PrototypedFunctionBuilder<Tree<Pair<Double, Double>>, UnaryOperator<Robot>> build(Map<String, String> params) {
+    double frequency = Double.parseDouble(params.getOrDefault("f", "1"));
+    double amplitude = Double.parseDouble(params.getOrDefault("a", "1"));
+    int nInitial = Integer.parseInt(params.get("s0"));
+    int nStep = Integer.parseInt(params.get("nS"));
+    double controllerStep = Double.parseDouble(params.getOrDefault("st", "0"));
+    return new PrototypedFunctionBuilder<>() {
+      @Override
+      public Function<Tree<Pair<Double, Double>>, UnaryOperator<Robot>> buildFor(UnaryOperator<Robot> robotUnaryOperator) {
+        Robot target = robotUnaryOperator.apply(null);
+        Voxel voxelPrototype = target.getVoxels().values().stream().filter(Objects::nonNull).findFirst().orElse(null);
+        if (voxelPrototype == null) {
+          throw new IllegalArgumentException("Target robot has no valid voxels");
         }
-        devoTree = ((DecoratedRobot) previous).developmentTree;
-        n = countEnabled(devoTree) + nStep;
+        return doubleTree -> previous -> {
+          int n;
+          Tree<DecoratedValue> devoTree;
+          if (previous == null) {
+            devoTree = Tree.map(doubleTree, p -> new DecoratedValue(0, 0, p.first(), p.second(), false));
+            n = nInitial;
+          } else {
+            if (!(previous instanceof DecoratedRobot)) {
+              throw new IllegalArgumentException("Previous robot is not decorated with devo tree; cannot develop");
+            }
+            devoTree = ((DecoratedRobot) previous).developmentTree;
+            n = countEnabled(devoTree) + nStep;
+          }
+          Comparator<Tree<DecoratedValue>> contentComparator = Comparator.comparingDouble(t -> t.content().value);
+          develop(devoTree, contentComparator.reversed(), n);
+          int maxX = devoTree.topSubtrees().stream().mapToInt(t -> t.content().x).max().orElse(0);
+          int maxY = devoTree.topSubtrees().stream().mapToInt(t -> t.content().y).max().orElse(0);
+          Grid<Boolean> shape = Grid.create(maxX + 1, maxY + 1, false);
+          Grid<Double> phases = Grid.create(maxX + 1, maxY + 1, 0d);
+          devoTree.topSubtrees().stream().filter(t -> t.content().enabled).forEach(t -> {
+            shape.set(t.content().x, t.content().y, true);
+            phases.set(t.content().x, t.content().y, t.content().phase);
+          });
+          Grid<Voxel> body = Grid.create(shape, b -> b ? SerializationUtils.clone(voxelPrototype) : null);
+          if (body.values().stream().noneMatch(Objects::nonNull)) {
+            body = Grid.create(1, 1, SerializationUtils.clone(voxelPrototype));
+          }
+          //build controller
+          Robot robot = new Robot(Controller.empty(), body);
+          double localAmplitude = amplitude;
+          double localFrequency = frequency;
+          AbstractController controller = new TimeFunctions(Grid.create(phases.getW(),
+              phases.getH(),
+              (x, y) -> t -> localAmplitude * Math.sin(2 * Math.PI * localFrequency * t + phases.get(x, y))
+          ));
+          if (controllerStep > 0) {
+            controller = controller.step(controllerStep);
+          }
+          return new DecoratedRobot(controller, robot.getVoxels(), devoTree);
+        };
       }
-      Comparator<Tree<DecoratedValue>> contentComparator = Comparator.comparingDouble(t -> t.content().value);
-      develop(devoTree, contentComparator.reversed(), n);
-      int maxX = devoTree.topSubtrees().stream().mapToInt(t -> t.content().x).max().orElse(0);
-      int maxY = devoTree.topSubtrees().stream().mapToInt(t -> t.content().y).max().orElse(0);
-      Grid<Boolean> shape = Grid.create(maxX + 1, maxY + 1, false);
-      Grid<Double> phases = Grid.create(maxX + 1, maxY + 1, 0d);
-      devoTree.topSubtrees().stream().filter(t -> t.content().enabled).forEach(t -> {
-        shape.set(t.content().x, t.content().y, true);
-        phases.set(t.content().x, t.content().y, t.content().phase);
-      });
-      Grid<Voxel> body = Grid.create(shape, b -> b ? SerializationUtils.clone(voxelPrototype) : null);
-      if (body.values().stream().noneMatch(Objects::nonNull)) {
-        body = Grid.create(1, 1, SerializationUtils.clone(voxelPrototype));
-      }
-      //build controller
-      Robot robot = new Robot(Controller.empty(), body);
-      double localAmplitude = amplitude;
-      double localFrequency = frequency;
-      AbstractController controller = new TimeFunctions(Grid.create(phases.getW(),
-          phases.getH(),
-          (x, y) -> t -> localAmplitude * Math.sin(2 * Math.PI * localFrequency * t + phases.get(x, y))
-      ));
-      if (controllerStep > 0) {
-        controller = controller.step(controllerStep);
-      }
-      return new DecoratedRobot(controller, robot.getVoxels(), devoTree);
-    };
-  }
 
-  @Override
-  public Tree<Pair<Double, Double>> exampleFor(UnaryOperator<Robot> robotUnaryOperator) {
-    return Tree.of(Pair.of(0d, 0d));
+      @Override
+      public Tree<Pair<Double, Double>> exampleFor(UnaryOperator<Robot> robotUnaryOperator) {
+        return Tree.of(Pair.of(0d, 0d));
+      }
+    };
   }
 
   private static void develop(Tree<DecoratedValue> tree, Comparator<Tree<DecoratedValue>> comparator, int n) {

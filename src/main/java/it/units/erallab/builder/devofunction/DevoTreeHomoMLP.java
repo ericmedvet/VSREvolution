@@ -1,5 +1,6 @@
 package it.units.erallab.builder.devofunction;
 
+import it.units.erallab.builder.NamedProvider;
 import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.erallab.builder.function.MLP;
 import it.units.erallab.builder.robot.BrainHomoDistributed;
@@ -15,6 +16,7 @@ import it.units.malelab.jgea.representation.tree.Tree;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
@@ -22,7 +24,7 @@ import java.util.function.UnaryOperator;
 /**
  * @author "Eric Medvet" on 2021/09/29 for VSREvolution
  */
-public class DevoTreeHomoMLP implements PrototypedFunctionBuilder<Pair<Tree<Double>, List<Double>>, UnaryOperator<Robot>> {
+public class DevoTreeHomoMLP implements NamedProvider<PrototypedFunctionBuilder<Pair<Tree<Double>, List<Double>>, UnaryOperator<Robot>>> {
 
   protected static class DecoratedRobot extends Robot {
     private final Tree<DecoratedValue> developmentTree;
@@ -64,115 +66,112 @@ public class DevoTreeHomoMLP implements PrototypedFunctionBuilder<Pair<Tree<Doub
     }
   }
 
-  protected final MLP mlp;
-  protected final BrainHomoDistributed fixedHomoDistributed;
-  protected final int nInitial;
-  protected final int nStep;
-  private final double controllerStep;
-
-  public DevoTreeHomoMLP(
-      double innerLayerRatio, int nOfInnerLayers, int signals, int nInitial, int nStep, double controllerStep
-  ) {
-    mlp = new MLP(innerLayerRatio, nOfInnerLayers);
-    fixedHomoDistributed = new BrainHomoDistributed(signals);
-    this.nInitial = nInitial;
-    this.nStep = nStep;
-    this.controllerStep = controllerStep;
-  }
-
-  public DevoTreeHomoMLP(double innerLayerRatio, int nOfInnerLayers, int signals, int nInitial, int nStep) {
-    this(innerLayerRatio, nOfInnerLayers, signals, nInitial, nStep, 0d);
-  }
-
   @Override
-  public Function<Pair<Tree<Double>, List<Double>>, UnaryOperator<Robot>> buildFor(UnaryOperator<Robot> robotUnaryOperator) {
-    Robot target = robotUnaryOperator.apply(null);
-    Voxel voxelPrototype = target.getVoxels().values().stream().filter(Objects::nonNull).findFirst().orElse(null);
-    if (voxelPrototype == null) {
-      throw new IllegalArgumentException("Target robot has no valid voxels");
-    }
-    int mlpValuesSize = mlp.exampleFor(fixedHomoDistributed.exampleFor(target)).size();
-    return pair -> {
-      Tree<Double> tree = pair.first();
-      List<Double> list = pair.second();
-      //check values size
-      if (list.size() != mlpValuesSize) {
-        throw new IllegalArgumentException(String.format(
-            "Wrong values size: %d expected, %d found",
-            mlpValuesSize,
-            list.size()
-        ));
-      }
-      return previous -> {
-        int n;
-        Tree<DecoratedValue> devoTree;
-        if (previous == null) {
-          devoTree = Tree.map(tree, v -> new DecoratedValue(0, 0, v, false));
-          n = nInitial;
-        } else {
-          if (!(previous instanceof DecoratedRobot)) {
-            throw new IllegalArgumentException("Previous robot is not decorated with devo tree; cannot develop");
+  public PrototypedFunctionBuilder<Pair<Tree<Double>, List<Double>>, UnaryOperator<Robot>> build(Map<String, String> params) {
+    PrototypedFunctionBuilder<List<Double>, TimedRealFunction> mlp = (new MLP()).build(
+        Map.of("r", params.get("r"),
+            "nIL", params.get("nIL")
+        )
+    );
+    PrototypedFunctionBuilder<TimedRealFunction, Robot> fixedHomoDistributed = (new BrainHomoDistributed()).build(
+        Map.of("s", params.get("s")
+        )
+    );
+    int nInitial = Integer.parseInt(params.get("s0"));
+    int nStep = Integer.parseInt(params.get("nS"));
+    double controllerStep = Double.parseDouble(params.getOrDefault("st", "0"));
+    return new PrototypedFunctionBuilder<>() {
+      @Override
+      public Function<Pair<Tree<Double>, List<Double>>, UnaryOperator<Robot>> buildFor(UnaryOperator<Robot> robotUnaryOperator) {
+        Robot target = robotUnaryOperator.apply(null);
+        Voxel voxelPrototype = target.getVoxels().values().stream().filter(Objects::nonNull).findFirst().orElse(null);
+        if (voxelPrototype == null) {
+          throw new IllegalArgumentException("Target robot has no valid voxels");
+        }
+        int mlpValuesSize = mlp.exampleFor(fixedHomoDistributed.exampleFor(target)).size();
+        return pair -> {
+          Tree<Double> tree = pair.first();
+          List<Double> list = pair.second();
+          //check values size
+          if (list.size() != mlpValuesSize) {
+            throw new IllegalArgumentException(String.format(
+                "Wrong values size: %d expected, %d found",
+                mlpValuesSize,
+                list.size()
+            ));
           }
-          devoTree = ((DecoratedRobot) previous).getDevelopmentTree();
-          n = countEnabled(devoTree) + nStep;
-        }
-        develop(devoTree, getComparator(true, previous), n);
-        int maxX = devoTree.topSubtrees().stream().mapToInt(t -> t.content().x).max().orElse(0);
-        int maxY = devoTree.topSubtrees().stream().mapToInt(t -> t.content().y).max().orElse(0);
-        Grid<Boolean> shape = Grid.create(maxX + 1, maxY + 1, false);
-        devoTree.topSubtrees()
-            .stream()
-            .filter(t -> t.content().enabled)
-            .forEach(t -> shape.set(t.content().x, t.content().y, true));
-        Grid<Voxel> body = Grid.create(shape, b -> b ? SerializationUtils.clone(voxelPrototype) : null);
-        if (body.values().stream().noneMatch(Objects::nonNull)) {
-          body = Grid.create(1, 1, SerializationUtils.clone(voxelPrototype));
-        }
-        //build controller
-        Robot robot = new Robot(Controller.empty(), body);
-        TimedRealFunction timedRealFunction = mlp.buildFor(fixedHomoDistributed.exampleFor(target)).apply(list);
-        AbstractController controller = (AbstractController) fixedHomoDistributed.buildFor(robot)
-            .apply(timedRealFunction)
-            .getController();
-        if (controllerStep > 0) {
-          controller = controller.step(controllerStep);
-        }
-        return new DecoratedRobot(controller, robot.getVoxels(), devoTree);
-      };
-    };
-  }
-
-  @Override
-  public Pair<Tree<Double>, List<Double>> exampleFor(UnaryOperator<Robot> robotUnaryOperator) {
-    Robot target = robotUnaryOperator.apply(null);
-    return Pair.of(Tree.of(0d), mlp.exampleFor(fixedHomoDistributed.exampleFor(target)));
-  }
-
-  private static void develop(Tree<DecoratedValue> tree, Comparator<Tree<DecoratedValue>> comparator, int n) {
-    decorate(tree);
-    while (countEnabled(tree) < n) {
-      List<Tree<DecoratedValue>> subtrees = tree.topSubtrees()
-          .stream()
-          .filter(t -> (t.parent() == null) || (t.parent().content().enabled)) // consider only close to enabled
-          .filter(t -> !t.content().enabled) // consider only not already enabled
-          .filter( // consider only those for which there is not one already enabled
-              tt -> tree.topSubtrees()
-                  .stream()
-                  .filter(t -> t.content().enabled)
-                  .noneMatch(t -> t.content().x == tt.content().x && t.content().y == tt.content().y))
-          .sorted(comparator).toList();
-      if (subtrees.isEmpty()) {
-        break;
+          return previous -> {
+            int n;
+            Tree<DecoratedValue> devoTree;
+            if (previous == null) {
+              devoTree = Tree.map(tree, v -> new DecoratedValue(0, 0, v, false));
+              n = nInitial;
+            } else {
+              if (!(previous instanceof DecoratedRobot)) {
+                throw new IllegalArgumentException("Previous robot is not decorated with devo tree; cannot develop");
+              }
+              devoTree = ((DecoratedRobot) previous).getDevelopmentTree();
+              n = countEnabled(devoTree) + nStep;
+            }
+            develop(devoTree, getComparator(true, previous), n);
+            int maxX = devoTree.topSubtrees().stream().mapToInt(t -> t.content().x).max().orElse(0);
+            int maxY = devoTree.topSubtrees().stream().mapToInt(t -> t.content().y).max().orElse(0);
+            Grid<Boolean> shape = Grid.create(maxX + 1, maxY + 1, false);
+            devoTree.topSubtrees()
+                .stream()
+                .filter(t -> t.content().enabled)
+                .forEach(t -> shape.set(t.content().x, t.content().y, true));
+            Grid<Voxel> body = Grid.create(shape, b -> b ? SerializationUtils.clone(voxelPrototype) : null);
+            if (body.values().stream().noneMatch(Objects::nonNull)) {
+              body = Grid.create(1, 1, SerializationUtils.clone(voxelPrototype));
+            }
+            //build controller
+            Robot robot = new Robot(Controller.empty(), body);
+            TimedRealFunction timedRealFunction = mlp.buildFor(fixedHomoDistributed.exampleFor(target)).apply(list);
+            AbstractController controller = (AbstractController) fixedHomoDistributed.buildFor(robot)
+                .apply(timedRealFunction)
+                .getController();
+            if (controllerStep > 0) {
+              controller = controller.step(controllerStep);
+            }
+            return new DecoratedRobot(controller, robot.getVoxels(), devoTree);
+          };
+        };
       }
-      subtrees.get(0).content().enabled = true;
-    }
-    //adjust coords
-    int minX = tree.topSubtrees().stream().mapToInt(t -> t.content().x).min().orElse(0);
-    int minY = tree.topSubtrees().stream().mapToInt(t -> t.content().y).min().orElse(0);
-    tree.topSubtrees().forEach(t -> {
-      t.content().x = t.content().x - minX;
-      t.content().y = t.content().y - minY;
-    });
+
+      @Override
+      public Pair<Tree<Double>, List<Double>> exampleFor(UnaryOperator<Robot> robotUnaryOperator) {
+        Robot target = robotUnaryOperator.apply(null);
+        return Pair.of(Tree.of(0d), mlp.exampleFor(fixedHomoDistributed.exampleFor(target)));
+      }
+
+      private static void develop(Tree<DecoratedValue> tree, Comparator<Tree<DecoratedValue>> comparator, int n) {
+        decorate(tree);
+        while (countEnabled(tree) < n) {
+          List<Tree<DecoratedValue>> subtrees = tree.topSubtrees()
+              .stream()
+              .filter(t -> (t.parent() == null) || (t.parent().content().enabled)) // consider only close to enabled
+              .filter(t -> !t.content().enabled) // consider only not already enabled
+              .filter( // consider only those for which there is not one already enabled
+                  tt -> tree.topSubtrees()
+                      .stream()
+                      .filter(t -> t.content().enabled)
+                      .noneMatch(t -> t.content().x == tt.content().x && t.content().y == tt.content().y))
+              .sorted(comparator).toList();
+          if (subtrees.isEmpty()) {
+            break;
+          }
+          subtrees.get(0).content().enabled = true;
+        }
+        //adjust coords
+        int minX = tree.topSubtrees().stream().mapToInt(t -> t.content().x).min().orElse(0);
+        int minY = tree.topSubtrees().stream().mapToInt(t -> t.content().y).min().orElse(0);
+        tree.topSubtrees().forEach(t -> {
+          t.content().x = t.content().x - minX;
+          t.content().y = t.content().y - minY;
+        });
+      }
+    };
   }
 
   protected Comparator<Tree<DecoratedValue>> getComparator(boolean reversed, Robot robot) {

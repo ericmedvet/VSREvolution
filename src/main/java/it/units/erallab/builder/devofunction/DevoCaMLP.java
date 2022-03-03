@@ -16,6 +16,7 @@ import it.units.erallab.hmsrobots.util.Utils;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
@@ -27,68 +28,79 @@ import java.util.stream.IntStream;
  */
 public class DevoCaMLP implements NamedProvider<PrototypedFunctionBuilder<List<Double>, UnaryOperator<Robot>>> {
 
-  private final MLP mlp;
-  private final BrainHomoDistributed fixedHomoDistributed;
-  private final MLP neuralCA;
-  private final int nInitial;
-  private final int nStep;
-  private final double controllerStep;
-
-  public DevoCaMLP(
-      double innerLayerRatio, int nOfInnerLayers, int signals,
-      double caInnerLayerRatio, int caNOfInnerLayers,
-                   int nInitial, int nStep, double controllerStep) {
-    mlp = new MLP(innerLayerRatio, nOfInnerLayers);
-    fixedHomoDistributed = new BrainHomoDistributed(signals);
-    neuralCA = new MLP(caInnerLayerRatio, caNOfInnerLayers);
-    this.nInitial = nInitial;
-    this.nStep = nStep;
-    this.controllerStep = controllerStep;
-  }
-
   @Override
-  public Function<List<Double>, UnaryOperator<Robot>> buildFor(UnaryOperator<Robot> robotUnaryOperator) {
-    Robot target = robotUnaryOperator.apply(null);
-    Voxel voxelPrototype = target.getVoxels().values().stream().filter(Objects::nonNull).findFirst().orElse(null);
-    if (voxelPrototype == null) {
-      throw new IllegalArgumentException("Target robot has no valid voxels");
-    }
-    int mlpValuesSize = mlp.exampleFor(fixedHomoDistributed.exampleFor(target)).size();
-    int neuralCaValuesSize = neuralCA.exampleFor(RealFunction.build(d -> d, 4, 1)).size();
-    return list -> {
-      //check values size
-      if (list.size() != (mlpValuesSize + neuralCaValuesSize)) {
-        throw new IllegalArgumentException(String.format(
-            "Wrong values size: %d+%d=%d expected, %d found",
-            mlpValuesSize, neuralCaValuesSize, mlpValuesSize + neuralCaValuesSize, list.size()
-        ));
+  public PrototypedFunctionBuilder<List<Double>, UnaryOperator<Robot>> build(Map<String, String> params) {
+    PrototypedFunctionBuilder<List<Double>, TimedRealFunction> mlp = (new MLP()).build(
+        Map.of("r", params.get("r"),
+            "nIL", params.get("nIL")
+        )
+    );
+    PrototypedFunctionBuilder<TimedRealFunction, Robot> fixedHomoDistributed = (new BrainHomoDistributed()).build(
+        Map.of("s", params.get("s")
+        )
+    );
+    PrototypedFunctionBuilder<List<Double>, TimedRealFunction> neuralCA = (new MLP()).build(
+        Map.of("r", params.get("caR"),
+            "nIL", params.get("caNIL")
+        )
+    );
+    int nInitial = Integer.parseInt(params.get("s0"));
+    int nStep = Integer.parseInt(params.get("nS"));
+    double controllerStep = Double.parseDouble(params.getOrDefault("st","0"));
+    return new PrototypedFunctionBuilder<>() {
+      @Override
+      public Function<List<Double>, UnaryOperator<Robot>> buildFor(UnaryOperator<Robot> robotUnaryOperator) {
+        Robot target = robotUnaryOperator.apply(null);
+        Voxel voxelPrototype = target.getVoxels().values().stream().filter(Objects::nonNull).findFirst().orElse(null);
+        if (voxelPrototype == null) {
+          throw new IllegalArgumentException("Target robot has no valid voxels");
+        }
+        int mlpValuesSize = mlp.exampleFor(fixedHomoDistributed.exampleFor(target)).size();
+        int neuralCaValuesSize = neuralCA.exampleFor(RealFunction.build(d -> d, 4, 1)).size();
+        return list -> {
+          //check values size
+          if (list.size() != (mlpValuesSize + neuralCaValuesSize)) {
+            throw new IllegalArgumentException(String.format(
+                "Wrong values size: %d+%d=%d expected, %d found",
+                mlpValuesSize, neuralCaValuesSize, mlpValuesSize + neuralCaValuesSize, list.size()
+            ));
+          }
+          List<Double> listOfMLPWeights = list.subList(0, mlpValuesSize);
+          List<Double> listOfCAWeights = list.subList(mlpValuesSize, list.size());
+
+          return previous -> {
+            Grid<Boolean> previousBody;
+            if (previous == null) {
+              previousBody = Grid.create(target.getVoxels(), v -> false);
+            } else {
+              previousBody = Grid.create(previous.getVoxels(), Objects::nonNull);
+            }
+            RealFunction realFunction = (RealFunction) neuralCA.buildFor(RealFunction.build(d -> d, 4, 1)).apply(listOfCAWeights);
+            Grid<Voxel> body = createBody(developBody(previousBody, realFunction, nInitial, nStep), voxelPrototype);
+
+            //build controller
+            Robot robot = new Robot(Controller.empty(), body);
+            TimedRealFunction timedRealFunction = mlp.buildFor(fixedHomoDistributed.exampleFor(target)).apply(listOfMLPWeights);
+            AbstractController controller = (AbstractController) fixedHomoDistributed.buildFor(robot).apply(timedRealFunction).getController();
+            if (controllerStep > 0) {
+              controller = controller.step(controllerStep);
+            }
+            return new Robot(controller, robot.getVoxels());
+          };
+        };
       }
-      List<Double> listOfMLPWeights = list.subList(0, mlpValuesSize);
-      List<Double> listOfCAWeights = list.subList(mlpValuesSize, list.size());
 
-      return previous -> {
-        Grid<Boolean> previousBody;
-        if (previous == null) {
-          previousBody = Grid.create(target.getVoxels(), v -> false);
-        } else {
-          previousBody = Grid.create(previous.getVoxels(), Objects::nonNull);
-        }
-        RealFunction realFunction = (RealFunction) neuralCA.buildFor(RealFunction.build(d -> d, 4, 1)).apply(listOfCAWeights);
-        Grid<Voxel> body = createBody(developBody(previousBody, realFunction), voxelPrototype);
-
-        //build controller
-        Robot robot = new Robot(Controller.empty(), body);
-        TimedRealFunction timedRealFunction = mlp.buildFor(fixedHomoDistributed.exampleFor(target)).apply(listOfMLPWeights);
-        AbstractController controller = (AbstractController) fixedHomoDistributed.buildFor(robot).apply(timedRealFunction).getController();
-        if (controllerStep > 0) {
-          controller = controller.step(controllerStep);
-        }
-        return new Robot( controller, robot.getVoxels());
-      };
+      @Override
+      public List<Double> exampleFor(UnaryOperator<Robot> robotUnaryOperator) {
+        Robot target = robotUnaryOperator.apply(null);
+        int mlpValuesSize = mlp.exampleFor(fixedHomoDistributed.exampleFor(target)).size();
+        int neuralCaValuesSize = neuralCA.exampleFor(RealFunction.build(d -> d, 4, 1)).size();
+        return IntStream.range(0, mlpValuesSize + neuralCaValuesSize).mapToObj(i -> 0d).collect(Collectors.toList());
+      }
     };
   }
 
-  private Grid<Boolean> developBody(Grid<Boolean> previousBody, RealFunction neuralCA) {
+  private Grid<Boolean> developBody(Grid<Boolean> previousBody, RealFunction neuralCA, int nInitial, int nStep) {
     int currentVoxels = (int) previousBody.count(p -> p);
     int n = currentVoxels == 0 ? nInitial : nStep;
     Grid<Boolean> nextBody = previousBody;
@@ -135,15 +147,6 @@ public class DevoCaMLP implements NamedProvider<PrototypedFunctionBuilder<List<D
         }
     );
     return neighbors;
-  }
-
-
-  @Override
-  public List<Double> exampleFor(UnaryOperator<Robot> robotUnaryOperator) {
-    Robot target = robotUnaryOperator.apply(null);
-    int mlpValuesSize = mlp.exampleFor(fixedHomoDistributed.exampleFor(target)).size();
-    int neuralCaValuesSize = neuralCA.exampleFor(RealFunction.build(d -> d, 4, 1)).size();
-    return IntStream.range(0, mlpValuesSize + neuralCaValuesSize).mapToObj(i -> 0d).collect(Collectors.toList());
   }
 
 }
