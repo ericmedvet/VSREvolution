@@ -642,7 +642,8 @@ public class Starter extends Worker {
     }
     List<String> propertyNames = properties.stream().map(Pair::first).toList();
     Set<Double>[] sets = properties.stream()
-        .map(p -> sampleRange(p.second().first(), p.second().second()))
+        .map(p -> (p.first().equals("friction")) ? FRICTION_VALUES : sampleRange(p.second().first(), p.second().second())
+        )
         .toArray(Set[]::new);
     Set<List<Double>> values = Sets.cartesianProduct(sets);
     List<Map<String, Double>> propertiesCombinations = new ArrayList<>();
@@ -654,7 +655,6 @@ public class Starter extends Worker {
           )
       );
     }
-
     return propertiesCombinations;
   }
 
@@ -673,11 +673,14 @@ public class Starter extends Worker {
   }
 
   private Set<Double> sampleRange(DoubleRange range, int nSteps) {
+    System.err.println("SampleRange");
     if (nSteps <= 2) {
       return Set.of();
     }
     double step = range.extent() / (nSteps - 1);
     return IntStream.range(0, nSteps).mapToObj(i -> range.min() + i * step).collect(Collectors.toSet());
   }
+
+  private static final Set<Double> FRICTION_VALUES = Set.of(0.05, 0.1, 0.25, 0.6, 1.5, 3d, 10d, 25d);
 
 }
