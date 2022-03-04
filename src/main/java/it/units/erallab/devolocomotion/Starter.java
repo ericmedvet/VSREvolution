@@ -3,9 +3,16 @@ package it.units.erallab.devolocomotion;
 import com.google.common.base.Stopwatch;
 import it.units.erallab.builder.NamedProvider;
 import it.units.erallab.builder.PrototypedFunctionBuilder;
+import it.units.erallab.builder.devofunction.*;
+import it.units.erallab.builder.misc.DirectNumbersGrid;
+import it.units.erallab.builder.robot.BrainPhaseValues;
+import it.units.erallab.builder.solver.BitsStandard;
+import it.units.erallab.builder.solver.DoublesStandard;
+import it.units.erallab.builder.solver.SimpleES;
 import it.units.erallab.builder.solver.SolverBuilder;
 import it.units.erallab.hmsrobots.core.controllers.Controller;
 import it.units.erallab.hmsrobots.core.objects.Robot;
+import it.units.erallab.hmsrobots.core.objects.Voxel;
 import it.units.erallab.hmsrobots.tasks.Task;
 import it.units.erallab.hmsrobots.tasks.devolocomotion.DevoOutcome;
 import it.units.erallab.hmsrobots.tasks.devolocomotion.DistanceBasedDevoLocomotion;
@@ -52,11 +59,13 @@ public class Starter extends Worker {
 
   public record Problem(
       Function<UnaryOperator<Robot>, DevoOutcome> qualityFunction, Comparator<DevoOutcome> totalOrderComparator
-  ) implements TotalOrderQualityBasedProblem<UnaryOperator<Robot>, DevoOutcome> {}
+  ) implements TotalOrderQualityBasedProblem<UnaryOperator<Robot>, DevoOutcome> {
+  }
 
-  public record ValidationOutcome(String terrainName, int seed, DevoOutcome outcome) {}
+  public record ValidationOutcome(String terrainName, int seed, DevoOutcome outcome) {
+  }
 
-  public static Function<UnaryOperator<Robot>, DevoOutcome> buildLocomotionTask(
+  public static Function<UnaryOperator<Robot>, DevoOutcome> buildDevoLocomotionTask(
       String terrainName,
       double stageMinDistance,
       double stageMaxT,
@@ -129,177 +138,6 @@ public class Starter extends Worker {
     return solverBuilder.build((PrototypedFunctionBuilder<Object, UnaryOperator<Robot>>) mapperBuilder, target);
   }
 
-  /*
-  private static PrototypedFunctionBuilder<?, ?> getDevoFunctionByName(String name) {
-    String devoHomoMLP =
-        "devoHomoMLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<nSignals>\\d+)-(?<nInitial>\\d+)-" + "(?<nStep>\\d" +
-            "+)" + "(-(?<cStep>\\d+(\\.\\d+)?))?";
-    String devoRandomHomoMLP = "devoRndHomoMLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<nSignals>\\d+)-" +
-        "(?<nInitial>\\d+)-(?<nStep>\\d+)";
-    String devoRandomAdditionHomoMLP = "devoRndAddHomoMLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<nSignals>\\d+)"
-        + "-(?<nInitial>\\d+)-(?<nStep>\\d+)";
-    String devoCondHomoMLP =
-        "devoCondHomoMLP-(?<ratio>\\d+(\\.\\d+)?)" + "-(?<nLayers>\\d+)-(?<nSignals>\\d+)" + "-" + "(?<selFunc>" +
-            "(areaRatioEnergy|areaRatio))-(?<maxFirst>(t|f))" + "-(?<nInitial>\\d+)-(?<nStep>\\d+)";
-    String devoTreeHomoMLP =
-        "devoTreeHomoMLP-(?<ratio>\\d+(\\.\\d+)?)" + "-(?<nLayers>\\d+)-(?<nSignals>\\d+)" + "-" + "(?<nInitial>\\d+)" +
-            "-(?<nStep>\\d+)" + "(-(?<cStep>\\d+(\\.\\d+)?))?";
-    String devoCondTreeHomoMLP = "devoCondTreeHomoMLP-(?<ratio>\\d+(\\.\\d+)?)" + "-(?<nLayers>\\d+)-" + "(?<nSignals" +
-        ">\\d+)" + "-(?<selFunc>(areaRatioEnergy|areaRatio))-(?<maxFirst>(t|f))" + "-(?<nInitial>\\d+)-" + "(?<nStep" +
-        ">\\d+)" + "(-(?<cStep>\\d+(\\.\\d+)?))?";
-    String devoTreePhases = "devoTreePhases-(?<f>\\d+(\\.\\d+)?)-(?<nInitial>\\d+)-(?<nStep>\\d+)" + "(-(?<cStep>\\d" +
-        "+" + "(\\.\\d+)?))?";
-    String fixedPhases = "devoPhases-(?<f>\\d+(\\.\\d+)?)-(?<nInitial>\\d+)-(?<nStep>\\d+)" + "(-(?<cStep>\\d+(\\" +
-        ".\\d+)?))?";
-    String directNumGrid = "directNumGrid";
-    String devoCAHomoMLP = "devoCAHomoMLP-(?<ratio>\\d+(\\.\\d+)?)-(?<nLayers>\\d+)-(?<nSignals>\\d+)" + "-(?<caRatio"
-        + ">\\d+(\\.\\d+)?)-(?<caNLayers>\\d+)" + "-(?<nInitial>\\d+)-(?<nStep>\\d+)" + "(-(?<cStep>\\d+(\\.\\d+)?))?";
-    String devoCAPhases = "devoCAPhases-(?<f>\\d+(\\.\\d+)?)" + "-(?<caRatio>\\d+(\\.\\d+)?)-(?<caNLayers>\\d+)" +
-        "-" + "(?<nInitial>\\d+)-(?<nStep>\\d+)" + "(-(?<cStep>\\d+(\\.\\d+)?))?";
-    Map<String, String> params;
-    //devo functions
-    if ((params = params(fixedPhases, name)) != null) {
-      String controllerStep = params.get("cStep");
-      return new DevoPhasesValues(
-          Double.parseDouble(params.get("f")),
-          1d,
-          Integer.parseInt(params.get("nInitial")),
-          Integer.parseInt(params.get("nStep")),
-          controllerStep == null ? 0 : Double.parseDouble(controllerStep)
-      );
-    }
-    if ((params = params(devoTreePhases, name)) != null) {
-      String controllerStep = params.get("cStep");
-      return new DevoTreePhases(
-          Double.parseDouble(params.get("f")),
-          1d,
-          Integer.parseInt(params.get("nInitial")),
-          Integer.parseInt(params.get("nStep")),
-          controllerStep == null ? 0 : Double.parseDouble(controllerStep)
-      );
-    }
-    if ((params = params(devoHomoMLP, name)) != null) {
-      String controllerStep = params.get("cStep");
-      return new DevoHomoMLP(
-          Double.parseDouble(params.get("ratio")),
-          Integer.parseInt(params.get("nLayers")),
-          Integer.parseInt(params.get("nSignals")),
-          Integer.parseInt(params.get("nInitial")),
-          Integer.parseInt(params.get("nStep")),
-          controllerStep == null ? 0 : Double.parseDouble(controllerStep)
-      );
-    }
-    if ((params = params(devoCAHomoMLP, name)) != null) {
-      String controllerStep = params.get("cStep");
-      return new DevoCaMLP(
-          Double.parseDouble(params.get("ratio")),
-          Integer.parseInt(params.get("nLayers")),
-          Integer.parseInt(params.get("nSignals")),
-          Double.parseDouble(params.get("caRatio")),
-          Integer.parseInt(params.get("caNLayers")),
-          Integer.parseInt(params.get("nInitial")),
-          Integer.parseInt(params.get("nStep")),
-          controllerStep == null ? 0 : Double.parseDouble(controllerStep)
-      );
-    }
-    if ((params = params(devoCAPhases, name)) != null) {
-      String controllerStep = params.get("cStep");
-      return new DevoCaPhases(
-          Double.parseDouble(params.get("f")),
-          1d,
-          Double.parseDouble(params.get("caRatio")),
-          Integer.parseInt(params.get("caNLayers")),
-          Integer.parseInt(params.get("nInitial")),
-          Integer.parseInt(params.get("nStep")),
-          controllerStep == null ? 0 : Double.parseDouble(controllerStep)
-      );
-    }
-    if ((params = params(devoRandomHomoMLP, name)) != null) {
-      return new DevoRandomHomoMLP(
-          Double.parseDouble(params.get("ratio")),
-          Integer.parseInt(params.get("nLayers")),
-          Integer.parseInt(params.get("nSignals")),
-          Integer.parseInt(params.get("nInitial")),
-          Integer.parseInt(params.get("nStep"))
-      );
-    }
-    if ((params = params(devoRandomAdditionHomoMLP, name)) != null) {
-      return new DevoRandomAdditionHomoMLP(
-          Double.parseDouble(params.get("ratio")),
-          Integer.parseInt(params.get("nLayers")),
-          Integer.parseInt(params.get("nSignals")),
-          Integer.parseInt(params.get("nInitial")),
-          Integer.parseInt(params.get("nStep"))
-      );
-    }
-    if ((params = params(devoTreeHomoMLP, name)) != null) {
-      String controllerStep = params.get("cStep");
-      return new DevoTreeHomoMLP(
-          Double.parseDouble(params.get("ratio")),
-          Integer.parseInt(params.get("nLayers")),
-          Integer.parseInt(params.get("nSignals")),
-          Integer.parseInt(params.get("nInitial")),
-          Integer.parseInt(params.get("nStep")),
-          controllerStep == null ? 0 : Double.parseDouble(controllerStep)
-      );
-    }
-    if ((params = params(devoCondHomoMLP, name)) != null) {
-      return new DevoConditionedHomoMLP(
-          Double.parseDouble(params.get("ratio")),
-          Integer.parseInt(params.get("nLayers")),
-          Integer.parseInt(params.get("nSignals")),
-          params.get("selFunc").equals("areaRatioEnergy") ? Voxel::getAreaRatioEnergy : Voxel::getAreaRatio,
-          params.get("maxFirst").startsWith("t"),
-          Integer.parseInt(params.get("nInitial")),
-          Integer.parseInt(params.get("nStep"))
-      );
-    }
-    if ((params = params(devoCondTreeHomoMLP, name)) != null) {
-      String controllerStep = params.get("cStep");
-      return new DevoConditionedTreeHomoMLP(
-          Double.parseDouble(params.get("ratio")),
-          Integer.parseInt(params.get("nLayers")),
-          Integer.parseInt(params.get("nSignals")),
-          params.get("selFunc").equals("areaRatioEnergy") ? Voxel::getAreaRatioEnergy : Voxel::getAreaRatio,
-          params.get("maxFirst").startsWith("t"),
-          Integer.parseInt(params.get("nInitial")),
-          Integer.parseInt(params.get("nStep")),
-          controllerStep == null ? 0 : Double.parseDouble(controllerStep)
-      );
-    }
-    //misc
-    if (params(directNumGrid, name) != null) {
-      return new DirectNumbersGrid();
-    }
-    throw new IllegalArgumentException(String.format("Unknown devo function name: %s", name));
-  }
-
-  public static EvolverBuilder<?> getEvolverBuilderFromName(String name) {
-    String treeNumGA = "treeNumGA-(?<nPop>\\d+)-(?<diversity>(t|f))-(?<remap>(t|f))";
-    String treePairGA = "treePairGA-(?<nPop>\\d+)-(?<diversity>(t|f))-(?<remap>(t|f))";
-    Map<String, String> params;
-    if ((params = params(treeNumGA, name)) != null) {
-      return new TreeAndDoubles(
-          Integer.parseInt(params.get("nPop")),
-          (int) Math.max(Math.round((double) Integer.parseInt(params.get("nPop")) / 10d), 3),
-          0.75d,
-          params.get("diversity").equals("t"),
-          params.get("remap").equals("t")
-      );
-    }
-    if ((params = params(treePairGA, name)) != null) {
-      return new PairsTree(
-          Integer.parseInt(params.get("nPop")),
-          (int) Math.max(Math.round((double) Integer.parseInt(params.get("nPop")) / 10d), 3),
-          0.75d,
-          params.get("diversity").equals("t"),
-          params.get("remap").equals("t")
-      );
-    }
-    return it.units.erallab.locomotion.Starter.getEvolverBuilderFromName(name);
-  }
-  */
-
   private static Function<DevoOutcome, Double> getFitnessFunctionFromName(String name) {
     String distance = "distance";
     String maxSpeed = "maxSpeed";
@@ -334,7 +172,7 @@ public class Starter extends Worker {
     return new ValidationOutcome(
         terrainName,
         seed,
-        buildLocomotionTask(
+        buildDevoLocomotionTask(
             terrainName,
             stageMinDistance,
             stageMaxT,
@@ -386,6 +224,35 @@ public class Starter extends Worker {
     //fitness function
     String fitnessFunctionName = a("fitness", "distance");
     Function<DevoOutcome, Double> fitnessFunction = getFitnessFunctionFromName(fitnessFunctionName);
+    //providers
+    // TODO update this with treeNumGA and treePairGA
+    NamedProvider<SolverBuilder<?>> solverBuilderProvider = NamedProvider.of(Map.ofEntries(
+        Map.entry("binaryGA", new BitsStandard(0.75, 0.05, 3, 0.01)),
+        Map.entry("numGA", new DoublesStandard(0.75, 0.05, 3, 0.35)),
+        Map.entry("ES", new SimpleES(0.35, 0.4))
+    ));
+    NamedProvider<PrototypedFunctionBuilder<?, ?>> mapperBuilderProvider = NamedProvider.of(Map.ofEntries(
+        Map.entry("devoHomoMLP", new DevoHomoMLP()),
+        Map.entry("devoRndHomoMLP", new DevoRandomHomoMLP()),
+        Map.entry("devoRndAddHomoMLP", new DevoRandomAdditionHomoMLP()),
+        Map.entry("devoTreeHomoMLP", new DevoTreeHomoMLP()),
+        Map.entry("devoTreePhases", new DevoTreePhases()),
+        Map.entry("devoCAHomoMLP", new DevoCaMLP()),
+        Map.entry("devoCAPhases", new DevoCaPhases())
+    ));
+    mapperBuilderProvider = mapperBuilderProvider.and(NamedProvider.of(Map.ofEntries(
+        Map.entry("devoCondHomoMLP", new DevoConditionedHomoMLP(
+            Voxel::getAreaRatioEnergy, true
+        )),
+        Map.entry("devoCondTreeHomoMLP", new DevoConditionedTreeHomoMLP(
+            Voxel::getAreaRatioEnergy, true
+        ))
+    )));
+    mapperBuilderProvider = mapperBuilderProvider.and(NamedProvider.of(Map.ofEntries(
+        Map.entry("dirNumGrid", new DirectNumbersGrid()),
+        Map.entry("brainPhaseVals", new BrainPhaseValues())
+    )));
+
     //consumers
     List<NamedFunction<? super POSetPopulationState<?, UnaryOperator<Robot>, DevoOutcome>, ?>> basicFunctions =
         basicFunctions();
@@ -507,7 +374,7 @@ public class Starter extends Worker {
               IterativeSolver<? extends POSetPopulationState<?, UnaryOperator<Robot>, DevoOutcome>,
                   TotalOrderQualityBasedProblem<UnaryOperator<Robot>, DevoOutcome>, UnaryOperator<Robot>> solver;
               try {
-                solver = buildSolver(solverName, devoFunctionMapperName, target, null, null); // TODO fill
+                solver = buildSolver(solverName, devoFunctionMapperName, target, solverBuilderProvider, mapperBuilderProvider);
               } catch (ClassCastException | IllegalArgumentException e) {
                 L.warning(String.format("Cannot instantiate %s for %s: %s", solverName, devoFunctionMapperName, e));
                 continue;
@@ -524,7 +391,7 @@ public class Starter extends Worker {
                 if (deferred) {
                   listener = listener.deferred(executorService);
                 }
-                Problem problem = new Problem(buildLocomotionTask(terrainName,
+                Problem problem = new Problem(buildDevoLocomotionTask(terrainName,
                     stageMinDistance,
                     stageMaxTime,
                     developmentSchedule,
