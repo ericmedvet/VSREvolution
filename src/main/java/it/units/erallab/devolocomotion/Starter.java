@@ -6,10 +6,7 @@ import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.erallab.builder.devofunction.*;
 import it.units.erallab.builder.misc.DirectNumbersGrid;
 import it.units.erallab.builder.robot.BrainPhaseValues;
-import it.units.erallab.builder.solver.BitsStandard;
-import it.units.erallab.builder.solver.DoublesStandard;
-import it.units.erallab.builder.solver.SimpleES;
-import it.units.erallab.builder.solver.SolverBuilder;
+import it.units.erallab.builder.solver.*;
 import it.units.erallab.hmsrobots.core.controllers.Controller;
 import it.units.erallab.hmsrobots.core.objects.Robot;
 import it.units.erallab.hmsrobots.core.objects.Voxel;
@@ -225,11 +222,12 @@ public class Starter extends Worker {
     String fitnessFunctionName = a("fitness", "distance");
     Function<DevoOutcome, Double> fitnessFunction = getFitnessFunctionFromName(fitnessFunctionName);
     //providers
-    // TODO update this with treeNumGA and treePairGA
     NamedProvider<SolverBuilder<?>> solverBuilderProvider = NamedProvider.of(Map.ofEntries(
         Map.entry("binaryGA", new BitsStandard(0.75, 0.05, 3, 0.01)),
         Map.entry("numGA", new DoublesStandard(0.75, 0.05, 3, 0.35)),
-        Map.entry("ES", new SimpleES(0.35, 0.4))
+        Map.entry("ES", new SimpleES(0.35, 0.4)),
+        Map.entry("treeNumGA", new TreeAndDoubles(0.75, 0.05, 3, 0.01, 3, 6)),
+        Map.entry("treePairGA", new TreeAndDoubles(0.75, 0.05, 3, 0.01, 3, 6))
     ));
     NamedProvider<PrototypedFunctionBuilder<?, ?>> mapperBuilderProvider = NamedProvider.of(Map.ofEntries(
         Map.entry("devoHomoMLP", new DevoHomoMLP()),
