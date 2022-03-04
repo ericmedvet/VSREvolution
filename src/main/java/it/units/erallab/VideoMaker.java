@@ -17,6 +17,7 @@
 package it.units.erallab;
 
 import it.units.erallab.hmsrobots.core.objects.Robot;
+import it.units.erallab.hmsrobots.tasks.Task;
 import it.units.erallab.hmsrobots.tasks.locomotion.Locomotion;
 import it.units.erallab.hmsrobots.util.Grid;
 import it.units.erallab.hmsrobots.util.RobotUtils;
@@ -26,6 +27,7 @@ import it.units.erallab.hmsrobots.viewers.drawers.Drawers;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
+import org.apache.commons.lang3.tuple.Pair;
 import org.dyn4j.dynamics.Settings;
 
 import java.io.*;
@@ -123,6 +125,12 @@ public class VideoMaker {
             .map(r -> r.get(serializedRobotColumn))
             .collect(Collectors.toList())
     );
+    //prepare problem
+    Locomotion locomotion = new Locomotion(
+        endTime,
+        Locomotion.createTerrain(terrainName),
+        new Settings()
+    );
     //build named grid of robots
     Grid<NamedValue<Robot>> namedRobotGrid = Grid.create(
         rawGrid.getW(),
@@ -133,11 +141,10 @@ public class VideoMaker {
                 .apply(SerializationUtils.deserialize(rawGrid.get(x, y).get(0), Robot.class, mode))
         )
     );
-    //prepare problem
-    Locomotion locomotion = new Locomotion(
-        endTime,
-        Locomotion.createTerrain(terrainName),
-        new Settings()
+    //build grid of pairs of robots and task
+    Grid<Pair<NamedValue<Robot>, Task<Robot, ?>>> namedRobotsAndTasksGrid = Grid.create(
+        namedRobotGrid,
+        v -> Pair.of(v, locomotion)
     );
     //do simulations
     ScheduledExecutorService uiExecutor = Executors.newScheduledThreadPool(4);
@@ -159,8 +166,7 @@ public class VideoMaker {
       );
     }
     GridEpisodeRunner<Robot> runner = new GridEpisodeRunner<>(
-        namedRobotGrid,
-        locomotion,
+        namedRobotsAndTasksGrid,
         gridSnapshotListener,
         executor
     );
