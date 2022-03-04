@@ -25,7 +25,7 @@ public interface NamedProvider<T> {
   }
 
   static <T> NamedProvider<T> of(Map<String, NamedProvider<? extends T>> providers) {
-    return params -> providers.get(params.get(params.get(NAME_KEY))).build(params);
+    return params -> providers.get(params.get(NAME_KEY)).build(params);
   }
 
   default NamedProvider<T> and(NamedProvider<? extends T> other) {

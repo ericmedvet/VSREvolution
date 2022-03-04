@@ -148,11 +148,11 @@ public class Starter extends Worker {
     int[] seeds = ri(a("seed", "0:1"));
     String experimentName = a("expName", "short");
     List<String> terrainNames = l(a("terrain", "flat"));//"hilly-1-10-rnd"));
-    List<String> targetShapeNames = l(a("shape", "worm-4x2"));
-    List<String> targetSensorConfigNames = l(a("sensorConfig", "uniform-a-0"));
+    List<String> targetShapeNames = l(a("shape", "biped-4x3"));
+    List<String> targetSensorConfigNames = l(a("sensorConfig", "uniform-a-0.01"));
     List<String> transformationNames = l(a("transformation", "identity"));
-    List<String> solverNames = l(a("solver", "numGA-16-t-f"));
-    List<String> mapperNames = l(a("mapper", "fixedPhases-1.0"));
+    List<String> solverNames = l(a("solver", "numGA;nPop=16;nEval=100"));
+    List<String> mapperNames = l(a("mapper", "brainPhaseVals;f=0.5"));
     String lastFileName = a("lastFile", null);
     String bestFileName = a("bestFile", null);
     String allFileName = a("allFile", null);
@@ -409,7 +409,7 @@ public class Starter extends Worker {
                       TotalOrderQualityBasedProblem<Robot, Outcome>, Robot> solver;
                   try {
                     solver = buildSolver(solverName, mapperName, target, solverBuilderProvider, mapperBuilderProvider);
-                  } catch (ClassCastException | IllegalArgumentException e) {
+                  } catch (NoSuchElementException e) {
                     L.warning(String.format("Cannot instantiate %s for %s: %s", solverName, mapperName, e));
                     continue;
                   }
