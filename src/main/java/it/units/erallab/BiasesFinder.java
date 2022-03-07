@@ -1,6 +1,8 @@
 package it.units.erallab;
 
 import it.units.erallab.builder.PrototypedFunctionBuilder;
+import it.units.erallab.builder.devofunction.DevoHomoMLP;
+import it.units.erallab.builder.devofunction.DevoTreeHomoMLP;
 import it.units.erallab.builder.misc.DirectNumbersGrid;
 import it.units.erallab.builder.robot.BodyBrainSinusoidal;
 import it.units.erallab.hmsrobots.core.controllers.Controller;
@@ -13,6 +15,7 @@ import it.units.malelab.jgea.core.listener.NamedFunction;
 import it.units.malelab.jgea.core.util.TextPlotter;
 import it.units.malelab.jgea.representation.sequence.FixedLengthListFactory;
 import it.units.malelab.jgea.representation.sequence.numeric.UniformDoubleFactory;
+import it.units.malelab.jgea.representation.tree.RampedHalfAndHalf;
 
 import java.util.*;
 import java.util.function.Function;
@@ -79,13 +82,15 @@ public class BiasesFinder {
             .apply(RobotUtils.buildShape("box-" + gridW + "x" + gridH))
     );
     //set pairs
+    Map<String, String> params = Map.of("r", "1", "nIL", "1", "s", "1", "s0", "8",
+        "nS", "0");
     Map<String, ProtoPair<?>> protoPairs = new TreeMap<>(Map.ofEntries(
-        /*Map.entry("gridConnected-8", new ProtoPair<>(
-            robotMapper(new DevoHomoMLP(1, 1, 1, 8, 0, 0d)),
+        Map.entry("gridConnected-8", new ProtoPair<>(
+            robotMapper(new DevoHomoMLP().build(params)),
             g -> new FixedLengthListFactory<>(g.size(), new UniformDoubleFactory(-1d, 1d))
         )),
         Map.entry("tree-8", new ProtoPair<>(
-            robotMapper(new DevoTreeHomoMLP(1, 1, 1, 8, 0)),
+            robotMapper(new DevoTreeHomoMLP().build(params)),
             g -> Factory.pair(
                 new RampedHalfAndHalf<>(
                     3,
@@ -97,7 +102,7 @@ public class BiasesFinder {
                 new FixedLengthListFactory<>(g.second().size(), new UniformDoubleFactory(-1d, 1d)
                 )
             )
-        )),*/
+        )),
         Map.entry("largestConnected-50", new ProtoPair<>(
             new BodyBrainSinusoidal(Set.of(BodyBrainSinusoidal.Component.PHASE)).build()
                 .orElseThrow()
