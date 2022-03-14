@@ -176,6 +176,7 @@ public class Starter extends Worker {
     NamedProvider<SolverBuilder<?>> solverBuilderProvider = NamedProvider.of(Map.ofEntries(
         Map.entry("binaryGA", new BitsStandard(0.75, 0.05, 3, 0.01)),
         Map.entry("numGA", new DoublesStandard(0.75, 0.05, 3, 0.35)),
+        Map.entry("intGA", new IntegersStandard(0.75, 0.05, 3)),
         Map.entry("ES", new SimpleES(0.35, 0.4)),
         Map.entry("numSpeciated", new DoublesSpeciated(
             0.75,
