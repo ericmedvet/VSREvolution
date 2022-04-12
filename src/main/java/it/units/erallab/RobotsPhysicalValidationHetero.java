@@ -46,15 +46,15 @@ public class RobotsPhysicalValidationHetero extends Worker {
     double spectrumMinFreq = 0d;
     double spectrumMaxFreq = 5d;
 
-    String inputFileName = a("inputFile", "D:\\Research\\Physical_parameters\\Active\\last-full.txt");
-    String outputFileName = a("outputFile", "D:\\Research\\Physical_parameters\\Active\\validation-phys-homo.txt");
+    String inputFileName = a("inputFile", "last.txt");
+    String outputFileName = a("outputFile", "validation-phys-hetero.txt");
 
-    String robotsColumn = a("robotColumn", "best→solution→serialized");
-    double episodeTime = d(a("episodeTime", "10"));
-    double episodeTransientTime = d(a("episodeTransientTime", "1"));
+    String robotsColumn = a("robotColumn", "best.solution.serialized");
+    double episodeTime = d(a("episodeTime", "30"));
+    double episodeTransientTime = d(a("episodeTransientTime", "5"));
 
     List<String> headersToKeep = List.of("iterations", "births", "fitness.evaluations", "elapsed.seconds",
-        "experiment.name", "seed", "terrain", "shape", "sensor.config", "mapper", "transformation", "evolver",
+        "experiment.name", "seed", "terrain", "shape", "sensor.config", "mapper", "best.fitness.fitness", "transformation", "evolver",
         "spring.f", "spring.d", "friction", "delta.active");
 
     CSVPrinter printer;
@@ -101,13 +101,21 @@ public class RobotsPhysicalValidationHetero extends Worker {
 
       List<Map<String, Double>> properties;
       if (expName.contains("active")) {
+        double property = robot.getVoxels().stream().findFirst().get().value().getDeltaActive();
         properties = buildVoxelPropertiesCombinations(List.of(springD, springF, friction));
+        properties.forEach(m -> m.put("activeDelta", property));
       } else if (expName.contains("springf")) {
+        double property = robot.getVoxels().stream().findFirst().get().value().getSpringF();
         properties = buildVoxelPropertiesCombinations(List.of(springD, activeDelta, friction));
+        properties.forEach(m -> m.put("springF", property));
       } else if (expName.contains("springd")) {
+        double property = robot.getVoxels().stream().findFirst().get().value().getSpringD();
         properties = buildVoxelPropertiesCombinations(List.of(activeDelta, springF, friction));
+        properties.forEach(m -> m.put("springD", property));
       } else {
+        double property = robot.getVoxels().stream().findFirst().get().value().getFriction();
         properties = buildVoxelPropertiesCombinations(List.of(springD, springF, activeDelta));
+        properties.forEach(m -> m.put("friction", property));
       }
 
       List<Robot> newRobots = properties.stream().map(params -> new Robot(
@@ -156,16 +164,11 @@ public class RobotsPhysicalValidationHetero extends Worker {
   }
 
   private static Grid<Voxel> changeRobotsPhysicalProperties(Grid<Voxel> originalBody, Map<String, Double> voxelProperties) {
-    double springF = voxelProperties.getOrDefault("springF", Voxel.SPRING_F);
-    double springD = voxelProperties.getOrDefault("springD", Voxel.SPRING_D);
-    double friction = voxelProperties.getOrDefault("friction", Voxel.FRICTION);
-    DoubleRange areaRatioActiveRange;
-    if (voxelProperties.containsKey("activeDelta")) {
-      double activeDelta = voxelProperties.get("activeDelta");
-      areaRatioActiveRange = DoubleRange.of(1 - activeDelta, 1 + activeDelta);
-    } else {
-      areaRatioActiveRange = Voxel.AREA_RATIO_ACTIVE_RANGE;
-    }
+    double springF = voxelProperties.get("springF");
+    double springD = voxelProperties.get("springD");
+    double friction = voxelProperties.get("friction");
+    double activeDelta = voxelProperties.get("activeDelta");
+    DoubleRange areaRatioActiveRange = DoubleRange.of(1 - activeDelta, 1 + activeDelta);
     return Grid.create(originalBody, v -> v == null ? null : new Voxel(
         Voxel.SIDE_LENGTH,
         Voxel.MASS_SIDE_LENGTH_RATIO,

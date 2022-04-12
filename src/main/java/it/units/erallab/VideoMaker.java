@@ -39,7 +39,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static it.units.malelab.jgea.core.util.Args.*;
@@ -54,12 +53,15 @@ public class VideoMaker {
   private static final Logger L = Logger.getLogger(VideoMaker.class.getName());
 
   public static void main(String[] args) {
+
+    String param = "springf";
+
     //get params
     List<String> terrainNames = l(a(args, "terrainNames", "flat"));
-    String robotFileName = a(args, "robotFile", "last.txt");
-    String serializedRobotColumn = a(args, "serializedRobotColumnName", "best→solution→serialized");
-    String descriptionColumn = a(args, "descriptionColumnName", "mapper");
-    String outputFileName = a(args, "outputFile", "C:\\Users\\giorg\\Documents\\UNITS\\PHD\\Physical_parameters\\prova.mov");
+    String robotFileName = a(args, "robotFile", "biped-" + param + ".txt");
+    String serializedRobotColumn = a(args, "serializedRobotColumnName", "best.solution.serialized");
+    String descriptionColumn = a(args, "descriptionColumnName", "desc");
+    String outputFileName = a(args, "outputFile", "D:\\Research\\Physical_parameters\\Video-def\\" + param + ".mov");
     SerializationUtils.Mode mode = SerializationUtils.Mode.valueOf(a(args, "deserializationMode", SerializationUtils.Mode.GZIPPED_JSON.name()).toUpperCase());
     boolean specifyRowsAndCols = a(args, "specifyRowsAndCols", "f").startsWith("t");
     String colNum = a(args, "nCol", "10");
@@ -68,8 +70,8 @@ public class VideoMaker {
     // video features
     double startTime = d(a(args, "startTime", "0.0"));
     double endTime = d(a(args, "endTime", "30.0"));
-    int w = i(a(args, "w", "400"));
-    int h = i(a(args, "h", "300"));
+    int w = i(a(args, "w", "800"));
+    int h = i(a(args, "h", "600"));
     int frameRate = i(a(args, "frameRate", "30"));
     String encoderName = a(args, "encoder", VideoUtils.EncoderFacility.JCODEC.name());
 
@@ -149,7 +151,7 @@ public class VideoMaker {
         Collections.nCopies(finalRecords.size(), terrainName)).flatMap(List::stream).toList();
 
     List<String> descriptions = IntStream.range(0, robotDescriptions.size()).mapToObj(i ->
-        robotDescriptions.get(i) + "\n" + terrainRepeatedNames.get(i)).toList();
+        robotDescriptions.get(i) + "\n" + " ").toList();
 
     List<Task<Robot, ?>> locomotionList = new ArrayList<>();
     terrainRepeatedNames.forEach(terrainName ->
