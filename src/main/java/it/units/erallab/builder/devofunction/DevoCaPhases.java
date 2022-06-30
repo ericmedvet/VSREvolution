@@ -1,11 +1,9 @@
 package it.units.erallab.builder.devofunction;
 
+import it.units.erallab.builder.NamedProvider;
 import it.units.erallab.builder.PrototypedFunctionBuilder;
-import it.units.erallab.builder.phenotype.MLP;
-import it.units.erallab.hmsrobots.core.controllers.AbstractController;
-import it.units.erallab.hmsrobots.core.controllers.Controller;
-import it.units.erallab.hmsrobots.core.controllers.RealFunction;
-import it.units.erallab.hmsrobots.core.controllers.TimeFunctions;
+import it.units.erallab.builder.function.MLP;
+import it.units.erallab.hmsrobots.core.controllers.*;
 import it.units.erallab.hmsrobots.core.objects.Robot;
 import it.units.erallab.hmsrobots.core.objects.Voxel;
 import it.units.erallab.hmsrobots.util.Grid;
@@ -14,6 +12,7 @@ import it.units.erallab.hmsrobots.util.Utils;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
@@ -22,27 +21,7 @@ import java.util.stream.IntStream;
 /**
  * @author "Eric Medvet" on 2021/09/29 for VSREvolution
  */
-public class DevoCaPhases implements PrototypedFunctionBuilder<List<Double>, UnaryOperator<Robot>> {
-
-  private final double frequency;
-  private final double amplitude;
-  private final MLP neuralCA;
-  private final int nInitial;
-  private final int nStep;
-  private final double controllerStep;
-
-  public DevoCaPhases(
-      double frequency, double amplitude,
-      double caInnerLayerRatio, int caNOfInnerLayers,
-      int nInitial, int nStep, double controllerStep
-  ) {
-    this.frequency = frequency;
-    this.amplitude = amplitude;
-    neuralCA = new MLP(caInnerLayerRatio, caNOfInnerLayers);
-    this.nInitial = nInitial;
-    this.nStep = nStep;
-    this.controllerStep = controllerStep;
-  }
+public class DevoCaPhases implements NamedProvider<PrototypedFunctionBuilder<List<Double>, UnaryOperator<Robot>>> {
 
   private static class DecoratedRobot extends Robot {
     private final Grid<Double> phases;
@@ -54,55 +33,75 @@ public class DevoCaPhases implements PrototypedFunctionBuilder<List<Double>, Una
   }
 
   @Override
-  public Function<List<Double>, UnaryOperator<Robot>> buildFor(UnaryOperator<Robot> robotUnaryOperator) {
-    Robot target = robotUnaryOperator.apply(null);
-    Voxel voxelPrototype = target.getVoxels().values().stream().filter(Objects::nonNull).findFirst().orElse(null);
-    if (voxelPrototype == null) {
-      throw new IllegalArgumentException("Target robot has no valid voxels");
-    }
-    int neuralCaValuesSize = neuralCA.exampleFor(RealFunction.build(d -> d, 4, 2)).size();
-    return list -> {
-      //check values size
-      if (list.size() != (neuralCaValuesSize)) {
-        throw new IllegalArgumentException(String.format(
-            "Wrong values size: %d expected, %d found",
-            neuralCaValuesSize, list.size()
-        ));
-      }
-      return previous -> {
-        RealFunction nca = (RealFunction) neuralCA.buildFor(RealFunction.build(d -> d, 4, 2)).apply(list);
-        Grid<Double> previousPhases;
-        if (previous == null) {
-          previousPhases = Grid.create(target.getVoxels(), v -> null);
-        } else {
-          if (!(previous instanceof DecoratedRobot)) {
-            throw new IllegalArgumentException("Previous robot is not decorated with phases; cannot develop");
+  public PrototypedFunctionBuilder<List<Double>, UnaryOperator<Robot>> build(Map<String, String> params) {
+    double frequency = Double.parseDouble(params.getOrDefault("f", "1"));
+    double amplitude = Double.parseDouble(params.getOrDefault("a", "1"));
+    PrototypedFunctionBuilder<List<Double>, TimedRealFunction> neuralCA = (new MLP()).build(
+        Map.of("r", params.get("caR"),
+            "nIL", params.get("caNIL")
+        )
+    );
+    int nInitial = Integer.parseInt(params.get("s0"));
+    int nStep = Integer.parseInt(params.get("nS"));
+    double controllerStep = Double.parseDouble(params.getOrDefault("st", "0"));
+    return new PrototypedFunctionBuilder<>() {
+      @Override
+      public Function<List<Double>, UnaryOperator<Robot>> buildFor(UnaryOperator<Robot> robotUnaryOperator) {
+        Robot target = robotUnaryOperator.apply(null);
+        Voxel voxelPrototype = target.getVoxels().values().stream().filter(Objects::nonNull).findFirst().orElse(null);
+        if (voxelPrototype == null) {
+          throw new IllegalArgumentException("Target robot has no valid voxels");
+        }
+        int neuralCaValuesSize = neuralCA.exampleFor(RealFunction.build(d -> d, 4, 2)).size();
+        return list -> {
+          //check values size
+          if (list.size() != (neuralCaValuesSize)) {
+            throw new IllegalArgumentException(String.format(
+                "Wrong values size: %d expected, %d found",
+                neuralCaValuesSize, list.size()
+            ));
           }
-          previousPhases = ((DecoratedRobot) previous).phases;
-        }
-        Grid<Double> phases = developBodyAndPhases(previousPhases, nca);
-        Grid<Voxel> body = createBody(phases, voxelPrototype);
-        //build controller
-        double localAmplitude = amplitude;
-        double localFrequency = frequency;
-        AbstractController controller = new TimeFunctions(Grid.create(
-            phases.getW(),
-            phases.getH(),
-            (x, y) -> t -> localAmplitude * Math.sin(2 * Math.PI * localFrequency * t + phases.get(x, y))
-        ));
-        if (controllerStep > 0) {
-          controller = controller.step(controllerStep);
-        }
-        return new DecoratedRobot(
-            controller,
-            body,
-            phases
-        );
-      };
+          return previous -> {
+            RealFunction nca = (RealFunction) neuralCA.buildFor(RealFunction.build(d -> d, 4, 2)).apply(list);
+            Grid<Double> previousPhases;
+            if (previous == null) {
+              previousPhases = Grid.create(target.getVoxels(), v -> null);
+            } else {
+              if (!(previous instanceof DecoratedRobot)) {
+                throw new IllegalArgumentException("Previous robot is not decorated with phases; cannot develop");
+              }
+              previousPhases = ((DecoratedRobot) previous).phases;
+            }
+            Grid<Double> phases = developBodyAndPhases(previousPhases, nca, nInitial, nStep);
+            Grid<Voxel> body = createBody(phases, voxelPrototype);
+            //build controller
+            double localAmplitude = amplitude;
+            double localFrequency = frequency;
+            AbstractController controller = new TimeFunctions(Grid.create(
+                phases.getW(),
+                phases.getH(),
+                (x, y) -> t -> localAmplitude * Math.sin(2 * Math.PI * localFrequency * t + phases.get(x, y))
+            ));
+            if (controllerStep > 0) {
+              controller = controller.step(controllerStep);
+            }
+            return new DecoratedRobot(
+                controller,
+                body,
+                phases
+            );
+          };
+        };
+      }
+
+      @Override
+      public List<Double> exampleFor(UnaryOperator<Robot> robotUnaryOperator) {
+        return neuralCA.exampleFor(RealFunction.build(d -> d, 4, 2));
+      }
     };
   }
 
-  private Grid<Double> developBodyAndPhases(Grid<Double> previousPhases, RealFunction neuralCA) {
+  private Grid<Double> developBodyAndPhases(Grid<Double> previousPhases, RealFunction neuralCA, int nInitial, int nStep) {
     int currentVoxels = (int) previousPhases.count(Objects::nonNull);
     int n = currentVoxels == 0 ? nInitial : nStep;
     for (int i = 0; i < n; i++) {
@@ -110,7 +109,6 @@ public class DevoCaPhases implements PrototypedFunctionBuilder<List<Double>, Una
     }
     return previousPhases;
   }
-
 
   private static void addOnePhase(Grid<Double> phases, RealFunction neuralCA) {
     int n = (int) phases.count(Objects::nonNull) + 1;
@@ -158,11 +156,6 @@ public class DevoCaPhases implements PrototypedFunctionBuilder<List<Double>, Una
       body = Grid.create(1, 1, SerializationUtils.clone(voxelPrototype));
     }
     return body;
-  }
-
-  @Override
-  public List<Double> exampleFor(UnaryOperator<Robot> robotUnaryOperator) {
-    return neuralCA.exampleFor(RealFunction.build(d -> d, 4, 2));
   }
 
 }

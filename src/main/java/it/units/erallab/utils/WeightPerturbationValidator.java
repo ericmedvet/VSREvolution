@@ -90,7 +90,7 @@ public class WeightPerturbationValidator extends Worker {
     // parse old file and print headers to new file
     List<String> oldHeaders = readRecordsFromFile(inputFileName);
     oldHeaders = oldHeaders.stream().filter(headersToKeep::contains).collect(Collectors.toList());
-    List<NamedFunction<Outcome, ?>> basicOutcomeFunctions = NamedFunctions.basicOutcomeFunctions();
+    List<NamedFunction<? super Outcome, ?>> basicOutcomeFunctions = NamedFunctions.basicOutcomeFunctions();
     List<String> basicOutcomeFunctionsNames = basicOutcomeFunctions.stream().map(NamedFunction::getName).toList();
     List<String> headers = oldHeaders.stream().map(h -> "event." + h).collect(Collectors.toList());
     headers.addAll(List.of("event.weight", "keys.validation.weight"));

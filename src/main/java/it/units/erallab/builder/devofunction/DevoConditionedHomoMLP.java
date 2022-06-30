@@ -1,6 +1,5 @@
 package it.units.erallab.builder.devofunction;
 
-import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.erallab.hmsrobots.core.objects.Robot;
 import it.units.erallab.hmsrobots.core.objects.Voxel;
 import it.units.erallab.hmsrobots.util.Grid;
@@ -9,38 +8,25 @@ import it.units.erallab.hmsrobots.util.Utils;
 
 import java.util.*;
 import java.util.function.Function;
-import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
-public class DevoConditionedHomoMLP extends DevoHomoMLP implements PrototypedFunctionBuilder<List<Double>, UnaryOperator<Robot>> {
+public class DevoConditionedHomoMLP extends DevoHomoMLP {
 
+  // TODO decide what to do with these
   private final Function<Voxel, Double> selectionFunction;
   private final boolean maxFirst;
 
-  public DevoConditionedHomoMLP(
-      double innerLayerRatio,
-      int nOfInnerLayers,
-      int signals,
-      Function<Voxel, Double> selectionFunction,
-      boolean maxFirst,
-      int nInitial,
-      int nStep
-  ) {
-    super(innerLayerRatio, nOfInnerLayers, signals, nInitial, nStep, 0d);
+  public DevoConditionedHomoMLP(Function<Voxel, Double> selectionFunction, boolean maxFirst) {
     this.selectionFunction = selectionFunction;
     this.maxFirst = maxFirst;
   }
 
-  public DevoConditionedHomoMLP(
-      double innerLayerRatio, int nOfInnerLayers, int signals,
-      Function<Voxel, Double> selectionFunction,
-      int nInitial, int nStep
-  ) {
-    this(innerLayerRatio, nOfInnerLayers, signals, selectionFunction, false, nInitial, nStep);
+  public DevoConditionedHomoMLP(Function<Voxel, Double> selectionFunction) {
+    this(selectionFunction, false);
   }
 
   @Override
-  protected Grid<Voxel> createBody(Robot previous, Grid<Double> strengths, Voxel voxelPrototype) {
+  protected Grid<Voxel> createBody(Robot previous, Grid<Double> strengths, Voxel voxelPrototype, int nInitial, int nStep) {
     Grid<Voxel> body;
     if (previous == null) {
       Grid<Double> selected = Utils.gridConnected(strengths, Double::compareTo, nInitial);

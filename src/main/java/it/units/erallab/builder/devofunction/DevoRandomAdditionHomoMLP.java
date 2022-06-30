@@ -9,13 +9,8 @@ import it.units.erallab.hmsrobots.util.Utils;
 import java.util.Objects;
 
 public class DevoRandomAdditionHomoMLP extends DevoHomoMLP {
-
-  public DevoRandomAdditionHomoMLP(double innerLayerRatio, int nOfInnerLayers, int signals, int nInitial, int nStep) {
-    super(innerLayerRatio, nOfInnerLayers, signals, nInitial, nStep,0d);
-  }
-
   @Override
-  protected Grid<Voxel> createBody(Robot previous, Grid<Double> strengths, Voxel voxelPrototype) {
+  protected Grid<Voxel> createBody(Robot previous, Grid<Double> strengths, Voxel voxelPrototype, int nInitial, int nStep) {
     Grid<Double> selected;
     if (previous == null) {
       selected = Utils.gridConnected(strengths, Double::compareTo, nInitial);

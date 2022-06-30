@@ -1,10 +1,10 @@
 package it.units.erallab;
 
-import it.units.erallab.builder.DirectNumbersGrid;
 import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.erallab.builder.devofunction.DevoHomoMLP;
 import it.units.erallab.builder.devofunction.DevoTreeHomoMLP;
-import it.units.erallab.builder.robot.BodyAndSinusoidal;
+import it.units.erallab.builder.misc.DirectNumbersGrid;
+import it.units.erallab.builder.robot.BodyBrainSinusoidal;
 import it.units.erallab.hmsrobots.core.controllers.Controller;
 import it.units.erallab.hmsrobots.core.objects.Robot;
 import it.units.erallab.hmsrobots.util.Grid;
@@ -46,6 +46,28 @@ public class BiasesFinder {
     }
   }
 
+  private static List<NamedFunction<Grid<Boolean>, ? extends Number>> descriptors() {
+    return List.of(
+        NamedFunction.build("nVoxels", "%.1f", s -> s.values().stream().filter(v -> v).count()),
+        NamedFunction.build("w", "%.1f", s -> Utils.cropGrid(s, v -> v).getW()),
+        NamedFunction.build("h", "%.1f", s -> Utils.cropGrid(s, v -> v).getH()),
+        NamedFunction.build("center.x", "%.1f", s -> Utils.cropGrid(s, v -> v).stream()
+            .filter(e -> e.value() != null)
+            .mapToDouble(e -> (double) e.key().x() / (double) s.getW())
+            .average().orElse(0d)),
+        NamedFunction.build("center.y", "%.1f", s -> Utils.cropGrid(s, v -> v).stream()
+            .filter(e -> e.value() != null)
+            .mapToDouble(e -> (double) e.key().y() / (double) s.getH())
+            .average().orElse(0d)),
+        NamedFunction.build("compactness", "%.2f", Utils::shapeCompactness),
+        NamedFunction.build("elongation", "%.2f", g -> Utils.shapeElongation(g, 4)) // TODO check proper value for n
+    );
+  }
+
+  private static boolean isValid(Grid<?> grid, int x, int y) {
+    return x >= 0 && x < grid.getW() && y >= 0 && y < grid.getH();
+  }
+
   public static void main(String[] args) {
     Random random = new Random(1);
     int n = 1000;
@@ -56,26 +78,37 @@ public class BiasesFinder {
     String targetSensorConfigName = "uniform-t+a-0.01";
     Robot target = new Robot(
         Controller.empty(),
-        RobotUtils.buildSensorizingFunction(targetSensorConfigName).apply(RobotUtils.buildShape("box-" + gridW + "x" + gridH))
+        RobotUtils.buildSensorizingFunction(targetSensorConfigName)
+            .apply(RobotUtils.buildShape("box-" + gridW + "x" + gridH))
     );
     //set pairs
-    Map<String, ProtoPair<?>> protoPairs = new TreeMap<>(Map.of(
-        "gridConnected-8", new ProtoPair<>(
-            robotMapper(new DevoHomoMLP(1, 1, 1, 8, 0,0d)),
+    Map<String, String> params = Map.of("r", "1", "nIL", "1", "s", "1", "s0", "8",
+        "nS", "0");
+    Map<String, ProtoPair<?>> protoPairs = new TreeMap<>(Map.ofEntries(
+        Map.entry("gridConnected-8", new ProtoPair<>(
+            robotMapper(new DevoHomoMLP().build(params)),
             g -> new FixedLengthListFactory<>(g.size(), new UniformDoubleFactory(-1d, 1d))
-        ),
-        "tree-8", new ProtoPair<>(
-            robotMapper(new DevoTreeHomoMLP(1, 1, 1, 8, 0)),
+        )),
+        Map.entry("tree-8", new ProtoPair<>(
+            robotMapper(new DevoTreeHomoMLP().build(params)),
             g -> Factory.pair(
-                new RampedHalfAndHalf<>(3, 4, d -> 4, new UniformDoubleFactory(0d, 1d), new UniformDoubleFactory(0d, 1d)),
+                new RampedHalfAndHalf<>(
+                    3,
+                    4,
+                    d -> 4,
+                    new UniformDoubleFactory(0d, 1d),
+                    new UniformDoubleFactory(0d, 1d)
+                ),
                 new FixedLengthListFactory<>(g.second().size(), new UniformDoubleFactory(-1d, 1d)
                 )
             )
-        ),
-        "largestConnected-50", new ProtoPair<>(
-            new BodyAndSinusoidal(1d, 1d, 50, Set.of(BodyAndSinusoidal.Component.PHASE)).compose(new DirectNumbersGrid()),
+        )),
+        Map.entry("largestConnected-50", new ProtoPair<>(
+            new BodyBrainSinusoidal(Set.of(BodyBrainSinusoidal.Component.PHASE)).build()
+                .orElseThrow()
+                .compose(new DirectNumbersGrid().build().orElseThrow()),
             g -> new FixedLengthListFactory<>(g.size(), new UniformDoubleFactory(-1d, 1d))
-        )
+        ))
     ));
     //create and count
     for (String name : protoPairs.keySet()) {
@@ -123,7 +156,8 @@ public class BiasesFinder {
       System.out.printf("Built %d on %d unique shapes%n", uniqueShapes.size(), shapes.size());
       List<Map.Entry<Grid<Boolean>, Integer>> entries = uniqueShapes.entrySet().stream()
           .sorted((e1, e2) -> Integer.compare(e2.getValue(), e1.getValue())).toList();
-      System.out.printf("Hist of top %d shapes (min=%d, max=%d): %s%n",
+      System.out.printf(
+          "Hist of top %d shapes (min=%d, max=%d): %s%n",
           nBars,
           entries.get(0).getValue(),
           entries.get(Math.min(entries.size(), nBars) - 1).getValue(),
@@ -140,25 +174,10 @@ public class BiasesFinder {
     }
   }
 
-  private static List<NamedFunction<Grid<Boolean>, ? extends Number>> descriptors() {
-    return List.of(
-        NamedFunction.build("nVoxels", "%.1f", s -> s.values().stream().filter(v -> v).count()),
-        NamedFunction.build("w", "%.1f", s -> Utils.cropGrid(s, v -> v).getW()),
-        NamedFunction.build("h", "%.1f", s -> Utils.cropGrid(s, v -> v).getH()),
-        NamedFunction.build("center.x", "%.1f", s -> Utils.cropGrid(s, v -> v).stream()
-            .filter(e -> e.value() != null)
-            .mapToDouble(e -> (double) e.key().x() / (double) s.getW())
-            .average().orElse(0d)),
-        NamedFunction.build("center.y", "%.1f", s -> Utils.cropGrid(s, v -> v).stream()
-            .filter(e -> e.value() != null)
-            .mapToDouble(e -> (double) e.key().y() / (double) s.getH())
-            .average().orElse(0d)),
-        NamedFunction.build("compactness", "%.2f", Utils::shapeCompactness),
-        NamedFunction.build("elongation", "%.2f", g -> Utils.shapeElongation(g,4)) // TODO check proper value for n
-    );
-  }
-
-  private static <G> PrototypedFunctionBuilder<G, Robot> robotMapper(PrototypedFunctionBuilder<G, UnaryOperator<Robot>> devoFunction) {
+  private static <G> PrototypedFunctionBuilder<G, Robot> robotMapper(
+      PrototypedFunctionBuilder<G,
+          UnaryOperator<Robot>> devoFunction
+  ) {
     return new PrototypedFunctionBuilder<>() {
       @Override
       public Function<G, Robot> buildFor(Robot robot) {
@@ -189,9 +208,5 @@ public class BiasesFinder {
         w, h,
         (x, y) -> isValid(grid, x + minX, y + minY) ? grid.get(x + minX, y + minY) : false
     );
-  }
-
-  private static boolean isValid(Grid<?> grid, int x, int y) {
-    return x >= 0 && x < grid.getW() && y >= 0 && y < grid.getH();
   }
 }
