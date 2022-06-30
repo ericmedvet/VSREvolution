@@ -23,6 +23,7 @@ import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.erallab.builder.function.FGraph;
 import it.units.erallab.builder.function.MLP;
 import it.units.erallab.builder.function.PruningMLP;
+import it.units.erallab.builder.function.RNN;
 import it.units.erallab.builder.misc.*;
 import it.units.erallab.builder.robot.*;
 import it.units.erallab.builder.solver.*;
@@ -272,7 +273,8 @@ public class Starter extends Worker {
                 PruningMultiLayerPerceptron.Context.NETWORK,
                 PruningMultiLayerPerceptron.Criterion.ABS_SIGNAL_MEAN
             )
-        )
+        ),
+        Map.entry("rnn", new RNN())
     )));
     //consumers
     List<NamedFunction<? super POSetPopulationState<?, Robot, Outcome>, ?>> basicFunctions = basicFunctions();
