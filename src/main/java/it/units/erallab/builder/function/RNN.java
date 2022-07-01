@@ -28,14 +28,14 @@ public class RNN implements NamedProvider<PrototypedFunctionBuilder<List<Double>
 
   @Override
   public PrototypedFunctionBuilder<List<Double>, TimedRealFunction> build(Map<String, String> params) {
-    int nOfInnerNeurons = Integer.parseInt(params.getOrDefault("nIN", "1"));
+    double innerLayerRatio = Double.parseDouble(params.getOrDefault("r", "0.65"));
     return new PrototypedFunctionBuilder<>() {
       @Override
       public Function<List<Double>, TimedRealFunction> buildFor(TimedRealFunction function) {
         return values -> {
           int nOfInputs = function.getInputDimension();
           int nOfOutputs = function.getOutputDimension();
-          int[] neurons = {nOfInputs, nOfInnerNeurons, nOfOutputs};
+          int[] neurons = {nOfInputs, (int) (nOfInputs * innerLayerRatio), nOfOutputs};
           int nOfWeights = RecurrentNeuralNetwork.countWeights(neurons);
           if (nOfWeights != values.size()) {
             throw new IllegalArgumentException(String.format(
@@ -56,7 +56,9 @@ public class RNN implements NamedProvider<PrototypedFunctionBuilder<List<Double>
       public List<Double> exampleFor(TimedRealFunction function) {
         return Collections.nCopies(
             RecurrentNeuralNetwork.countWeights(
-                new int[]{function.getInputDimension(), nOfInnerNeurons, function.getOutputDimension()}
+                new int[]{function.getInputDimension(),
+                    (int) (function.getInputDimension() * innerLayerRatio),
+                    function.getOutputDimension()}
             ),
             0d
         );
