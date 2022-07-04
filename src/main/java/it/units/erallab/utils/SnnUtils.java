@@ -23,8 +23,10 @@ import it.units.erallab.hmsrobots.core.controllers.snndiscr.converters.vts.Quant
 
 public class SnnUtils {
 
+  private static final String TOKEN = "-";
+
   public static ValueToSpikeTrainConverter buildValueToSpikeTrainConverter(String params) {
-    String[] values = params.split(";");
+    String[] values = params.split(TOKEN);
     return switch (values[0]) {
       case "unif" -> values.length == 1 ?
           new UniformValueToSpikeTrainConverter() :
@@ -37,7 +39,7 @@ public class SnnUtils {
   }
 
   public static SpikeTrainToValueConverter buildSpikeTrainToValueConverter(String params) {
-    String[] values = params.split(";");
+    String[] values = params.split(TOKEN);
     return switch (values[0]) {
       case "avg" -> values.length == 1 ?
           new AverageFrequencySpikeTrainToValueConverter() :
@@ -50,7 +52,7 @@ public class SnnUtils {
   }
 
   public static QuantizedValueToSpikeTrainConverter buildQuantizedValueToSpikeTrainConverter(String params) {
-    String[] values = params.split(";");
+    String[] values = params.split(TOKEN);
     return switch (values[0]) {
       case "unif" -> values.length == 1 ?
           new QuantizedUniformValueToSpikeTrainConverter() :
@@ -63,7 +65,7 @@ public class SnnUtils {
   }
 
   public static QuantizedSpikeTrainToValueConverter buildQuantizedSpikeTrainToValueConverter(String params) {
-    String[] values = params.split(";");
+    String[] values = params.split(TOKEN);
     return switch (values[0]) {
       case "avg" -> values.length == 1 ?
           new QuantizedAverageFrequencySpikeTrainToValueConverter() :
@@ -76,7 +78,7 @@ public class SnnUtils {
   }
 
   public static SpikingFunction buildSpikingFunction(String params) {
-    String[] values = params.split(";");
+    String[] values = params.split(TOKEN);
     return switch (values[0]) {
       case "lif" -> values.length == 1 ?
           new LIFNeuron() :
@@ -94,7 +96,7 @@ public class SnnUtils {
   }
 
   public static QuantizedSpikingFunction buildQuantizedSpikingFunction(String params) {
-    String[] values = params.split(";");
+    String[] values = params.split(TOKEN);
     return switch (values[0]) {
       case "lif" -> values.length == 1 ?
           new QuantizedLIFNeuron() :

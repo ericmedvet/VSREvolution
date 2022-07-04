@@ -27,8 +27,7 @@ import it.units.erallab.builder.function.RNN;
 import it.units.erallab.builder.misc.*;
 import it.units.erallab.builder.robot.*;
 import it.units.erallab.builder.solver.*;
-import it.units.erallab.builder.spikingfunction.MSNWithConverters;
-import it.units.erallab.builder.spikingfunction.QuantizedMSNWithConverters;
+import it.units.erallab.builder.spikingfunction.*;
 import it.units.erallab.hmsrobots.core.controllers.Controller;
 import it.units.erallab.hmsrobots.core.controllers.MultiLayerPerceptron;
 import it.units.erallab.hmsrobots.core.controllers.PruningMultiLayerPerceptron;
@@ -246,8 +245,8 @@ public class Starter extends Worker {
                 Map.entry("r", "0.65"),
                 Map.entry("nIL", "1"),
                 Map.entry("m", "lif;0;1;0.1"),
-                Map.entry("vts", "unif_mem;50"),
-                Map.entry("stv", "avg_mem;50;5")
+                Map.entry("vts", "unif_mem-50"),
+                Map.entry("stv", "avg_mem-50-5")
             )))
         ),
         Map.entry(
@@ -256,8 +255,8 @@ public class Starter extends Worker {
                 Map.entry("r", "0.65"),
                 Map.entry("nIL", "1"),
                 Map.entry("m", "lif;0;1;0.1"),
-                Map.entry("vts", "unif_mem;50"),
-                Map.entry("stv", "avg_mem;50;5")
+                Map.entry("vts", "unif_mem-50"),
+                Map.entry("stv", "avg_mem-50-5")
             )))
         ),
         Map.entry("binToVal", new BinaryToDoubles()),
@@ -275,6 +274,13 @@ public class Starter extends Worker {
             )
         ),
         Map.entry("rnn", new RNN())
+    )));
+    mapperBuilderProvider = mapperBuilderProvider.and(NamedProvider.of(Map.ofEntries(
+        Map.entry("snn", new MSN()),
+        Map.entry("snnConv", new MSNWithConverters()),
+        Map.entry("snnOneHot", new OneHotMSNWithConverters()),
+        Map.entry("qSnn", new QuantizedMSN()),
+        Map.entry("qSnnConv", new QuantizedMSNWithConverters())
     )));
     //consumers
     List<NamedFunction<? super POSetPopulationState<?, Robot, Outcome>, ?>> basicFunctions = basicFunctions();
@@ -442,6 +448,7 @@ public class Starter extends Worker {
                     solver = buildSolver(solverName, mapperName, target, solverBuilderProvider, mapperBuilderProvider);
                   } catch (NoSuchElementException e) {
                     L.warning(String.format("Cannot instantiate %s for %s: %s", solverName, mapperName, e));
+                    e.printStackTrace();
                     continue;
                   }
                   //optimize
