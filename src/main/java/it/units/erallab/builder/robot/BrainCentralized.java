@@ -2,9 +2,7 @@ package it.units.erallab.builder.robot;
 
 import it.units.erallab.builder.NamedProvider;
 import it.units.erallab.builder.PrototypedFunctionBuilder;
-import it.units.erallab.hmsrobots.core.controllers.CentralizedSensing;
-import it.units.erallab.hmsrobots.core.controllers.RealFunction;
-import it.units.erallab.hmsrobots.core.controllers.TimedRealFunction;
+import it.units.erallab.hmsrobots.core.controllers.*;
 import it.units.erallab.hmsrobots.core.objects.Robot;
 import it.units.erallab.hmsrobots.core.objects.Voxel;
 import it.units.erallab.hmsrobots.util.Grid;
@@ -20,6 +18,7 @@ public class BrainCentralized implements NamedProvider<PrototypedFunctionBuilder
 
   @Override
   public PrototypedFunctionBuilder<TimedRealFunction, Robot> build(Map<String, String> params) {
+    double step = Double.parseDouble(params.getOrDefault("s", "0"));
     return new PrototypedFunctionBuilder<>() {
       @Override
       public Function<TimedRealFunction, Robot> buildFor(Robot robot) {
@@ -40,7 +39,7 @@ public class BrainCentralized implements NamedProvider<PrototypedFunctionBuilder
             ));
           }
           return new Robot(
-              new CentralizedSensing(body, function),
+              new StepController(new CentralizedSensing(body, function), step),
               SerializationUtils.clone(body)
           );
         };
