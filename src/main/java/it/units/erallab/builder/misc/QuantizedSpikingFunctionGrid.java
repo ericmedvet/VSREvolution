@@ -2,6 +2,7 @@ package it.units.erallab.builder.misc;
 
 import it.units.erallab.builder.NamedProvider;
 import it.units.erallab.builder.PrototypedFunctionBuilder;
+import it.units.erallab.builder.spikingfunction.QuantizedMSN;
 import it.units.erallab.hmsrobots.core.controllers.snndiscr.QuantizedMultivariateSpikingFunction;
 import it.units.erallab.hmsrobots.util.Grid;
 
@@ -16,14 +17,18 @@ import java.util.function.Function;
  */
 public class QuantizedSpikingFunctionGrid implements NamedProvider<PrototypedFunctionBuilder<List<Double>, Grid<QuantizedMultivariateSpikingFunction>>> {
 
-  private final PrototypedFunctionBuilder<List<Double>, QuantizedMultivariateSpikingFunction> itemBuilder;
+  private final static String INNER_SEPARATOR = "~";
 
-  public QuantizedSpikingFunctionGrid(PrototypedFunctionBuilder<List<Double>, QuantizedMultivariateSpikingFunction> itemBuilder) {
-    this.itemBuilder = itemBuilder;
-  }
+  private final NamedProvider<PrototypedFunctionBuilder<List<Double>, QuantizedMultivariateSpikingFunction>> mapperBuilderProvider =
+      NamedProvider.of(Map.ofEntries(
+          Map.entry("qSnn", new QuantizedMSN())
+      ));
 
   @Override
   public PrototypedFunctionBuilder<List<Double>, Grid<QuantizedMultivariateSpikingFunction>> build(Map<String, String> params) {
+    PrototypedFunctionBuilder<List<Double>, QuantizedMultivariateSpikingFunction> itemBuilder = mapperBuilderProvider.build(
+        params.get("iB").replace(INNER_SEPARATOR, TOKEN_SEPARATOR).replace(":", PARAM_VALUE_SEPARATOR)
+    ).get();
     return new PrototypedFunctionBuilder<>() {
       @Override
       public Function<List<Double>, Grid<QuantizedMultivariateSpikingFunction>> buildFor(Grid<QuantizedMultivariateSpikingFunction> targetFunctions) {

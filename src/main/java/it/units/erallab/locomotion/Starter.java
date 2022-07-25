@@ -234,30 +234,15 @@ public class Starter extends Worker {
         Map.entry("funNumGrid", new FunctionNumbersGrid()),
         Map.entry(
             "funsGrid",
-            new FunctionsGrid(new MLP(MultiLayerPerceptron.ActivationFunction.TANH).build(Map.ofEntries(
-                Map.entry("r", "0.65"),
-                Map.entry("nIL", "1")
-            )))
+            new FunctionsGrid()
         ),
         Map.entry(
             "spikeFunsGrid",
-            new FunctionsGrid(new MSNWithConverters().build(Map.ofEntries(
-                Map.entry("r", "0.65"),
-                Map.entry("nIL", "1"),
-                Map.entry("m", "lif;0;1;0.1"),
-                Map.entry("vts", "unif_mem-50"),
-                Map.entry("stv", "avg_mem-50-5")
-            )))
+            new SpikingFunctionGrid()
         ),
         Map.entry(
             "quantSpikeFunsGrid",
-            new FunctionsGrid(new QuantizedMSNWithConverters().build(Map.ofEntries(
-                Map.entry("r", "0.65"),
-                Map.entry("nIL", "1"),
-                Map.entry("m", "lif;0;1;0.1"),
-                Map.entry("vts", "unif_mem-50"),
-                Map.entry("stv", "avg_mem-50-5")
-            )))
+            new QuantizedSpikingFunctionGrid()
         ),
         Map.entry("binToVal", new BinaryToDoubles()),
         Map.entry("terToVal", new TernaryToDoubles())

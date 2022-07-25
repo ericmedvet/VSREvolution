@@ -2,6 +2,11 @@ package it.units.erallab.builder.misc;
 
 import it.units.erallab.builder.NamedProvider;
 import it.units.erallab.builder.PrototypedFunctionBuilder;
+import it.units.erallab.builder.function.MLP;
+import it.units.erallab.builder.function.PruningMLP;
+import it.units.erallab.builder.function.RNN;
+import it.units.erallab.hmsrobots.core.controllers.MultiLayerPerceptron;
+import it.units.erallab.hmsrobots.core.controllers.PruningMultiLayerPerceptron;
 import it.units.erallab.hmsrobots.core.controllers.TimedRealFunction;
 import it.units.erallab.hmsrobots.util.Grid;
 
@@ -16,14 +21,27 @@ import java.util.function.Function;
  */
 public class FunctionsGrid implements NamedProvider<PrototypedFunctionBuilder<List<Double>, Grid<TimedRealFunction>>> {
 
-  private final PrototypedFunctionBuilder<List<Double>, TimedRealFunction> itemBuilder;
+  private final static String INNER_SEPARATOR = "~";
 
-  public FunctionsGrid(PrototypedFunctionBuilder<List<Double>, TimedRealFunction> itemBuilder) {
-    this.itemBuilder = itemBuilder;
-  }
+  private final NamedProvider<PrototypedFunctionBuilder<List<Double>, TimedRealFunction>> mapperBuilderProvider =
+      NamedProvider.of(Map.ofEntries(
+          Map.entry("mlp", new MLP(MultiLayerPerceptron.ActivationFunction.TANH)),
+          Map.entry(
+              "pMlp",
+              new PruningMLP(
+                  MultiLayerPerceptron.ActivationFunction.TANH,
+                  PruningMultiLayerPerceptron.Context.NETWORK,
+                  PruningMultiLayerPerceptron.Criterion.ABS_SIGNAL_MEAN
+              )
+          ),
+          Map.entry("rnn", new RNN())
+      ));
 
   @Override
   public PrototypedFunctionBuilder<List<Double>, Grid<TimedRealFunction>> build(Map<String, String> params) {
+    PrototypedFunctionBuilder<List<Double>, TimedRealFunction> itemBuilder = mapperBuilderProvider.build(
+        params.get("iB").replace(INNER_SEPARATOR, TOKEN_SEPARATOR).replace(":", PARAM_VALUE_SEPARATOR)
+    ).get();
     return new PrototypedFunctionBuilder<>() {
       @Override
       public Function<List<Double>, Grid<TimedRealFunction>> buildFor(Grid<TimedRealFunction> targetFunctions) {

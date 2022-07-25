@@ -2,6 +2,7 @@ package it.units.erallab.builder.misc;
 
 import it.units.erallab.builder.NamedProvider;
 import it.units.erallab.builder.PrototypedFunctionBuilder;
+import it.units.erallab.builder.spikingfunction.MSN;
 import it.units.erallab.hmsrobots.core.controllers.snn.MultivariateSpikingFunction;
 import it.units.erallab.hmsrobots.util.Grid;
 
@@ -16,14 +17,18 @@ import java.util.function.Function;
  */
 public class SpikingFunctionGrid implements NamedProvider<PrototypedFunctionBuilder<List<Double>, Grid<MultivariateSpikingFunction>>> {
 
-  private final PrototypedFunctionBuilder<List<Double>, MultivariateSpikingFunction> itemBuilder;
+  private final static String INNER_SEPARATOR = "~";
 
-  public SpikingFunctionGrid(PrototypedFunctionBuilder<List<Double>, MultivariateSpikingFunction> itemBuilder) {
-    this.itemBuilder = itemBuilder;
-  }
+  private final NamedProvider<PrototypedFunctionBuilder<List<Double>, MultivariateSpikingFunction>> mapperBuilderProvider =
+      NamedProvider.of(Map.ofEntries(
+          Map.entry("snn", new MSN())
+      ));
 
   @Override
   public PrototypedFunctionBuilder<List<Double>, Grid<MultivariateSpikingFunction>> build(Map<String, String> params) {
+    PrototypedFunctionBuilder<List<Double>, MultivariateSpikingFunction> itemBuilder = mapperBuilderProvider.build(
+        params.get("iB").replace(INNER_SEPARATOR, TOKEN_SEPARATOR).replace(":", PARAM_VALUE_SEPARATOR)
+    ).get();
     return new PrototypedFunctionBuilder<>() {
       @Override
       public Function<List<Double>, Grid<MultivariateSpikingFunction>> buildFor(Grid<MultivariateSpikingFunction> targetFunctions) {
