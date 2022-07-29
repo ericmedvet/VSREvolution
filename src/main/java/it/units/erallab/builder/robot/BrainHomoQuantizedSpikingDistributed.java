@@ -2,8 +2,8 @@ package it.units.erallab.builder.robot;
 
 import it.units.erallab.builder.NamedProvider;
 import it.units.erallab.builder.PrototypedFunctionBuilder;
-import it.units.erallab.hmsrobots.core.controllers.DistributedSensing;
 import it.units.erallab.hmsrobots.core.controllers.snndiscr.QuantizedDistributedSpikingSensing;
+import it.units.erallab.hmsrobots.core.controllers.snndiscr.QuantizedDistributedSpikingSensingNonDirectional;
 import it.units.erallab.hmsrobots.core.controllers.snndiscr.QuantizedLIFNeuron;
 import it.units.erallab.hmsrobots.core.controllers.snndiscr.QuantizedMultivariateSpikingFunction;
 import it.units.erallab.hmsrobots.core.controllers.snndiscr.converters.stv.QuantizedSpikeTrainToValueConverter;
@@ -14,11 +14,10 @@ import it.units.erallab.hmsrobots.util.Grid;
 import it.units.erallab.hmsrobots.util.SerializationUtils;
 import it.units.erallab.utils.SnnUtils;
 
-import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.function.Function;
-import java.util.stream.Collectors;
+
+import static it.units.erallab.builder.robot.BrainHomoDistributed.getIODim;
 
 /**
  * @author giorgia
@@ -28,12 +27,13 @@ public class BrainHomoQuantizedSpikingDistributed implements NamedProvider<Proto
   @Override
   public PrototypedFunctionBuilder<QuantizedMultivariateSpikingFunction, Robot> build(Map<String, String> params) {
     int signals = Integer.parseInt(params.getOrDefault("s", "1"));
+    boolean directional = params.getOrDefault("d", "t").startsWith("t");
     QuantizedValueToSpikeTrainConverter valueToSpikeTrainConverter = SnnUtils.buildQuantizedValueToSpikeTrainConverter(params.getOrDefault("vts", ""));
     QuantizedSpikeTrainToValueConverter spikeTrainToValueConverter = SnnUtils.buildQuantizedSpikeTrainToValueConverter(params.getOrDefault("stv", ""));
     return new PrototypedFunctionBuilder<>() {
       @Override
       public Function<QuantizedMultivariateSpikingFunction, Robot> buildFor(Robot robot) {
-        int[] dim = getIODim(robot, signals);
+        int[] dim = getIODim(robot, signals, directional);
         Grid<Voxel> body = robot.getVoxels();
         int nOfInputs = dim[0];
         int nOfOutputs = dim[1];
@@ -52,7 +52,9 @@ public class BrainHomoQuantizedSpikingDistributed implements NamedProvider<Proto
                 function.getOutputDimension()
             ));
           }
-          QuantizedDistributedSpikingSensing controller = new QuantizedDistributedSpikingSensing(body, signals, new QuantizedLIFNeuron(), valueToSpikeTrainConverter, spikeTrainToValueConverter);
+          QuantizedDistributedSpikingSensing controller = directional ?
+              new QuantizedDistributedSpikingSensing(body, signals, new QuantizedLIFNeuron(), valueToSpikeTrainConverter, spikeTrainToValueConverter) :
+              new QuantizedDistributedSpikingSensingNonDirectional(body, signals, new QuantizedLIFNeuron(), valueToSpikeTrainConverter, spikeTrainToValueConverter);
           for (Grid.Entry<Voxel> entry : body) {
             if (entry.value() != null) {
               controller.getFunctions().set(entry.key().x(), entry.key().y(), SerializationUtils.clone(function));
@@ -67,38 +69,10 @@ public class BrainHomoQuantizedSpikingDistributed implements NamedProvider<Proto
 
       @Override
       public QuantizedMultivariateSpikingFunction exampleFor(Robot robot) {
-        int[] dim = getIODim(robot, signals);
+        int[] dim = getIODim(robot, signals, directional);
         return QuantizedMultivariateSpikingFunction.build(d -> d, dim[0], dim[1]);
       }
     };
-  }
-
-
-  private int[] getIODim(Robot robot, int signals) {
-    Grid<Voxel> body = robot.getVoxels();
-    Voxel voxel = body.values().stream().filter(Objects::nonNull).findFirst().orElse(null);
-    if (voxel == null) {
-      throw new IllegalArgumentException("Target robot has no voxels");
-    }
-    int nOfInputs = DistributedSensing.nOfInputs(voxel, signals);
-    int nOfOutputs = DistributedSensing.nOfOutputs(voxel, signals);
-    List<Grid.Entry<Voxel>> wrongVoxels = body.stream()
-        .filter(e -> e.value() != null)
-        .filter(e -> DistributedSensing.nOfInputs(e.value(), signals) != nOfInputs).toList();
-    if (!wrongVoxels.isEmpty()) {
-      throw new IllegalArgumentException(String.format(
-          "Cannot build %s robot mapper for this body: all voxels should have %d inputs, but voxels at positions %s have %s",
-          getClass().getSimpleName(),
-          nOfInputs,
-          wrongVoxels.stream()
-              .map(e -> String.format("(%d,%d)", e.key().x(), e.key().y()))
-              .collect(Collectors.joining(",")),
-          wrongVoxels.stream()
-              .map(e -> String.format("%d", DistributedSensing.nOfInputs(e.value(), signals)))
-              .collect(Collectors.joining(","))
-      ));
-    }
-    return new int[]{nOfInputs, nOfOutputs};
   }
 
 }

@@ -3,6 +3,7 @@ package it.units.erallab.builder.robot;
 import it.units.erallab.builder.NamedProvider;
 import it.units.erallab.builder.PrototypedFunctionBuilder;
 import it.units.erallab.hmsrobots.core.controllers.DistributedSensing;
+import it.units.erallab.hmsrobots.core.controllers.DistributedSensingNonDirectional;
 import it.units.erallab.hmsrobots.core.controllers.RealFunction;
 import it.units.erallab.hmsrobots.core.controllers.TimedRealFunction;
 import it.units.erallab.hmsrobots.core.objects.Robot;
@@ -19,15 +20,16 @@ import java.util.function.Function;
 public class BrainHeteroDistributed implements NamedProvider<PrototypedFunctionBuilder<Grid<TimedRealFunction>,
     Robot>> {
 
-  private record IODimensions(int input, int output) {}
+  public record IODimensions(int input, int output) {
+  }
 
-  private static Grid<IODimensions> getIODims(Robot robot, int signals) {
+  public static Grid<IODimensions> getIODims(Robot robot, int signals, boolean directional) {
     Grid<Voxel> body = robot.getVoxels();
     return Grid.create(
         body,
         v -> v == null ? null : new IODimensions(
             DistributedSensing.nOfInputs(v, signals),
-            DistributedSensing.nOfOutputs(v, signals)
+            directional ? DistributedSensing.nOfOutputs(v, signals) : DistributedSensingNonDirectional.nOfOutputs(v, signals)
         )
     );
   }
@@ -35,10 +37,11 @@ public class BrainHeteroDistributed implements NamedProvider<PrototypedFunctionB
   @Override
   public PrototypedFunctionBuilder<Grid<TimedRealFunction>, Robot> build(Map<String, String> params) {
     int signals = Integer.parseInt(params.getOrDefault("s", "1"));
+    boolean directional = params.getOrDefault("d", "t").startsWith("t");
     return new PrototypedFunctionBuilder<>() {
       @Override
       public Function<Grid<TimedRealFunction>, Robot> buildFor(Robot robot) {
-        Grid<IODimensions> dims = getIODims(robot, signals);
+        Grid<IODimensions> dims = getIODims(robot, signals, directional);
         Grid<Voxel> body = robot.getVoxels();
         return functions -> {
           //check
@@ -75,7 +78,7 @@ public class BrainHeteroDistributed implements NamedProvider<PrototypedFunctionB
             }
           }
           //return
-          DistributedSensing controller = new DistributedSensing(body, signals);
+          DistributedSensing controller = directional ? new DistributedSensing(body, signals) : new DistributedSensingNonDirectional(body, signals);
           for (Grid.Entry<Voxel> entry : body) {
             if (entry.value() != null) {
               controller.getFunctions()
@@ -89,7 +92,7 @@ public class BrainHeteroDistributed implements NamedProvider<PrototypedFunctionB
       @Override
       public Grid<TimedRealFunction> exampleFor(Robot robot) {
         return Grid.create(
-            getIODims(robot, signals),
+            getIODims(robot, signals, directional),
             dim -> dim == null ? null : RealFunction.build(d -> d, dim.input(), dim.output())
         );
       }
